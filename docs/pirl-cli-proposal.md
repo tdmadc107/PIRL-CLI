@@ -1,6 +1,6 @@
 # Đề xuất: biến PIRL framework thành PIRL CLI
 
-Trạng thái: bản đề xuất, chưa triển khai CLI. Cập nhật: 2026-10-23 (lần 4).
+Trạng thái: giai đoạn 0 (khung TUI) đã triển khai, xem mục 14. Cập nhật: 2026-10-23 (lần 5).
 
 ## 1. Kết luận
 
@@ -256,10 +256,13 @@ Quy tắc cho từng loại nội dung:
 
 #### Hiệu năng hiển thị
 
-- Tin nhắn và run block đã xong được vẽ một lần (thành phần `Static` của Ink),
-  không vẽ lại khi có output mới, để không nhấp nháy và không chậm khi phiên
-  dài.
-- Output của role được gom và vẽ lại tối đa khoảng 20–30 lần mỗi giây.
+- TUI chạy ở màn hình phụ của terminal (alternate screen, như vim, htop) và tự
+  dàn trang: nội dung chat được dàn thành từng dòng theo chiều rộng hiện tại,
+  chỉ những dòng vừa khung được vẽ. Nhờ vậy khi đổi kích cỡ, toàn bộ nội dung
+  được dàn lại theo bố cục mới; cuộn bằng PgUp/PgDn. (Ban đầu đề xuất dùng
+  thành phần `Static` của Ink; `Static` in nội dung ra một lần nên không dàn lại
+  được khi đổi kích cỡ, vì vậy không dùng.)
+- Ink vẽ lại tối đa 30 lần mỗi giây; output của role sẽ được gom theo nhịp này.
 
 #### Kiểm chứng giao diện
 
@@ -420,7 +423,7 @@ có cả SDK ACP chính thức lẫn Agent SDK của Anthropic cho các giai đo
 Các script Python của framework **giữ nguyên là Python**, vì
 `process-auditor` được phép sửa chúng (`FRAMEWORK_PATHS` trong
 `layer_record.py` gồm `.agents/evals` và `.skills`). CLI gọi chúng như tiến
-trình con. Yêu cầu cài đặt: Node.js 20+ (hoặc bản 1 file thực thi), Python
+trình con. Yêu cầu cài đặt: Node.js 22+ (Ink 7 yêu cầu Node 22), Python
 3.9+, Git, và provider AI của người dùng.
 
 Nguồn về bộ công nghệ của các agent CLI là bài viết bên thứ ba
@@ -532,7 +535,7 @@ Hệ quả cho thiết kế:
 
 | Giai đoạn | Nội dung | Kết quả kiểm chứng |
 | --- | --- | --- |
-| 0. Khung | Dự án TypeScript + Ink; khởi động (mục 5.1); hệ thống thiết kế và bố cục co giãn (mục 5.7) kèm test snapshot theo kích cỡ; CommandRegistry; `/help`, `/doctor`, `/settings`, `/clear`, `/exit`; Hub git với `upstream`/`main` | Gõ `pirl` trong một repo mở TUI, nhận đúng target repo, `/doctor` nhận ra `claude` đã đăng nhập; kéo cửa sổ qua 4 mức chiều rộng không vỡ bố cục |
+| 0. Khung (**đã xong**) | Dự án TypeScript + Ink; khởi động (mục 5.1); hệ thống thiết kế và bố cục co giãn (mục 5.7) kèm test snapshot theo kích cỡ; CommandRegistry; `/help`, `/doctor`, `/settings`, `/clear`, `/exit`; Hub git với `upstream`/`main` | Gõ `pirl` trong một repo mở TUI, nhận đúng target repo, `/doctor` nhận ra `claude` đã đăng nhập; kéo cửa sổ qua 4 mức chiều rộng không vỡ bố cục |
 | 1. Pilot Claude Code: Plan | Adapter Claude Code; `/pirl-plan` chạy đủ vòng; run block; câu hỏi giữa chừng; hỏi commit cải tiến có trailer | Tạo Plan hợp lệ cho một repo mẫu, validator PASS |
 | 2. Pilot Claude Code: đủ 3 layer và chat | `/pirl-implement`, `/pirl-review`, cưỡng chế quyền theo mục 7.2, nhập không có `/`, `/resume`, `/plans`, `/records` | Chạy trọn chuỗi Plan → Implement → Review trên repo mẫu |
 | 3. Cập nhật framework | `/framework`: diff, cập nhật trên bản nháp, giải quyết xung đột 3 cột, hoàn tác | Cập nhật lên bản gốc mới mà giữ được cải tiến cục bộ |
@@ -556,6 +559,33 @@ máy ở múi giờ khác sẽ bị validator từ chối. Vì vậy đã sửa 
 Kiểm chứng: 24/24 test PASS, cả khi đặt múi giờ máy là `America/New_York`.
 Test mới về thứ tự record FAIL khi tạm đưa code về cách so chuỗi cũ, nên test
 bắt được đúng lỗi đó.
+
+## 14. Trạng thái triển khai
+
+### 14.1. Giai đoạn 0: đã xong
+
+| Hạng mục | Kết quả |
+| --- | --- |
+| Lệnh | Đủ 12 lệnh trong TUI và 3 lệnh terminal (mục 6). Dùng được ngay: `/help`, `/doctor`, `/settings`, `/framework` (xem trạng thái), `/clear`, `/exit`. Các lệnh còn lại báo rõ giai đoạn sẽ có |
+| Khởi động | Target repo là git repo chứa thư mục hiện tại; ngoài git repo thì khoá layer. Hub tạo lần đầu ở `~/.pirl/hub` với nhánh `upstream` và `main`, tag `fw-1.0.0`, không có remote |
+| Provider | Claude Code: nhận phiên bản và trạng thái đăng nhập qua `claude auth status --json`, không đọc credential |
+| Kiểm tra môi trường | Node.js, Git, Python (Windows thử `py -3` trước), provider, Hub, target repo; tóm tắt một dòng lúc khởi động |
+| Giao diện | Bộ token màu và ký hiệu; nền sáng/tối; `NO_COLOR`; ASCII cho console Windows cũ; 4 mức chiều rộng và 3 mức chiều cao; header tự rút gọn; bảng phủ cuộn được |
+| Kiểm chứng | 98 test Vitest pass: logic (lệnh, Hub với git thật, cấu hình, kiểm tra môi trường, xử lý chữ tiếng Việt) và giao diện ở 15 tổ hợp kích cỡ, đổi kích cỡ giữa lúc gõ, snapshot. Chạy thật trong pseudo-terminal: tạo Hub thật, kiểm tra Claude Code thật, đổi kích cỡ, thoát. Cài từ gói `npm pack` chạy đúng |
+
+### 14.2. Khác với đề xuất
+
+| Điểm | Đề xuất | Thực hiện | Lý do |
+| --- | --- | --- | --- |
+| Node.js | 20+ | 22+ | Ink 7 yêu cầu Node 22 |
+| Vẽ chat | Thành phần `Static` của Ink | Màn hình phụ, tự dàn trang | `Static` không dàn lại nội dung khi đổi kích cỡ (mục 5.7) |
+| `.gitignore` của framework trong gói npm | Không đề cập | Lưu với tên `gitignore.pirl-bundled`, Hub đổi lại tên khi tạo | npm luôn bỏ file `.gitignore` khỏi gói; thiếu nó thì Hub sẽ commit nhầm Plan và record |
+| Cài đặt phụ thuộc | Không đề cập | `.npmrc` đặt `legacy-peer-deps=true` | Lỗi của npm (`edgesOut`) khi giải peer dependency của Vitest |
+
+### 14.3. Bước tiếp theo
+
+Giai đoạn 1: adapter Claude Code chạy role, và `/pirl-plan` chạy đủ vòng của
+layer Plan (mục 12).
 
 ## Nguồn tham khảo
 
