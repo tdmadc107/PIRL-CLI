@@ -161,6 +161,14 @@ class HandoffIOTests(unittest.TestCase):
                     self.assertTrue(result["errors"])
         self.assertNotEqual(self.write_plan(PLAN.replace("2026-09-09T09", "2026-99-99T09"))[0], 0)
 
+    def test_timestamps_accept_any_utc_offset_but_require_one(self):
+        for offset in ("+00:00", "-05:00", "+09:30"):
+            with self.subTest(offset=offset):
+                self.assertEqual(self.write_plan(PLAN.replace("T09:00:00+07:00", f"T09:00:00{offset}"))[0], 0)
+        code, result = self.write_plan(PLAN.replace("T09:00:00+07:00", "T09:00:00"))
+        self.assertNotEqual(code, 0)
+        self.assertTrue(any("UTC offset" in error for error in result["errors"]), result)
+
 
 class RoleCatalogTests(unittest.TestCase):
     """Layer role tables must use IDs that the role catalog registers for that layer."""

@@ -14,7 +14,8 @@ to the [Review contract](../../../.agents/instructions/review.instructions.md).
   under the Hub root, the report lands inside the package directory, next to
   the Plan it reviews. Inside the Hub, the `<plan-set>/` directory is ignored by
   Git like the Plan package ([AGENTS.md](../../../AGENTS.md#git)).
-- Slugs are ASCII kebab-case; timestamps use the `+07:00` time zone.
+- Slugs are ASCII kebab-case; timestamps use the machine's local
+  time zone and carry its UTC offset.
 - Every round has its own file; never overwrite or delete another round.
 
 ## Frontmatter
@@ -32,7 +33,7 @@ to the [Review contract](../../../.agents/instructions/review.instructions.md).
 | `business_verdict` | `PASS`, `FAIL` or `BLOCKED` |
 | `verdict` | Equal to `business_verdict` |
 | `status` | `completed` or `blocked` |
-| `reviewed_at` | ISO-8601 timestamp with `+07:00`, quoted |
+| `reviewed_at` | ISO-8601 timestamp with a UTC offset, quoted |
 | `implementation_target` | The diff, commit or paths reviewed, including a shared snapshot |
 
 ## Presentation rules

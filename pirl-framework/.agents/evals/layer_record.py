@@ -15,7 +15,7 @@ import json
 import re
 import subprocess
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path, PureWindowsPath
 from typing import Any
 
@@ -45,7 +45,6 @@ FRAMEWORK_PATHS = ("AGENTS.md", "CONTEXT.md", ".agents/instructions", ".agents/r
 NOT_FRAMEWORK_TRACKED = (".gitignore", "LICENSE", "README.md")
 # Inside FRAMEWORK_PATHS but not framework content: the records themselves and Python caches.
 NOT_FRAMEWORK = (RECORDS + "/", "__pycache__/")
-TZ = timezone(timedelta(hours=7))
 KEBAB = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 TASK = re.compile(r"T\d{2,}")
 ISSUE_ID = re.compile(r"ISSUE-\d{2,}")
@@ -325,7 +324,7 @@ def append(root: Path, data: dict[str, Any]) -> dict[str, Any]:
     for key in ("schema", "record_id", "recorded_at"):
         if key in data:
             raise RecordError(f"{key} is set by the tool, not by the input")
-    now = datetime.now(TZ)
+    now = datetime.now().astimezone()
     record = {"schema": CURRENT_SCHEMA, "record_id": "", "recorded_at": now.isoformat(timespec="seconds"), **data}
     tasks = data.get("task", {}).get("task_ids") if isinstance(data.get("task"), dict) else None
     base = f"{data.get('layer')}-{now:%Y%m%d-%H%M%S}-{tasks[0] if isinstance(tasks, list) and tasks else 'T00'}"
@@ -345,6 +344,18 @@ def append(root: Path, data: dict[str, Any]) -> dict[str, Any]:
     return {"record_id": record["record_id"], "path": target.relative_to(root).as_posix()}
 
 
+def _instant(value: Any) -> datetime:
+    """Records may carry different UTC offsets (the machine's own), so order them by instant, not by text.
+    A missing or malformed stamp sorts first, as an empty string did."""
+    try:
+        parsed = datetime.fromisoformat(value) if isinstance(value, str) else None
+    except ValueError:
+        parsed = None
+    if parsed is None or parsed.utcoffset() is None:
+        return datetime.min.replace(tzinfo=timezone.utc)
+    return parsed
+
+
 def check(root: Path) -> list[str]:
     stored, errors = read_records(root)
     catalog = load_roles(root)
@@ -355,8 +366,8 @@ def check(root: Path) -> list[str]:
             errors.append(f"{location}: duplicate record_id {record.get('record_id')}")
         # Layer folders sort by name, not by time, so "stored before" is judged by `recorded_at` (same instant allowed):
         # a record may name any record written at or before its own time, whichever layer folder holds it.
-        stamp = str(record.get("recorded_at") or "")
-        earlier = [other for _, other in located if other is not record and str(other.get("recorded_at") or "") <= stamp]
+        stamp = _instant(record.get("recorded_at"))
+        earlier = [other for _, other in located if other is not record and _instant(other.get("recorded_at")) <= stamp]
         errors.extend(f"{location}: {error}" for error in validate_record(record, earlier, root, catalog))
         ids.add(record.get("record_id"))
     return errors

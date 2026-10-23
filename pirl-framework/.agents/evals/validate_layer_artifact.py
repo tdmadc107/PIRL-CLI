@@ -8,7 +8,7 @@ import ast
 import json
 import re
 from collections import deque
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path, PureWindowsPath
 from typing import Any
 
@@ -185,8 +185,8 @@ def resolve_path(value: Any, root: Path) -> Path:
 def _timestamp(value: Any, label: str, errors: list[str]) -> None:
     try:
         parsed = datetime.fromisoformat(value) if isinstance(value, str) else None
-        if parsed is None or parsed.utcoffset() != timedelta(hours=7):
-            raise ValueError("expected ISO-8601 with +07:00")
+        if parsed is None or parsed.utcoffset() is None:
+            raise ValueError("expected ISO-8601 with a UTC offset, for example +07:00")
     except ValueError as exc:
         errors.append(f"{label}: invalid timestamp ({exc})")
 
