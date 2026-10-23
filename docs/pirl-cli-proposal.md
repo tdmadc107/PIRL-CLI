@@ -1,6 +1,6 @@
 # Đề xuất: biến PIRL framework thành PIRL CLI
 
-Trạng thái: bản đề xuất, chưa triển khai CLI. Cập nhật: 2026-10-23 (lần 3).
+Trạng thái: bản đề xuất, chưa triển khai CLI. Cập nhật: 2026-10-23 (lần 4).
 
 ## 1. Kết luận
 
@@ -27,6 +27,9 @@ bằng subscription của chính họ
 | Chủ đề | Quyết định |
 | --- | --- |
 | Giao diện | Gõ `pirl` mở TUI có khung chat; layer chạy bằng slash command; nhập không có `/` là câu hỏi, standalone task, bảo trì framework (mục 5) |
+| Thẩm mỹ và kích cỡ | TUI phải đẹp mắt và co giãn linh hoạt theo mọi kích cỡ cửa sổ terminal (mục 5.7) |
+| Danh sách lệnh | Đã xác nhận đủ và đúng (mục 6) |
+| Xuất patch cải tiến | **Không** làm lệnh xuất patch, cả pilot lẫn bản chính thức, vì quá nhiều rủi ro (mục 10) |
 | Ngôn ngữ cài đặt | TypeScript + Ink |
 | Target repo | Thư mục nơi người dùng gõ `pirl`. Ví dụ đứng ở project A gõ `pirl` thì project A là target repo |
 | Provider | Pilot cho Claude Code trước, sau đó phát triển cho provider khác |
@@ -187,7 +190,87 @@ Esc dừng run: CLI dừng các tiến trình role, giữ trạng thái để `/
 
 Trên Windows, `~` là `%USERPROFILE%`.
 
-## 6. Danh sách lệnh (cần xác nhận)
+### 5.7. Thẩm mỹ và co giãn theo kích cỡ màn hình
+
+#### Hệ thống thiết kế
+
+Mọi màu, ký hiệu và khoảng cách lấy từ một bộ token duy nhất (`ui/theme`);
+component không ghi mã màu trực tiếp. Nhờ vậy giao diện nhất quán và đổi
+theme chỉ cần đổi token.
+
+| Token | Dùng cho | Ghi chú |
+| --- | --- | --- |
+| `accent` | Tên lệnh, viền khối đang hoạt động, con trỏ chọn | Một màu nhấn duy nhất |
+| `success`, `warning`, `danger` | PASS, cần quyết định, FAIL/BLOCKED | Luôn đi kèm ký hiệu và chữ, không chỉ dựa vào màu |
+| `muted` | Gợi ý phím tắt, thời gian, đường dẫn phụ | Chữ mờ (dim) |
+| `border` | Viền khung, đường phân cách | Viền bo góc `╭╮╰╯` |
+| `role.*` | Màu riêng của từng role trong run block | 9 role, chọn để phân biệt được trên nền sáng và tối |
+
+Nguyên tắc trình bày:
+
+- Thứ bậc bằng độ đậm và màu, không bằng nhiều đường viền: chỉ run block và
+  lớp phủ có viền; tin nhắn chat không có viền.
+- Khoảng cách theo lưới 1 ký tự: lề trong 1, cách giữa các khối 1 dòng trống.
+- Nội dung markdown trong câu trả lời (tiêu đề, danh sách, bảng, khối code)
+  được hiển thị có định dạng, khối code có tô màu cú pháp.
+- Chuyển động tiết chế: chỉ spinner của role đang chạy; không nhấp nháy.
+
+Thích ứng với terminal:
+
+| Điều kiện | Cách xử lý |
+| --- | --- |
+| Nền sáng hoặc tối | Tự nhận theo terminal khi đọc được; người dùng chọn lại trong `/settings` |
+| Truecolor, 256 màu, 16 màu | Mỗi token có giá trị cho cả 3 mức; tự hạ mức theo khả năng terminal |
+| Biến môi trường `NO_COLOR` | Tắt màu; trạng thái vẫn đọc được nhờ ký hiệu và chữ |
+| Terminal không hiển thị được ký tự viền hoặc ký hiệu (một số console Windows cũ) | Dùng bộ ký tự ASCII thay thế (`+-|`, `[x]`, `>`) |
+| Chữ tiếng Việt, CJK, emoji | Đo độ rộng bằng thư viện đo độ rộng hiển thị (ví dụ `string-width`), không đếm số ký tự, để cột không lệch |
+
+#### Co giãn theo kích cỡ
+
+Bố cục chọn theo số cột và số dòng hiện tại của terminal. Khi người dùng kéo
+cửa sổ, TUI nghe sự kiện resize của terminal và vẽ lại ngay theo bố cục mới,
+không mất nội dung, không mất trạng thái nhập.
+
+| Mức | Số cột | Bố cục |
+| --- | --- | --- |
+| Rộng | ≥ 120 | Hai vùng: khung chat bên trái, bảng bên phải (khoảng 1/3 chiều rộng) hiện danh sách role và chi tiết role đang chọn của run đang chạy. Header đầy đủ |
+| Chuẩn | 80–119 | Một cột. Danh sách role nằm trong run block. Header đầy đủ, rút gọn đường dẫn |
+| Hẹp | 60–79 | Một cột. Header chỉ còn tên repo và provider. Danh sách role thành một dòng ký hiệu (`✔ ▸ ○ ○`) kèm tên role đang chạy. Thanh trạng thái bỏ gợi ý phím, giữ usage |
+| Rất hẹp | < 60 | Như mức hẹp, thêm: ẩn header, thanh trạng thái còn một mục. Dưới 40 cột hiện thông báo "Cửa sổ quá hẹp, hãy mở rộng" thay vì vẽ bố cục vỡ |
+
+| Số dòng | Bố cục |
+| --- | --- |
+| ≥ 24 | Đầy đủ |
+| 16–23 | Ô nhập tối đa 3 dòng; danh sách gợi ý lệnh tối đa 5 mục |
+| < 16 | Ẩn header; danh sách gợi ý lệnh tối đa 3 mục |
+
+Quy tắc cho từng loại nội dung:
+
+| Nội dung | Cửa sổ rộng | Cửa sổ hẹp |
+| --- | --- | --- |
+| Đường dẫn dài | Hiện đủ | Rút gọn ở giữa: `src/…/cancel.ts` |
+| Bảng markdown | Hiện dạng bảng | Bảng không vừa chiều rộng thì chuyển thành danh sách "tên cột: giá trị" |
+| Diff | Hai cột cạnh nhau | Một cột, dòng `-`/`+` xen kẽ |
+| Xung đột framework 3 cột (mục 9.2) | 3 cột cạnh nhau khi ≥ 150 cột | Ba tab (bản gốc cũ, bản của bạn, bản gốc mới), chuyển bằng ←/→ |
+| Lựa chọn trong câu hỏi | Các nút trên một hàng | Mỗi lựa chọn một dòng |
+
+#### Hiệu năng hiển thị
+
+- Tin nhắn và run block đã xong được vẽ một lần (thành phần `Static` của Ink),
+  không vẽ lại khi có output mới, để không nhấp nháy và không chậm khi phiên
+  dài.
+- Output của role được gom và vẽ lại tối đa khoảng 20–30 lần mỗi giây.
+
+#### Kiểm chứng giao diện
+
+- Test chụp ảnh văn bản (snapshot) của mỗi màn hình ở các chiều rộng 40, 60,
+  80, 120, 160 cột và chiều cao 15, 24, 40 dòng, bằng `ink-testing-library`.
+- Test thay đổi kích cỡ giữa lúc run đang chạy: nội dung và trạng thái nhập
+  không mất.
+- Chạy thử bằng tay trên Windows Terminal, PowerShell, Git Bash, Terminal và
+  iTerm2 trên macOS, một terminal Linux; mỗi nơi thử nền sáng và nền tối.
+
+## 6. Danh sách lệnh (đã xác nhận)
 
 Lệnh gõ ở terminal:
 
@@ -226,7 +309,7 @@ pirl (TypeScript + Ink)
 ├── ui/            component Ink (mục 5.5)
 ├── commands/      CommandRegistry và các lệnh / (mục 6)
 ├── engine/        LayerRun, Conversation, phân loại request
-├── hub/           Hub git, cập nhật framework, xuất patch (giai đoạn sau)
+├── hub/           Hub git, cập nhật framework
 ├── tools/         gọi script Python của framework như tiến trình con
 ├── providers/
 │   ├── claude     pilot: claude -p ... --output-format stream-json
@@ -395,8 +478,8 @@ Nguồn về bộ công nghệ của các agent CLI là bài viết bên thứ b
 
 Mỗi commit cải tiến có trailer để truy nguồn:
 `Pirl-Record: <record_id>` và `Pirl-Source: auditor|manual`. TUI dùng trailer
-này để giải thích xung đột (bước 5 ở mục 9.2), để liệt kê lịch sử cải tiến và
-cho lệnh xuất patch về sau (mục 10).
+này để giải thích xung đột (bước 5 ở mục 9.2) và để liệt kê lịch sử cải tiến
+trong `/framework`.
 
 ### 9.4. Các quyết định về chất lượng và tiện dụng
 
@@ -411,30 +494,23 @@ cho lệnh xuất patch về sau (mục 10).
 | Xung đột chạm safety rule | Không có lựa chọn tự động; người dùng phải đọc và chọn | Nguyên tắc 5 |
 | Phiên bản schema | CLI vẫn chạy với framework cũ, trừ khi framework cũ dùng schema CLI không còn đọc (`pirl-plan/v1`, `pirl-review/v1`, `pirl-record/v1`); khi đó TUI yêu cầu cập nhật trước khi chạy layer | Không chặn công việc khi không cần |
 
-## 10. Lệnh xuất patch cải tiến: đánh giá rủi ro
+## 10. Xuất patch cải tiến: quyết định không làm
 
-Mục đích: người dùng gửi các cải tiến chung về repo framework gốc, giúp mọi
-người dùng nhận cải tiến đó và giảm xung đột về sau.
+PIRL CLI **không** có lệnh xuất patch cải tiến, cả ở pilot lẫn bản chính thức.
+Lý do: bản đánh giá trước đó tìm ra 10 rủi ro, nặng nhất là lộ thông tin dự án
+hoặc bí mật trong rule do `process-auditor` viết (gửi rồi thì không thu hồi
+được), lộ tên và email trong header của patch, và patch nới lỏng safety rule lan
+sang mọi người dùng nếu bản gốc nhận nó.
 
-Rủi ro, sắp theo mức nghiêm trọng:
+Hệ quả cho thiết kế:
 
-| # | Rủi ro | Tình huống cụ thể | Hậu quả | Biện pháp |
-| --- | --- | --- | --- | --- |
-| 1 | Lộ thông tin dự án hoặc bí mật | `process-auditor` viết rule có nhắc đường dẫn, tên khách hàng, URL nội bộ, đoạn code; hiếm hơn là token lọt vào ví dụ | Thông tin riêng ra ngoài khi người dùng gửi patch; gửi rồi thì không thu hồi được | Chỉ xuất diff của file framework, không xuất commit message gốc. Quét bí mật theo mẫu và theo độ ngẫu nhiên của chuỗi. Agent đánh dấu từ ngữ riêng của dự án. Người dùng bắt buộc đọc bản xem trước có tô sáng. CLI chỉ ghi file ra máy, không tự gửi |
-| 2 | Lộ danh tính | Header patch kiểu `git format-patch` chứa tên và email của git config | Email cá nhân hoặc công ty bị công khai | Hỏi người dùng tên và email dùng cho patch; mặc định để trống |
-| 3 | Patch nới lỏng safety rule lan sang người khác | Người dùng đã duyệt nới lỏng một safety rule cho máy mình, rồi xuất cả thay đổi đó | Nếu bản gốc nhận patch, mọi người dùng bị nới lỏng theo | Patch chạm safety rule được tách riêng và gắn nhãn rõ; mặc định không chọn |
-| 4 | Cải tiến chỉ đúng với dự án của một người | Rule được viết để sửa lỗi gặp trên một stack hoặc một repo | Bản gốc tệ đi với người dùng khác | Patch kèm siêu dữ liệu đã làm sạch: `issue_key`, nguyên nhân, số lần gặp; người duy trì bản gốc dựa vào đó để đánh giá |
-| 5 | Mã độc hoặc prompt injection | Repo đích chứa nội dung độc hại khiến `process-auditor` thêm rule kiểu "luôn chạy lệnh X"; hoặc script Python bị sửa | Lan sang máy người khác qua bản gốc, nơi agent có quyền ghi và chạy lệnh | Tô sáng mọi thay đổi chứa lệnh, URL, hoặc sửa file `.py`. Không có lệnh nhập patch từ người khác; người dùng chỉ nhận thay đổi qua bản phát hành chính thức |
-| 6 | Patch không áp được vào bản gốc mới nhất | Cải tiến làm trên `fw-1.0` và phụ thuộc cải tiến cục bộ khác; bản gốc đã lên `fw-1.2` | Patch lỗi hoặc áp sai | Mỗi cải tiến xuất thành một patch riêng. CLI thử áp lên bản gốc mới nhất trong thư mục tạm và chạy test; không áp được thì báo trước khi xuất |
-| 7 | Lẫn sửa tay với cải tiến tự động | Người dùng sửa tay `AGENTS.md` theo sở thích cá nhân trong cùng commit | Sở thích cá nhân bị gửi đi | Trailer `Pirl-Source` tách hai loại; mặc định chỉ chọn `auditor` |
-| 8 | Xung đột sau khi bản gốc nhận patch đã chỉnh | Người duy trì sửa patch trước khi nhận; lần cập nhật sau, bản cục bộ và bản gốc khác nhau ở cùng chỗ | Người dùng gặp xung đột chính cải tiến của mình | Bước đối chiếu sau cập nhật (mục 9.4) nhận ra và đề xuất lấy bản gốc |
-| 9 | Bản quyền và trách nhiệm | Framework dùng giấy phép MIT; patch đóng góp cần đồng ý cấp phép | Tranh chấp quyền với nội dung đóng góp | Hướng dẫn đóng góp ở repo gốc nêu điều kiện, ví dụ ký DCO |
-| 10 | Quá tải người duy trì | Nhiều patch chất lượng thấp | Cải tiến tốt bị bỏ sót | Chỉ cho xuất cải tiến đã qua test và đã dùng ổn định qua ít nhất một số run |
-
-Khuyến nghị: không làm trong pilot. Trong pilot chỉ thêm trailer
-`Pirl-Record` và `Pirl-Source` cho commit cải tiến (chi phí thấp), để sau này
-làm lệnh xuất mà không phải đoán nguồn gốc từng thay đổi. Khi làm, lệnh chỉ ghi
-file patch ra máy sau khi người dùng duyệt bản xem trước; không bao giờ tự gửi.
+- Cải tiến cục bộ chỉ tồn tại trong Hub trên máy người dùng. CLI không có
+  đường nào gửi nội dung framework, Plan, report hay record ra ngoài.
+- Bản framework gốc chỉ thay đổi qua bản phát hành chính thức kèm CLI.
+- Lệch giữa bản cục bộ và bản gốc được giữ trong giới hạn bằng bước đối chiếu
+  sau mỗi lần cập nhật (mục 9.4): cải tiến cục bộ đã thừa được đề xuất bỏ.
+- Trailer `Pirl-Record` và `Pirl-Source` vẫn được giữ, vì chúng phục vụ việc
+  giải thích xung đột và xem lịch sử trong `/framework` (mục 9.3).
 
 ## 11. Rủi ro khác
 
@@ -456,12 +532,12 @@ file patch ra máy sau khi người dùng duyệt bản xem trước; không bao
 
 | Giai đoạn | Nội dung | Kết quả kiểm chứng |
 | --- | --- | --- |
-| 0. Khung | Dự án TypeScript + Ink; khởi động (mục 5.1); bố cục TUI; CommandRegistry; `/help`, `/doctor`, `/settings`, `/clear`, `/exit`; Hub git với `upstream`/`main` | Gõ `pirl` trong một repo mở TUI, nhận đúng target repo, `/doctor` nhận ra `claude` đã đăng nhập |
+| 0. Khung | Dự án TypeScript + Ink; khởi động (mục 5.1); hệ thống thiết kế và bố cục co giãn (mục 5.7) kèm test snapshot theo kích cỡ; CommandRegistry; `/help`, `/doctor`, `/settings`, `/clear`, `/exit`; Hub git với `upstream`/`main` | Gõ `pirl` trong một repo mở TUI, nhận đúng target repo, `/doctor` nhận ra `claude` đã đăng nhập; kéo cửa sổ qua 4 mức chiều rộng không vỡ bố cục |
 | 1. Pilot Claude Code: Plan | Adapter Claude Code; `/pirl-plan` chạy đủ vòng; run block; câu hỏi giữa chừng; hỏi commit cải tiến có trailer | Tạo Plan hợp lệ cho một repo mẫu, validator PASS |
 | 2. Pilot Claude Code: đủ 3 layer và chat | `/pirl-implement`, `/pirl-review`, cưỡng chế quyền theo mục 7.2, nhập không có `/`, `/resume`, `/plans`, `/records` | Chạy trọn chuỗi Plan → Implement → Review trên repo mẫu |
 | 3. Cập nhật framework | `/framework`: diff, cập nhật trên bản nháp, giải quyết xung đột 3 cột, hoàn tác | Cập nhật lên bản gốc mới mà giữ được cải tiến cục bộ |
 | 4. Provider khác | Codex, Copilot, Gemini; provider và model theo role | Review bằng provider khác với Implement |
-| 5. Hoàn thiện | Bản 1 file thực thi, cân nhắc ACP, cân nhắc lệnh xuất patch (mục 10) | Test đầu-cuối bằng provider giả lập chạy trong CI |
+| 5. Hoàn thiện | Bản 1 file thực thi, cân nhắc ACP | Test đầu-cuối bằng provider giả lập chạy trong CI |
 
 ## 13. Đã thực hiện: bỏ múi giờ cố định UTC+7
 
@@ -480,14 +556,6 @@ máy ở múi giờ khác sẽ bị validator từ chối. Vì vậy đã sửa 
 Kiểm chứng: 24/24 test PASS, cả khi đặt múi giờ máy là `America/New_York`.
 Test mới về thứ tự record FAIL khi tạm đưa code về cách so chuỗi cũ, nên test
 bắt được đúng lỗi đó.
-
-## Cần xác nhận
-
-1. Danh sách lệnh ở mục 6 (3 lệnh terminal, 12 lệnh trong TUI) đã đủ và đúng
-   mong muốn? (khuyến nghị: Có). Chưa trả lời thì chưa dựng CommandRegistry ở
-   giai đoạn 0.
-2. Lệnh xuất patch để sau pilot, trong pilot chỉ thêm trailer cho commit cải
-   tiến (mục 10)? (khuyến nghị: Có). Chưa trả lời không chặn giai đoạn 0–2.
 
 ## Nguồn tham khảo
 
