@@ -3,21 +3,22 @@
 Plan - Implement - Review Layer in CLI.
 
 PIRL CLI là ứng dụng TUI chạy [PIRL framework](pirl-framework/README.md) (Plan – Implement – Review)
-bằng agent CLI mà bạn đã cài và tự đăng nhập bằng subscription của mình. Bản pilot dùng Claude Code.
+bằng agent CLI mà bạn đã cài và tự đăng nhập bằng subscription của mình. Bản 1.0 dùng Claude Code.
 PIRL CLI không có màn hình đăng nhập riêng, không đọc, lưu hay chuyển tiếp credential của provider.
 
 Thiết kế đầy đủ: [docs/pirl-cli-proposal.md](docs/pirl-cli-proposal.md).
 
 ## Trạng thái
 
-Pilot với Claude Code: giai đoạn 0, 1 và 2 đã xong.
+Bản 1.0.0 (xem [CHANGELOG.md](CHANGELOG.md)).
 
-| Lệnh | Bản hiện tại |
+| Phần | Bản hiện tại |
 | --- | --- |
-| `/pirl-plan`, `/pirl-implement`, `/pirl-review`, nhập không có `/` | Dùng được (Claude Code) |
+| `/pirl-plan`, `/pirl-implement`, `/pirl-review`, nhập không có `/` | Dùng được với Claude Code. Cả chuỗi Plan → Implement → Review đã chạy thật trên repo mẫu |
+| `/framework`: cập nhật, giải quyết xung đột, hoàn tác, khôi phục, lịch sử | Dùng được |
 | `/resume`, `/plans`, `/records`, `/copy`, `/help`, `/doctor`, `/settings`, `/clear`, `/exit` | Dùng được |
-| `/framework` | Xem trạng thái; cập nhật, khôi phục, hoàn tác ở giai đoạn 3 |
-| Codex CLI, Gemini CLI, Copilot CLI | Giai đoạn 4 |
+| Linux, macOS, Windows | Test tự động chạy trên cả ba (CI). Chạy thật với Claude Code mới thử trên Linux |
+| Codex CLI, Gemini CLI, Copilot CLI | Chưa hỗ trợ (giai đoạn 4 của bản đề xuất) |
 
 ## Yêu cầu
 
@@ -26,9 +27,18 @@ Pilot với Claude Code: giai đoạn 0, 1 và 2 đã xong.
 - Python 3.9 trở lên (các công cụ của framework: validator, record)
 - Claude Code 2.1.281 trở lên, đã cài và đã đăng nhập (`claude auth status` báo `loggedIn: true`)
 
-## Cài từ mã nguồn
+## Cài đặt
 
-PIRL CLI chưa phát hành lên npm.
+Từ npm (sau khi bản 1.0.0 được phát hành):
+
+```bash
+npm install -g pirl-cli
+```
+
+Cập nhật: `npm install -g pirl-cli@latest`. Bản CLI mới không tự ghi gì vào framework của bạn. Nếu bản mới
+kèm framework mới, header hiện "Có framework mới"; mở `/framework` để cập nhật khi bạn muốn.
+
+Từ mã nguồn:
 
 ```bash
 git clone https://github.com/tdmadc107/PIRL-CLI.git
@@ -36,8 +46,9 @@ cd PIRL-CLI
 npm run setup     # cài thư viện, build, đóng gói và cài lệnh `pirl` cho toàn máy
 ```
 
-Cập nhật: trong thư mục `PIRL-CLI`, chạy `git pull` rồi `npm run setup`.
-Gỡ: `npm uninstall -g pirl-cli` (Hub và cài đặt ở `~/.pirl` vẫn giữ lại; xoá tay nếu không cần).
+Cập nhật bản cài từ mã nguồn: trong thư mục `PIRL-CLI`, chạy `git pull` rồi `npm run setup`.
+
+Gỡ: `npm uninstall -g pirl-cli`. Hub và cài đặt ở `~/.pirl` vẫn giữ lại; xoá tay nếu không cần.
 
 Trên PowerShell, nếu gõ `pirl` báo "running scripts is disabled on this system", chạy
 `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` một lần, hoặc gõ `pirl.cmd` thay cho `pirl`.
@@ -78,6 +89,7 @@ Copy: bôi đen bằng chuột như mọi nội dung trong terminal; `/copy` cop
    gửi coordinator sửa lại (tối đa 2 lần). Sau Implement, CLI kiểm tra file thay đổi có nằm trong
    Allowed paths của Plan không.
 4. Nếu run đã sửa file framework (tự cải tiến), CLI hỏi: commit vào Hub, giữ chưa commit, hay bỏ.
+   Trước khi hỏi, CLI chạy test của framework trên các file đã sửa; test lỗi thì không commit được, nên bỏ.
 5. CLI gợi ý layer tiếp theo dưới dạng lệnh để bạn tự gõ; không tự mở layer nào.
 
 Run không bao giờ commit, push hay đổi nhánh trong repo của bạn. Lệnh nằm ngoài quyền của run bị từ chối
@@ -117,6 +129,27 @@ giá API, rồi so với phần trăm hạn mức mà run đã dùng. Sau vài r
 PIRL CLI chỉ cấp cho run các công cụ nó dùng và không nạp MCP server của bạn. Nhờ vậy mỗi request gửi ít
 ngữ cảnh hơn.
 
+### Cập nhật framework: `/framework`
+
+Mỗi bản CLI kèm một phiên bản framework gốc. Hub giữ hai nhánh: `upstream` là các bản gốc, `main` là bản gốc
+cộng các cải tiến của bạn; các layer chạy trên `main`. `/framework` có các mục:
+
+- **Cập nhật lên fw-x.y.z** (khi bản đi kèm CLI mới hơn):
+  1. CLI gộp bản mới vào một bản nháp của `main`; `main` chưa đổi gì.
+  2. File chỉ một bên sửa được nhận tự động.
+  3. Với mỗi file mà cả bản gốc mới lẫn cải tiến của bạn cùng sửa một đoạn, TUI hiện hai bên đã đổi gì, kèm
+     cải tiến nào và record nào đã tạo ra thay đổi của bạn. Bạn chọn: giữ bản của bạn, lấy bản gốc mới, để
+     agent gộp hai bản (bạn xem bản gộp rồi mới dùng), hoặc tự sửa trong bản nháp.
+  4. CLI chạy test của framework trên bản nháp. PASS thì `main` chuyển sang bản nháp; lỗi thì bản nháp bị bỏ
+     và Hub giữ nguyên.
+- **Hoàn tác lần cập nhật lên fw-x.y.z**: đưa `main` về đúng như trước lần cập nhật đó.
+- **Xem cải tiến cục bộ**: danh sách file khác bản gốc và diff từng file. Nhấn `r` để khôi phục file về bản
+  gốc (một commit mới; lịch sử vẫn giữ).
+- **Lịch sử cải tiến**: các commit trên `main`, kèm record và nguồn (auditor, sửa tay, khôi phục, cập nhật).
+- **File chưa commit**: commit hoặc bỏ trước khi cập nhật hay khôi phục.
+
+`/framework` không thay đổi Hub khi đang có run, vì run đã ghim phiên bản framework.
+
 ### Dữ liệu nằm ở đâu
 
 Lần chạy đầu tiên, PIRL CLI tạo Hub tại `~/.pirl/hub` (Windows: `%USERPROFILE%\.pirl\hub`): một git repo
@@ -128,6 +161,7 @@ cục bộ, không có remote, chứa framework đi kèm CLI.
 | Record tự đánh giá (`/records`) | `~/.pirl/hub/.agents/evals/records/<layer>/`, lọc theo repo đang mở |
 | Cài đặt | `~/.pirl/config.json` |
 | Run dở dang cho `/resume` | `~/.pirl/sessions/` (chỉ lưu session id của Claude Code, không lưu credential) |
+| Bản nháp khi đang cập nhật framework | `~/.pirl/hub-update/` (tự xoá khi cập nhật xong hoặc huỷ) |
 | Nhật ký đầy đủ của từng run | `~/.pirl/logs/` |
 
 Plan, report và record nằm trong Hub, không nằm trong repo project của bạn, và bị Git của Hub bỏ qua: chúng
@@ -146,7 +180,21 @@ npm run dev         # chạy thẳng từ src/ bằng tsx
 npm test            # toàn bộ test (Vitest)
 npm run typecheck
 python -B -m unittest discover -s pirl-framework/.agents/evals/tests -p "test_*.py"   # test của framework
+npm run pack:check  # đóng gói như khi phát hành, cài vào thư mục tạm, chạy pirl --version và --help
 ```
+
+CI (`.github/workflows/ci.yml`) chạy typecheck, test, test của framework và `pack:check` trên Linux, macOS,
+Windows với Node 22 và 24.
+
+### Phát hành
+
+1. Cập nhật `version` trong `package.json` và mục mới trong `CHANGELOG.md`. Nếu framework đổi, tăng
+   `pirl.frameworkVersion`: Hub của người dùng so bản này với nhánh `upstream` để báo có framework mới.
+2. Merge vào `main`, đợi CI xanh.
+3. Tạo tag `v<version>` (ví dụ `git tag v1.0.0 && git push origin v1.0.0`). Workflow
+   `.github/workflows/release.yml` kiểm tra tag khớp `package.json`, chạy `pack:check`, đăng lên npm kèm
+   provenance và tạo GitHub release. Workflow cần secret `NPM_TOKEN` (automation token của npm) trong
+   Settings → Secrets and variables → Actions của repo.
 
 `npm install` dùng `legacy-peer-deps` (đặt trong `.npmrc`) để tránh một lỗi của npm khi giải peer
 dependency của Vitest.
@@ -157,10 +205,10 @@ các file framework đang được git theo dõi trong `pirl-framework/` vào `b
 
 ```text
 src/
-  bin/pirl.tsx     điểm vào: tham số dòng lệnh, target repo, Hub, mở TUI
+  bin/             điểm vào: pirl.ts đặt chế độ production rồi nạp main.tsx (tham số, target repo, Hub, TUI)
   core/            chạy tiến trình, đường dẫn, cấu hình, xác định target repo
-  hub/             Hub git (nhánh upstream/main) và framework đi kèm
-  providers/       nhận diện provider (Claude Code; các provider khác ở giai đoạn sau)
+  hub/             Hub git (nhánh upstream/main), framework đi kèm, cập nhật/hoàn tác/khôi phục (/framework)
+  providers/       nhận diện provider (Claude Code)
   engine/          chạy layer: adapter Claude Code, quyền theo layer, subagent theo role,
                    giao thức với coordinator, kiểm tra sau run, dữ liệu Hub, lưu run cho /resume
   doctor/          kiểm tra môi trường

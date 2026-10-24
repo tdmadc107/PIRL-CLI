@@ -536,9 +536,9 @@ Hệ quả cho thiết kế:
 | Giai đoạn | Nội dung | Kết quả kiểm chứng |
 | --- | --- | --- |
 | 0. Khung (**đã xong**) | Dự án TypeScript + Ink; khởi động (mục 5.1); hệ thống thiết kế và bố cục co giãn (mục 5.7) kèm test snapshot theo kích cỡ; CommandRegistry; `/help`, `/doctor`, `/settings`, `/clear`, `/exit`; Hub git với `upstream`/`main` | Gõ `pirl` trong một repo mở TUI, nhận đúng target repo, `/doctor` nhận ra `claude` đã đăng nhập; kéo cửa sổ qua 4 mức chiều rộng không vỡ bố cục |
-| 1. Pilot Claude Code: Plan | Adapter Claude Code; `/pirl-plan` chạy đủ vòng; run block; câu hỏi giữa chừng; hỏi commit cải tiến có trailer | Tạo Plan hợp lệ cho một repo mẫu, validator PASS |
-| 2. Pilot Claude Code: đủ 3 layer và chat | `/pirl-implement`, `/pirl-review`, cưỡng chế quyền theo mục 7.2, nhập không có `/`, `/resume`, `/plans`, `/records` | Chạy trọn chuỗi Plan → Implement → Review trên repo mẫu |
-| 3. Cập nhật framework | `/framework`: diff, cập nhật trên bản nháp, giải quyết xung đột 3 cột, hoàn tác | Cập nhật lên bản gốc mới mà giữ được cải tiến cục bộ |
+| 1. Pilot Claude Code: Plan (**đã xong**) | Adapter Claude Code; `/pirl-plan` chạy đủ vòng; run block; câu hỏi giữa chừng; hỏi commit cải tiến có trailer | Tạo Plan hợp lệ cho một repo mẫu, validator PASS |
+| 2. Pilot Claude Code: đủ 3 layer và chat (**đã xong**) | `/pirl-implement`, `/pirl-review`, cưỡng chế quyền theo mục 7.2, nhập không có `/`, `/resume`, `/plans`, `/records` | Chạy trọn chuỗi Plan → Implement → Review trên repo mẫu |
+| 3. Cập nhật framework (**đã xong**) | `/framework`: diff, cập nhật trên bản nháp, giải quyết xung đột 3 cột, hoàn tác | Cập nhật lên bản gốc mới mà giữ được cải tiến cục bộ |
 | 4. Provider khác | Codex, Copilot, Gemini; provider và model theo role | Review bằng provider khác với Implement |
 | 5. Hoàn thiện | Bản 1 file thực thi, cân nhắc ACP | Test đầu-cuối bằng provider giả lập chạy trong CI |
 
@@ -677,9 +677,57 @@ Mức giảm đến từ bốn thay đổi:
   từ trước, mà framework được nhập vào repo không kèm lịch sử để kiểm tra. Cũng không chuyển "Choosing a layer"
   ra khỏi `AGENTS.md`, vì mục này chứa quy tắc an toàn.
 
-### 14.6. Bước tiếp theo
+### 14.6. Giai đoạn 3 và bản phát hành 1.0.0: đã xong
 
-Giai đoạn 3: `/framework` cập nhật framework trên bản nháp, giải quyết xung đột, hoàn tác (mục 9).
+**`/framework` làm đúng mục 9.2 và 9.4.**
+- Bản đi kèm CLI được commit lên `upstream`, dùng một index riêng nên không đụng thư mục làm việc của Hub.
+- CLI gộp bản đó vào một git worktree nháp của `main`, đặt ở `~/.pirl/hub-update`.
+- Với mỗi file xung đột, TUI hiện hai bên đã đổi gì, kèm commit và record đã tạo ra thay đổi của người dùng. Bốn
+  lựa chọn: giữ bản của bạn, lấy bản gốc mới, để agent gộp, sửa tay.
+  - Agent gộp chạy bằng provider của người dùng. Nó chỉ được đọc bản nháp và ghi đúng một file kết quả, không có
+    Bash. Bản gộp phải được người dùng xem rồi mới dùng.
+  - Xung đột trong `AGENTS.md` (quy tắc an toàn) không có lựa chọn khuyến nghị.
+- Test của framework chạy trên bản nháp. PASS thì `main` fast-forward sang bản nháp và mốc
+  `pre-update/<version>` được gắn ở vị trí cũ. Lỗi thì bản nháp bị bỏ.
+- Các mục còn lại: hoàn tác lần cập nhật gần nhất, xem diff so với bản gốc, khôi phục từng file (một commit mới),
+  lịch sử cải tiến theo trailer, và commit hoặc bỏ file chưa commit.
+- `/framework` không thay đổi Hub khi đang có run.
+
+**Cải tiến làm hỏng framework (mục 9.4).** CLI chạy test của framework trên các file `process-auditor` đã sửa, trước
+khi hỏi commit. Test lỗi thì không commit được; CLI khuyến nghị bỏ.
+
+**Khác với đề xuất.**
+- Cải tiến lỗi không bị hoàn tác tự động. Người dùng thấy test lỗi và tự chọn bỏ hoặc giữ để sửa tay. CLI không
+  xoá thay đổi trong Hub khi người dùng chưa đồng ý.
+- Bước "agent đối chiếu và đề xuất bỏ cải tiến cục bộ đã thừa" sau cập nhật (mục 9.4) chưa làm. Khi bản gốc sửa
+  giống hệt cải tiến cục bộ, Git tự gộp. Các trường hợp còn lại, người dùng xem bằng "Xem cải tiến cục bộ" và
+  khôi phục từng file.
+
+**Chạy thật trên repo mẫu.** Model Sonnet 5.5, một lần chạy mỗi layer:
+
+| Layer | Kết quả | Chi phí quy đổi |
+| --- | --- | --- |
+| Plan | validator PASS, record PASS | ≈ $0,47 |
+| Implement | validator, record, Allowed paths PASS; README đổi đúng Plan | ≈ $0,50 |
+| Review | Business PASS; report qua validator | ≈ $0,61 |
+
+Lượt Implement cho thấy các role dùng `cat`, `ls`, `grep` trong lệnh ghép và bị chặn. Các role không thấy hướng
+dẫn của coordinator, nên mỗi role giờ nhận quy tắc lệnh trong prompt của mình. Lượt Review sau đó không còn lệnh
+nào bị chặn.
+
+**Phát hành.**
+- Gói `pirl-cli` 1.0.0 chỉ chứa JavaScript đã biên dịch, framework đi kèm và changelog.
+- `npm run pack:check` cài gói vào thư mục riêng và chạy `pirl --version` và `--help`.
+- CI chạy trên Linux, macOS, Windows với Node 22 và 24. Lần chạy đầu trên Windows tìm ra lỗi validator đọc sai
+  đường dẫn Windows trong ngoặc kép; lỗi này đã sửa ở cả framework và CLI.
+- Tag `v*` kích hoạt workflow đăng lên npm.
+
+**Chưa kiểm chứng.** Chạy thật với Claude Code trên Windows và macOS. CI chỉ chạy test với provider giả lập.
+
+### 14.7. Bước tiếp theo
+
+- Giai đoạn 4: Codex CLI, Gemini CLI, Copilot CLI; provider và model theo role.
+- Agent đối chiếu cải tiến cục bộ đã thừa sau mỗi lần cập nhật framework (mục 9.4).
 
 ## Nguồn tham khảo
 
