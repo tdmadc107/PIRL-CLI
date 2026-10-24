@@ -229,7 +229,8 @@ Windows với Node 22 và 24.
 3. Tạo tag `v<version>` (ví dụ `git tag v1.0.0 && git push origin v1.0.0`). Workflow
    `.github/workflows/release.yml` kiểm tra tag khớp `package.json`, chạy `pack:check`, đăng lên npm và tạo
    GitHub release. Provenance chỉ được ký khi repo public. Workflow cần secret `NPM_TOKEN` (granular access
-   token của npm có quyền publish) trong Settings → Secrets and variables → Actions của repo.
+   token của npm có quyền publish) trong Settings → Secrets and variables → Actions của repo. Một phiên bản
+   đã đăng thủ công (`npm publish` từ máy) thì workflow bỏ qua bước đăng, chỉ tạo GitHub release.
 
 `npm install` dùng `legacy-peer-deps` (đặt trong `.npmrc`) để tránh một lỗi của npm khi giải peer
 dependency của Vitest.

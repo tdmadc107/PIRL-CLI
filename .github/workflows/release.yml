@@ -28,7 +28,15 @@ jobs:
         run: test "v$(node -p "require('./package.json').version")" = "$GITHUB_REF_NAME"
       - run: npm ci --no-audit --no-fund
       - run: npm run pack:check
-      - run: npm publish ${{ github.event.repository.private == false && '--provenance' || '' }}
+      # A version already published by hand (npm publish from a computer) only gets its GitHub release.
+      - name: Already on npm?
+        id: published
+        run: |
+          if npm view "$(node -p "require('./package.json').name")@${GITHUB_REF_NAME#v}" version >/dev/null 2>&1; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.published.outputs.skip != 'true'
+        run: npm publish ${{ github.event.repository.private == false && '--provenance' || '' }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: GitHub release
