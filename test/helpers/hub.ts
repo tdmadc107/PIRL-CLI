@@ -17,7 +17,20 @@ export function tempDir(prefix = 'pirl-engine-') {
 	return dir;
 }
 export function cleanupTemp() {
-	for (const dir of temporary.splice(0)) rmSync(dir, {recursive: true, force: true, maxRetries: 10, retryDelay: 200});
+	for (const dir of temporary.splice(0)) removeDir(dir);
+}
+
+/**
+ * Removes a test's temporary directory. Windows keeps a directory locked for a moment after a process that used it
+ * (git, python) ends; a directory still locked after the retries is left for the system's temp cleanup.
+ */
+export function removeDir(dir: string) {
+	try {
+		rmSync(dir, {recursive: true, force: true, maxRetries: 20, retryDelay: 250});
+	} catch (error) {
+		const code = (error as NodeJS.ErrnoException).code;
+		if (process.platform !== 'win32' || (code !== 'EBUSY' && code !== 'EPERM')) throw error;
+	}
 }
 
 export const git = (cwd: string, ...args: string[]) =>

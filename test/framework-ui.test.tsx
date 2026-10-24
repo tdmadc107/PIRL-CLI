@@ -1,5 +1,5 @@
 import {execFileSync} from 'node:child_process';
-import {mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs';
+import {mkdtempSync, readFileSync, writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {afterEach, describe, expect, test} from 'vitest';
@@ -9,7 +9,7 @@ import {frameworkServices} from '../src/hub/services.js';
 import {App} from '../src/ui/App.js';
 import {bundle, newerBundle} from './helpers/bundle.js';
 import {appProps, sessionInfo} from './helpers/fixtures.js';
-import {fakeRunner, result, type FakeScript} from './helpers/hub.js';
+import {fakeRunner, removeDir, result, type FakeScript} from './helpers/hub.js';
 import {KEYS, renderTerminal, tick} from './helpers/terminal.js';
 
 const temporary: string[] = [];
@@ -21,7 +21,7 @@ const tempDir = (prefix = 'pirl-fwui-') => {
 };
 afterEach(() => {
 	for (const terminal of open.splice(0)) terminal.cleanup();
-	for (const dir of temporary.splice(0)) rmSync(dir, {recursive: true, force: true, maxRetries: 10, retryDelay: 200});
+	for (const dir of temporary.splice(0)) removeDir(dir);
 });
 
 const git = (cwd: string, ...args: string[]) =>

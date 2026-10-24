@@ -1,4 +1,4 @@
-import {mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync} from 'node:fs';
+import {mkdtempSync, mkdirSync, readFileSync, writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {afterEach, describe, expect, test} from 'vitest';
@@ -6,6 +6,7 @@ import {DEFAULT_CONFIG, loadConfig, normalizeConfig, saveConfig} from '../src/co
 import {exec} from '../src/core/exec.js';
 import {displayPath, pirlHome} from '../src/core/paths.js';
 import {detectTargetRepo} from '../src/core/targetRepo.js';
+import {removeDir} from './helpers/hub.js';
 
 const temporary: string[] = [];
 const tempDir = () => {
@@ -14,7 +15,7 @@ const tempDir = () => {
 	return dir;
 };
 afterEach(() => {
-	for (const dir of temporary.splice(0)) rmSync(dir, {recursive: true, force: true, maxRetries: 10, retryDelay: 200});
+	for (const dir of temporary.splice(0)) removeDir(dir);
 });
 
 const git = async (cwd: string, ...args: string[]) => {

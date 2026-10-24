@@ -1,5 +1,5 @@
 import {execFileSync} from 'node:child_process';
-import {appendFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs';
+import {appendFileSync, existsSync, mkdtempSync, readFileSync, writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {afterEach, describe, expect, test} from 'vitest';
@@ -17,7 +17,7 @@ import {
 	undoUpdate,
 } from '../src/hub/update.js';
 import {bundle, newerBundle as makeNewer} from './helpers/bundle.js';
-import {PYTHON} from './helpers/hub.js';
+import {PYTHON, removeDir} from './helpers/hub.js';
 
 const newerBundle = (changes: Record<string, (text: string) => string>) => makeNewer(changes, '9.9.9', () => tempDir());
 
@@ -28,7 +28,7 @@ const tempDir = () => {
 	return dir;
 };
 afterEach(() => {
-	for (const dir of temporary.splice(0)) rmSync(dir, {recursive: true, force: true, maxRetries: 10, retryDelay: 200});
+	for (const dir of temporary.splice(0)) removeDir(dir);
 });
 
 const git = (cwd: string, ...args: string[]) =>

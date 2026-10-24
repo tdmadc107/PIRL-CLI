@@ -1,5 +1,5 @@
 import {execFileSync} from 'node:child_process';
-import {cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs';
+import {cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {afterEach, describe, expect, test} from 'vitest';
@@ -7,6 +7,7 @@ import {exec} from '../src/core/exec.js';
 import {packageRoot} from '../src/core/paths.js';
 import {loadBundledFramework, storedPath, type BundledFramework} from '../src/hub/framework.js';
 import {ensureHub, hubStatus, HubError, parsePorcelain} from '../src/hub/hub.js';
+import {removeDir} from './helpers/hub.js';
 
 const temporary: string[] = [];
 const tempDir = () => {
@@ -15,7 +16,7 @@ const tempDir = () => {
 	return dir;
 };
 afterEach(() => {
-	for (const dir of temporary.splice(0)) rmSync(dir, {recursive: true, force: true, maxRetries: 10, retryDelay: 200});
+	for (const dir of temporary.splice(0)) removeDir(dir);
 });
 
 const bundle = loadBundledFramework(packageRoot());

@@ -129,7 +129,7 @@ describe('permissions', () => {
 		const paths = {hub: '/h/hub', target: '/w/shop'};
 		const plan = permissionsFor('plan', paths, PYTHON);
 		expect(plan.allow).toContain('Edit(//h/hub/**)');
-		expect(plan.allow).toContain('Bash(python3 -B .agents/evals/*)');
+		expect(plan.allow).toContain(`Bash(${PYTHON.command} -B .agents/evals/*)`);
 		expect(plan.deny).toContain('Edit(//w/shop/**)');
 		expect(plan.deny).toContain('Bash(git commit *)');
 		expect(plan.allow.some(rule => rule.includes('npm test'))).toBe(false);
@@ -465,6 +465,17 @@ describe('RunController', () => {
 		await started;
 		expect(run.state.status).toBe('stopped');
 		expect(run.persisted()).toMatchObject({kind: 'plan', request: 'Email', status: 'stopped'});
+	});
+
+	test('stop() before the provider started: no provider is started and the run ends stopped', async () => {
+		const {hub, target} = await hubAndTarget();
+		const {runner, calls} = fakeRunner([() => new Promise(() => {})]);
+		const run = new RunController(deps(hub, target, runner), 1, 'plan', 'Email');
+		const started = run.start();
+		run.stop(); // while the snapshot of the Hub and the target is still being taken
+		await started;
+		expect(calls).toHaveLength(0);
+		expect(run.state.status).toBe('stopped');
 	});
 
 	test('the log: bounded in memory, complete in the log file, and a refusal reported twice counts once', async () => {

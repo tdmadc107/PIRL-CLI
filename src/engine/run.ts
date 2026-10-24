@@ -280,6 +280,11 @@ export class RunController {
 	}
 
 	private async send(prompt: string): Promise<void> {
+		// Stopped while the run was still preparing (the snapshot can take a moment): start no provider at all.
+		if (this.stopped) {
+			if (this.state.status !== 'stopped') this.update({status: 'stopped'}, {who: 'pirl', text: 'Đã dừng'});
+			return;
+		}
 		const deps = this.deps;
 		const request = {
 			cwd: deps.hub,

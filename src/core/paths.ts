@@ -14,7 +14,8 @@ export const hubDir = (home: string) => join(home, 'hub');
 export function displayPath(path: string, home: string = homedir()): string {
 	if (!home) return path;
 	if (path === home) return '~';
-	return path.startsWith(home + sep) ? `~${path.slice(home.length)}` : path;
+	// Either separator: Windows accepts both, and paths reach here from Git and from the user's shell.
+	return path.startsWith(home + sep) || path.startsWith(`${home}/`) ? `~${path.slice(home.length)}` : path;
 }
 
 export const configFile = (home: string) => join(home, 'config.json');
