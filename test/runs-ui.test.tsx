@@ -120,6 +120,9 @@ describe('layer runs in the TUI', () => {
 		await terminal.press(KEYS.enter);
 		await until(terminal, 'Plan · đang chạy');
 		expect(terminal.frame()).toContain('Esc dừng run');
+		// The provider starts after the run's snapshot of the Hub and the target, which is slow on Windows.
+		for (const end = Date.now() + 30_000; calls.length === 0 && Date.now() < end; ) await tick(40);
+		await tick(100);
 		await terminal.press(KEYS.escape);
 		await until(terminal, 'Đã dừng. Gõ /resume để chạy tiếp.');
 		await terminal.type('/resume');
@@ -127,6 +130,15 @@ describe('layer runs in the TUI', () => {
 		await until(terminal, 'Đã chạy tiếp.');
 		expect(calls[1]!.prompt).toBe('Tiếp tục run bị dừng từ chỗ đã dừng.');
 		expect(calls[1]!.resumeSessionId).toBe('session-7');
+	});
+
+	test('Esc before the provider starts: nothing to resume, and the run block says so', async () => {
+		const {terminal, calls} = await startWithRuns([() => new Promise(() => {})]);
+		await terminal.type('/pirl-plan Email huỷ đơn');
+		await terminal.press(KEYS.enter);
+		await terminal.press(KEYS.escape); // at once, while the run still takes its snapshot
+		await until(terminal, 'Plan · đã dừng');
+		if (calls.length === 0) expect(terminal.frame()).toContain('Đã dừng trước khi provider bắt đầu. Gõ lại lệnh để chạy.');
 	});
 
 	test('one run at a time', async () => {

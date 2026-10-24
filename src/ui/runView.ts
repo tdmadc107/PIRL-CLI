@@ -209,7 +209,11 @@ export function runLines(run: RunState, columns: number, theme: Theme, interacti
 		lines.push(...hanging([{text: '  '}, {text: `${g.fail} `, color: 'danger'}], run.error, columns, {color: 'danger'}));
 		lines.push(...hanging([{text: '    '}], 'Gõ /resume để chạy tiếp từ chỗ dừng.', columns, {dim: true}));
 	}
-	if (run.status === 'stopped') lines.push(...hanging([{text: '    '}], 'Đã dừng. Gõ /resume để chạy tiếp.', columns, {dim: true}));
+	if (run.status === 'stopped') {
+		// Stopped before the provider started: there is no provider session to continue.
+		const next = run.sessionId ? 'Đã dừng. Gõ /resume để chạy tiếp.' : 'Đã dừng trước khi provider bắt đầu. Gõ lại lệnh để chạy.';
+		lines.push(...hanging([{text: '    '}], next, columns, {dim: true}));
+	}
 
 	if (run.suggestion) {
 		lines.push(blank);
