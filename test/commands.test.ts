@@ -7,7 +7,7 @@ const repo: TargetRepo = {kind: 'git', root: '/work/shop-web', name: 'shop-web',
 const noRepo: TargetRepo = {kind: 'none', cwd: '/tmp', reason: 'Thư mục hiện tại không nằm trong git repo'};
 
 describe('command list', () => {
-	test('holds exactly the confirmed 12 commands', () => {
+	test('holds the confirmed 12 commands plus /copy', () => {
 		expect(COMMANDS.map(c => c.name)).toEqual([
 			'pirl-plan',
 			'pirl-implement',
@@ -18,6 +18,7 @@ describe('command list', () => {
 			'settings',
 			'doctor',
 			'framework',
+			'copy',
 			'clear',
 			'help',
 			'exit',
@@ -52,7 +53,7 @@ describe('parseInput', () => {
 
 describe('suggestCommands', () => {
 	test('offers prefix matches first, then commands containing the text', () => {
-		expect(suggestCommands('/p').map(c => c.name)).toEqual(['pirl-plan', 'pirl-implement', 'pirl-review', 'plans', 'help']);
+		expect(suggestCommands('/p').map(c => c.name)).toEqual(['pirl-plan', 'pirl-implement', 'pirl-review', 'plans', 'copy', 'help']);
 		expect(suggestCommands('/plan').map(c => c.name)).toEqual(['plans', 'pirl-plan']);
 		expect(suggestCommands('/').length).toBe(COMMANDS.length);
 	});
@@ -78,9 +79,10 @@ describe('dispatch', () => {
 		expect(effect).toMatchObject({type: 'note', tone: 'warning', hint: 'Cú pháp: /pirl-review <request>'});
 	});
 
-	test('a layer with a request reports the phase it arrives in, and never opens another layer', () => {
-		expect(run('/pirl-plan Thêm email')).toEqual([expect.objectContaining({type: 'note', tone: 'info', text: expect.stringContaining('giai đoạn 1')})]);
-		expect(run('/pirl-implement T01')).toEqual([expect.objectContaining({text: expect.stringContaining('giai đoạn 2')})]);
+	test('a layer with a request starts exactly that layer', () => {
+		expect(run('/pirl-plan Thêm email')).toEqual([{type: 'run', kind: 'plan', request: 'Thêm email'}]);
+		expect(run('/pirl-implement T01')).toEqual([{type: 'run', kind: 'implement', request: 'T01'}]);
+		expect(run('/pirl-review T01')).toEqual([{type: 'run', kind: 'review', request: 'T01'}]);
 	});
 
 	test('management commands open their panels or act on the session', () => {
@@ -90,12 +92,16 @@ describe('dispatch', () => {
 		expect(run('/framework')).toEqual([{type: 'overlay', overlay: 'framework'}]);
 		expect(run('/clear')).toEqual([{type: 'clear'}]);
 		expect(run('/exit')).toEqual([{type: 'exit'}]);
-		expect(run('/resume')).toEqual([expect.objectContaining({text: 'Không có run nào đang dở.'})]);
+		expect(run('/resume')).toEqual([{type: 'resume'}]);
+		expect(run('/plans')).toEqual([{type: 'overlay', overlay: 'plans'}]);
+		expect(run('/records')).toEqual([{type: 'overlay', overlay: 'records'}]);
+		expect(run('/copy')).toEqual([{type: 'copy'}]);
 	});
 
-	test('unknown commands and free text get a note', () => {
+	test('unknown commands get a note; free text goes to the coordinator as chat, even outside a repo', () => {
 		expect(run('/deploy')).toEqual([expect.objectContaining({tone: 'error', text: 'Không có lệnh /deploy.'})]);
-		expect(run('Plan T01 phụ thuộc gì?')).toEqual([expect.objectContaining({tone: 'info'})]);
+		expect(run('Plan T01 phụ thuộc gì?')).toEqual([{type: 'run', kind: 'chat', request: 'Plan T01 phụ thuộc gì?'}]);
+		expect(run('Giải thích PIRL', noRepo)).toEqual([{type: 'run', kind: 'chat', request: 'Giải thích PIRL'}]);
 		expect(run('')).toEqual([]);
 	});
 });

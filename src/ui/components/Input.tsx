@@ -9,7 +9,7 @@ import {Lines} from './Lines.js';
 export const PLACEHOLDER = 'Gõ / để xem lệnh, hoặc nhập yêu cầu';
 
 /** Lines inside the input box: the prompt, the wrapped text and the cursor as an inverse cell. */
-export function inputLines(editor: EditorState, columns: number, maxLines: number, theme: Theme, focused: boolean): Line[] {
+export function inputLines(editor: EditorState, columns: number, maxLines: number, theme: Theme, focused: boolean, placeholder = PLACEHOLDER): Line[] {
 	const prompt = `${theme.glyphs.prompt} `;
 	const room = Math.max(1, columns - width(prompt));
 	if (editor.value === '') {
@@ -17,7 +17,7 @@ export function inputLines(editor: EditorState, columns: number, maxLines: numbe
 			[
 				{text: prompt, color: 'accent', bold: true},
 				...(focused ? [{text: ' ', inverse: true}] : []),
-				{text: truncateEnd(PLACEHOLDER, room - 1, theme.glyphs.ellipsis), dim: true},
+				{text: truncateEnd(placeholder, room - 1, theme.glyphs.ellipsis), dim: true},
 			],
 		];
 	}
@@ -52,7 +52,7 @@ export function inputHeight(editor: EditorState, columns: number, maxLines: numb
 	return Math.min(maxLines, layoutEditor(editor, room).lines.length);
 }
 
-export function InputBox(props: {editor: EditorState; columns: number; maxLines: number; theme: Theme; focused: boolean}) {
+export function InputBox(props: {editor: EditorState; columns: number; maxLines: number; theme: Theme; focused: boolean; placeholder?: string}) {
 	const inner = props.columns - 4;
 	return (
 		<Box
@@ -62,7 +62,7 @@ export function InputBox(props: {editor: EditorState; columns: number; maxLines:
 			width={props.columns}
 			flexDirection="column"
 		>
-			<Lines lines={inputLines(props.editor, inner, props.maxLines, props.theme, props.focused)} theme={props.theme} />
+			<Lines lines={inputLines(props.editor, inner, props.maxLines, props.theme, props.focused, props.placeholder)} theme={props.theme} />
 		</Box>
 	);
 }

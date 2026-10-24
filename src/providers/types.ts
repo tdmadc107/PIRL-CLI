@@ -8,6 +8,8 @@ export type ProviderDetection = {
 	loggedIn: boolean | null;
 	/** How the user signed in, as the provider reports it (for example a subscription or an API key). */
 	authMethod?: string;
+	/** Installed, but older than the version PIRL needs. */
+	outdated?: boolean;
 	/** Plain-language next step when something is missing. */
 	fix?: string;
 };
@@ -15,7 +17,7 @@ export type ProviderDetection = {
 /**
  * A provider is an agent CLI the user installed and signed in to themselves.
  * PIRL CLI only runs that CLI; it never reads, stores or forwards its credentials.
- * Phase 0 needs detection only; running roles (`run`, `resume`) arrives with the layers.
+ * Detection lives here; running the coordinator is the job of the provider's runner (src/engine/claudeRunner.ts).
  */
 export type Provider = {
 	id: ProviderId;

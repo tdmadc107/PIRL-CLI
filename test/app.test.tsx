@@ -105,27 +105,28 @@ describe('input and command palette', () => {
 		expect(terminal.frame()).not.toContain('Trợ giúp');
 	});
 
-	test('a submitted layer request is echoed and answered, and the input is cleared', async () => {
-		const {terminal} = await start(100, 30);
-		await terminal.type('/pirl-plan Khách nhận email');
-		await terminal.press(KEYS.enter);
-		const frame = terminal.frame();
-		expect(frame).toContain('› /pirl-plan Khách nhận email');
-		expect(frame).toContain('Layer Plan chạy được từ giai đoạn 1');
-		expect(frame).toContain('Gõ / để xem lệnh, hoặc nhập yêu cầu');
-	});
-
 	test('free text, unknown commands and the locked layers', async () => {
 		const {terminal} = await start(100, 30, {info: sessionInfo({target: {kind: 'none', cwd: '/tmp', reason: 'Thư mục hiện tại không nằm trong git repo'}})});
 		await terminal.type('T02 phụ thuộc gì?');
 		await terminal.press(KEYS.enter);
-		expect(terminal.frame()).toContain('có từ giai đoạn 2');
+		expect(terminal.frame()).toContain('Bản này chưa nối với provider.');
 		await terminal.type('/deploy');
 		await terminal.press(KEYS.enter);
 		expect(terminal.frame()).toContain('Không có lệnh /deploy.');
 		await terminal.type('/pirl-plan x');
 		await terminal.press(KEYS.enter);
 		expect(terminal.frame()).toContain('Layer Plan bị khoá');
+	});
+
+	test('a Vietnamese input method that sends backspaces and the accented letters in one burst', async () => {
+		// Unikey/EVKey type "chao", then replace "ao" with "ào": two backspaces and the new letters arrive together.
+		const {terminal} = await start(100, 30);
+		await terminal.type('Xin chao');
+		await terminal.press('\u007F\u007Fào');
+		await terminal.press(' c\u0008\u0008 các bạn');
+		expect(terminal.frame()).toContain('› Xin chào các bạn');
+		await terminal.press(KEYS.enter);
+		expect(terminal.frame()).toContain('› Xin chào các bạn');
 	});
 
 	test('↑ recalls what was sent; Esc clears the input', async () => {
@@ -228,6 +229,7 @@ describe('startup check and panels', () => {
 		await terminal.press(KEYS.enter);
 		await terminal.press(KEYS.down);
 		await terminal.press(KEYS.down);
+		await terminal.press(KEYS.down);
 		await terminal.press(KEYS.right);
 		await terminal.press(KEYS.right);
 		expect(saved.at(-1)).toMatchObject({glyphs: 'ascii'});
@@ -261,11 +263,9 @@ describe('startup check and panels', () => {
 		await terminal.type('/help');
 		await terminal.press(KEYS.enter);
 		expect(terminal.frame()).toMatch(/↓ còn \d+ dòng \(PgDn\)/);
-		await terminal.press(KEYS.pageDown);
-		await terminal.press(KEYS.pageDown);
-		await terminal.press(KEYS.pageDown);
-		// The last page: the final shortcut is shown under a marker for what is above; no marker hides a line.
-		expect(terminal.frame()).toContain('Ctrl+C');
+		for (let i = 0; i < 6; i++) await terminal.press(KEYS.pageDown);
+		// The last page: the closing notes are shown under a marker for what is above; no marker hides a line.
+		expect(terminal.frame()).toContain('settings.json');
 		expect(terminal.frame()).toMatch(/↑ còn \d+ dòng \(PgUp\)/);
 		expect(terminal.frame()).not.toContain('(PgDn)');
 		expectFits(terminal, 80, 18);

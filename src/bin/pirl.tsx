@@ -1,10 +1,15 @@
 #!/usr/bin/env node
 import {render} from 'ink';
+import {createClipboard} from '../core/clipboard.js';
 import {loadConfig, saveConfig} from '../core/config.js';
 import {exec} from '../core/exec.js';
 import {configFile, displayPath, hubDir, packageInfo, packageRoot, pirlHome} from '../core/paths.js';
 import {detectTargetRepo} from '../core/targetRepo.js';
 import {runDoctor} from '../doctor/doctor.js';
+import {createClaudeRunner} from '../engine/claudeRunner.js';
+import {readPlanPackages, readRecords} from '../engine/hubData.js';
+import {RunController} from '../engine/run.js';
+import {loadRun, saveRun} from '../engine/runStore.js';
 import {loadBundledFramework} from '../hub/framework.js';
 import {ensureHub, type HubStatus} from '../hub/hub.js';
 import {getProvider} from '../providers/index.js';
@@ -66,6 +71,8 @@ async function main(): Promise<number> {
 		notes.push({tone: 'error', text: `Không chuẩn bị được Hub: ${hubError}`});
 	}
 
+	const targetRoot = target.kind === 'git' ? target.root : null;
+	const runner = createClaudeRunner();
 	const instance = render(
 		<App
 			info={{cliVersion: pkg.version, target, hub, hubError}}
@@ -74,9 +81,24 @@ async function main(): Promise<number> {
 			services={{
 				runDoctor: current => runDoctor({exec, provider: getProvider(current.provider), target, hub, hubError}),
 				saveConfig: next => saveConfig(configFile(home), next),
+				startRun: options =>
+					new RunController(
+						{runner, hub: hub!.path, target: targetRoot, python: options.python, maxParallelRoles: options.config.maxParallelRoles, recentOutputs: options.recentOutputs},
+						options.id,
+						options.kind,
+						options.request,
+						options.resume,
+					),
+				saveRun: run => targetRoot && saveRun(home, targetRoot, run),
+				lastRun: () => (targetRoot ? loadRun(home, targetRoot) : null),
+				plans: () => (hub && targetRoot ? readPlanPackages(hub.path, targetRoot) : []),
+				records: () => (hub ? readRecords(hub.path, targetRoot) : []),
+				clipboard: createClipboard({writeTerminal: data => process.stdout.write(data)}),
 			}}
 		/>,
-		{alternateScreen: true, exitOnCtrlC: true},
+		// Ctrl+C is handled by the TUI: it stops a running run first. The kitty keyboard protocol, where the
+		// terminal supports it (Windows Terminal 1.25+, kitty, WezTerm, Ghostty, iTerm2), tells Shift+Enter from Enter.
+		{alternateScreen: true, exitOnCtrlC: false, kittyKeyboard: {mode: 'auto'}},
 	);
 	await instance.waitUntilExit();
 	return 0;

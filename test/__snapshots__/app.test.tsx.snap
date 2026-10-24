@@ -70,7 +70,7 @@ exports[`snapshots > welcome screen at 100x24 1`] = `
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ ›  Gõ / để xem lệnh, hoặc nhập yêu cầu                                                           │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
-0 lượt gọi · không có run                                         Enter gửi · PgUp/PgDn cuộn · /help"
+0 lượt gọi · không có run                                 Enter gửi · Shift+Enter xuống dòng · /help"
 `;
 
 exports[`snapshots > welcome screen at 140x30 1`] = `
@@ -103,5 +103,5 @@ exports[`snapshots > welcome screen at 140x30 1`] = `
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ ›  Gõ / để xem lệnh, hoặc nhập yêu cầu                                                                                                   │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
-0 lượt gọi · không có run                                                                                 Enter gửi · PgUp/PgDn cuộn · /help"
+0 lượt gọi · không có run                                                                         Enter gửi · Shift+Enter xuống dòng · /help"
 `;

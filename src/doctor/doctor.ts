@@ -81,6 +81,7 @@ export async function providerCheck(provider: Provider, exec: Exec): Promise<Che
 	if (!found.installed) return {...base, state: 'fail', detail: 'Chưa cài', fix: found.fix};
 	const version = found.version ? `${found.version} · ` : '';
 	if (found.loggedIn === false) return {...base, state: 'fail', detail: `${version}chưa đăng nhập`, fix: found.fix};
+	if (found.outdated) return {...base, state: 'fail', detail: `${version}cần bản mới hơn`, fix: found.fix};
 	if (found.loggedIn === null) return {...base, state: 'warn', detail: `${version}không xác định được trạng thái đăng nhập`};
 	return {...base, state: 'ok', detail: `${version}đã đăng nhập${found.authMethod ? ` bằng ${found.authMethod}` : ''}`};
 }

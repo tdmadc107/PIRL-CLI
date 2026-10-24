@@ -1,6 +1,8 @@
 import {Box} from 'ink';
 import {blank, hanging, type Line, type Span} from '../lines.js';
 import {displayPath} from '../../core/paths.js';
+import type {RunState} from '../../engine/run.js';
+import {runPanelLines} from '../runView.js';
 import type {SessionInfo} from '../session.js';
 import {padEnd, truncateEnd, truncateMiddle, width} from '../text.js';
 import type {Theme} from '../theme.js';
@@ -48,7 +50,7 @@ export function Frame(props: {
 	);
 }
 
-export function sidePanelLines(info: SessionInfo, provider: ProviderBadge, columns: number, theme: Theme): Line[] {
+export function sidePanelLines(info: SessionInfo, provider: ProviderBadge, columns: number, theme: Theme, run: RunState | null = null): Line[] {
 	const g = theme.glyphs;
 	const labelWidth = 11;
 	const row = (label: string, value: string, extra: Partial<Span> = {}): Line[] => {
@@ -66,16 +68,16 @@ export function sidePanelLines(info: SessionInfo, provider: ProviderBadge, colum
 		...row('Framework', info.hub ? `${info.hub.upstreamTag ?? '—'} · ${info.hub.localImprovements} cải tiến` : 'Hub lỗi', info.hub ? {} : {color: 'danger'}),
 		blank,
 		[{text: 'Run', bold: true}],
-		...hanging([{text: `${g.pending} `, dim: true}], 'Chưa có run nào. Gõ /pirl-plan <request> để bắt đầu.', columns, {dim: true}),
+		...runPanelLines(run, columns, theme),
 	];
 	return lines;
 }
 
-export function SidePanel(props: {info: SessionInfo; provider: ProviderBadge; width: number; height: number; theme: Theme}) {
+export function SidePanel(props: {info: SessionInfo; provider: ProviderBadge; run: RunState | null; width: number; height: number; theme: Theme}) {
 	return (
 		<Frame
 			title="Phiên làm việc"
-			lines={sidePanelLines(props.info, props.provider, props.width - 4, props.theme)}
+			lines={sidePanelLines(props.info, props.provider, props.width - 4, props.theme, props.run)}
 			width={props.width}
 			height={props.height}
 			theme={props.theme}

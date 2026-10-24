@@ -1,13 +1,17 @@
 import {COMMANDS, commandUsage, type CommandSpec} from '../commands/registry.js';
 import type {Tone} from '../commands/dispatch.js';
-import {PARALLEL_LIMITS, type Config} from '../core/config.js';
+import {COLOR_SCHEME_IDS, PARALLEL_LIMITS, type Config} from '../core/config.js';
+import {basename} from 'node:path';
 import {displayPath} from '../core/paths.js';
+import type {PlanPackage, RecordSummary} from '../engine/hubData.js';
+import type {RunState} from '../engine/run.js';
 import type {Check, CheckState} from '../doctor/doctor.js';
 import {PROVIDERS} from '../providers/index.js';
 import {blank, hanging, type Line, type Span} from './lines.js';
+import {runLines, type Interaction} from './runView.js';
 import type {DoctorState, Message, SessionInfo} from './session.js';
 import {padEnd, truncateMiddle, width} from './text.js';
-import type {ColorToken, Theme} from './theme.js';
+import {COLOR_SCHEMES, type ColorToken, type Theme} from './theme.js';
 
 const TONE: Record<Tone, {glyph: keyof Theme['glyphs']; color: ColorToken}> = {
 	info: {glyph: 'info', color: 'accent'},
@@ -39,7 +43,9 @@ function definitionList(items: Array<{term: string; description: string}>, colum
 
 const commandItems = (commands: readonly CommandSpec[]) => commands.map(spec => ({term: commandUsage(spec), description: spec.summary}));
 
-export function messageLines(message: Message, columns: number, theme: Theme): Line[] {
+export type TranscriptContext = {runs: Record<number, RunState>; interaction: Interaction | null};
+
+export function messageLines(message: Message, columns: number, theme: Theme, context: TranscriptContext = {runs: {}, interaction: null}): Line[] {
 	const g = theme.glyphs;
 	switch (message.kind) {
 		case 'welcome':
@@ -54,6 +60,10 @@ export function messageLines(message: Message, columns: number, theme: Theme): L
 			];
 		case 'user':
 			return hanging([{text: `${g.prompt} `, color: 'user', bold: true}], message.text, columns, {bold: true});
+		case 'run': {
+			const run = context.runs[message.runId];
+			return run ? runLines(run, columns, theme, context.interaction) : [];
+		}
 		case 'note': {
 			const tone = TONE[message.tone];
 			const prefix: Span[] = [{text: `${g[tone.glyph]} `, color: tone.color}];
@@ -65,8 +75,8 @@ export function messageLines(message: Message, columns: number, theme: Theme): L
 }
 
 /** Every message, separated by one blank line, laid out for `columns` cells. */
-export function transcriptLines(messages: Message[], columns: number, theme: Theme): Line[] {
-	return messages.flatMap((message, index) => [...(index > 0 ? [blank] : []), ...messageLines(message, columns, theme)]);
+export function transcriptLines(messages: Message[], columns: number, theme: Theme, context?: TranscriptContext): Line[] {
+	return messages.flatMap((message, index) => [...(index > 0 ? [blank] : []), ...messageLines(message, columns, theme, context)]);
 }
 
 // ---------- overlays ----------
@@ -77,12 +87,13 @@ export function helpLines(columns: number, theme: Theme): Line[] {
 	const groups = [...new Set(COMMANDS.map(spec => spec.group))];
 	const keys = [
 		{term: 'Enter', description: 'Gửi'},
-		{term: '\\ rồi Enter', description: 'Xuống dòng trong ô nhập'},
+		{term: 'Shift+Enter', description: 'Xuống dòng trong ô nhập (cũng được: \\ rồi Enter, Ctrl+J, Alt+Enter)'},
+		{term: 'Ctrl+V', description: 'Dán từ clipboard (chuột phải hoặc phím dán của terminal cũng được)'},
 		{term: 'Tab', description: 'Hoàn thành tên lệnh đang chọn'},
 		{term: theme.glyphs.upDown, description: 'Chọn lệnh gợi ý, hoặc xem lại nội dung đã gửi'},
 		{term: 'PgUp / PgDn', description: 'Cuộn khung chat'},
-		{term: 'Esc', description: 'Xoá ô nhập, hoặc đóng bảng đang mở'},
-		{term: 'Ctrl+C', description: 'Thoát'},
+		{term: 'Esc', description: 'Xoá ô nhập, đóng bảng đang mở, hoặc dừng run đang chạy'},
+		{term: 'Ctrl+C', description: 'Dừng run đang chạy; khi không có run thì thoát'},
 	];
 	const lines: Line[] = [];
 	for (const group of groups) {
@@ -93,7 +104,8 @@ export function helpLines(columns: number, theme: Theme): Line[] {
 	lines.push(heading('Phím tắt'));
 	lines.push(...definitionList(keys, columns));
 	lines.push(blank);
-	lines.push(...hanging([], 'Nhập không có dấu / là câu hỏi, standalone task hoặc bảo trì framework (có từ giai đoạn 2).', columns, {dim: true}));
+	lines.push(...hanging([], 'Nhập không có dấu / là câu hỏi, standalone task hoặc bảo trì framework. Muốn copy một đoạn bất kỳ: bôi đen bằng chuột như mọi nội dung trong terminal; /copy copy nguyên câu trả lời gần nhất.', columns, {dim: true}));
+	lines.push(...hanging([], 'Windows Terminal trước bản 1.25 không phân biệt Shift+Enter với Enter: dùng Ctrl+J, hoặc thêm phím tắt sendInput "\\n" cho shift+enter trong settings.json.', columns, {dim: true}));
 	return lines;
 }
 
@@ -154,7 +166,7 @@ export function frameworkLines(info: SessionInfo, columns: number, theme: Theme)
 	return lines;
 }
 
-export type SettingsRow = {key: 'provider' | 'theme' | 'glyphs' | 'maxParallelRoles'; label: string; value: string; note?: string};
+export type SettingsRow = {key: 'provider' | 'theme' | 'colors' | 'glyphs' | 'maxParallelRoles'; label: string; value: string; note?: string};
 
 export function settingsRows(config: Config): SettingsRow[] {
 	const provider = PROVIDERS.find(p => p.id === config.provider);
@@ -162,6 +174,7 @@ export function settingsRows(config: Config): SettingsRow[] {
 	return [
 		{key: 'provider', label: 'Provider', value: provider?.label ?? config.provider, note: later.length ? `Giai đoạn sau: ${later.join(', ')}` : undefined},
 		{key: 'theme', label: 'Giao diện', value: {auto: 'Tự nhận theo terminal', dark: 'Nền tối', light: 'Nền sáng'}[config.theme]},
+		{key: 'colors', label: 'Bảng màu', value: COLOR_SCHEMES[config.colors].label, note: 'Đổi màu nhấn, màu lời nhập và màu viền; màu báo thành công, cảnh báo, lỗi giữ nguyên'},
 		{key: 'glyphs', label: 'Ký hiệu', value: {auto: 'Tự nhận theo terminal', unicode: 'Unicode', ascii: 'ASCII'}[config.glyphs]},
 		{
 			key: 'maxParallelRoles',
@@ -181,6 +194,8 @@ export function cycleSetting(config: Config, key: SettingsRow['key'], step: 1 | 
 			return {...config, provider: cycle(PROVIDERS.filter(p => p.available).map(p => p.id), config.provider)};
 		case 'theme':
 			return {...config, theme: cycle(['auto', 'dark', 'light'] as const, config.theme)};
+		case 'colors':
+			return {...config, colors: cycle(COLOR_SCHEME_IDS, config.colors)};
 		case 'glyphs':
 			return {...config, glyphs: cycle(['auto', 'unicode', 'ascii'] as const, config.glyphs)};
 		case 'maxParallelRoles': {
@@ -198,7 +213,7 @@ export function settingsLines(config: Config, selected: number, columns: number,
 	rows.forEach((row, index) => {
 		const active = index === selected;
 		const pointer: Span = {text: active ? `${theme.glyphs.pointer} ` : '  ', color: 'accent'};
-		const value: Span = {text: `‹ ${row.value} ›`, color: active ? 'accent' : undefined, bold: active};
+		const value: Span = {text: `‹ ${row.value} ›`, color: active || row.key === 'colors' ? 'accent' : undefined, bold: active};
 		if (!theme.unicode) value.text = `< ${row.value} >`;
 		if (stacked) {
 			lines.push([pointer, {text: row.label, bold: active}]);
@@ -211,5 +226,42 @@ export function settingsLines(config: Config, selected: number, columns: number,
 	lines.push(blank);
 	const g = theme.glyphs;
 	lines.push(...hanging([], `${g.upDown} chọn mục ${g.sep} ${g.leftRight} đổi giá trị ${g.sep} thay đổi được lưu ngay`, columns, {dim: true}));
+	return lines;
+}
+
+// ---------- /plans and /records ----------
+
+export function plansLines(packages: PlanPackage[] | null, hub: string | null, columns: number, theme: Theme): Line[] {
+	const g = theme.glyphs;
+	if (!packages) return hanging([{text: `${g.fail} `, color: 'danger'}], 'Không đọc được Hub.', columns);
+	const lines: Line[] = hanging([], `Đọc trong Hub${hub ? ` (${displayPath(hub)})` : ''}: các Plan package có target_repo là repo hiện tại.`, columns, {dim: true});
+	if (packages.length === 0) {
+		lines.push(blank, ...hanging([{text: `${g.pending} `, dim: true}], 'Chưa có Plan nào cho repo này. Gõ /pirl-plan <request> để tạo.', columns));
+		return lines;
+	}
+	for (const item of packages) {
+		lines.push(blank, [{text: item.planSet, bold: true, color: 'accent'}]);
+		for (const task of item.tasks) {
+			const tone = task.status === 'implemented' ? 'success' : task.status === 'failed' || task.status === 'blocked' ? 'danger' : 'warning';
+			lines.push(...hanging([{text: '  '}, {text: `${task.taskId} `, bold: true}, {text: `[${task.status}] `, color: tone}], task.title, columns));
+			for (const report of item.reports.filter(report => report.taskId === task.taskId)) {
+				const verdictTone = report.verdict === 'PASS' ? 'success' : report.verdict === 'FAIL' ? 'danger' : 'warning';
+				lines.push(...hanging([{text: '    '}, {text: `Review vòng ${report.round}: `, dim: true}, {text: report.verdict, color: verdictTone}, {text: '  '}], basename(report.file), columns, {dim: true}));
+			}
+		}
+	}
+	return lines;
+}
+
+export function recordsLines(records: RecordSummary[] | null, columns: number, theme: Theme): Line[] {
+	const g = theme.glyphs;
+	if (!records) return hanging([{text: `${g.fail} `, color: 'danger'}], 'Không đọc được Hub.', columns);
+	const lines: Line[] = hanging([], 'Record tự đánh giá của các run trên repo này, mới nhất trước (đọc trong Hub, .agents/evals/records/).', columns, {dim: true});
+	if (records.length === 0) return [...lines, blank, ...hanging([{text: `${g.pending} `, dim: true}], 'Chưa có record nào.', columns)];
+	for (const record of records) {
+		const fixes = record.fixes > 0 || record.pending > 0 ? ` ${g.sep} ${record.fixes} cải tiến đã áp dụng${record.pending ? `, ${record.pending} chờ duyệt` : ''}` : '';
+		lines.push(blank, [{text: record.recordId, bold: true, color: 'accent'}, {text: `  ${record.layer} ${g.sep} ${record.status}${fixes}`, dim: true}]);
+		lines.push(...hanging([{text: '  '}], record.summary, columns));
+	}
 	return lines;
 }

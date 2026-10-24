@@ -1,4 +1,4 @@
-/** The confirmed command list (proposal section 6). Every command typed in the TUI comes from here. */
+/** The confirmed command list (proposal section 6), plus /copy. Every command typed in the TUI comes from here. */
 export type CommandGroup = 'Layer' | 'Run' | 'Tra cứu' | 'Cấu hình' | 'Framework' | 'Phiên';
 
 export type CommandName =
@@ -11,6 +11,7 @@ export type CommandName =
 	| 'settings'
 	| 'doctor'
 	| 'framework'
+	| 'copy'
 	| 'clear'
 	| 'help'
 	| 'exit';
@@ -33,6 +34,7 @@ export const COMMANDS: readonly CommandSpec[] = [
 	{name: 'settings', group: 'Cấu hình', summary: 'Provider, giao diện, số role chạy song song', takesRequest: false},
 	{name: 'doctor', group: 'Cấu hình', summary: 'Kiểm tra provider, Python, Git, Hub', takesRequest: false},
 	{name: 'framework', group: 'Framework', summary: 'Phiên bản framework, cải tiến cục bộ, cập nhật', takesRequest: false},
+	{name: 'copy', group: 'Phiên', summary: 'Copy câu trả lời gần nhất của PIRL', takesRequest: false},
 	{name: 'clear', group: 'Phiên', summary: 'Xoá khung chat, bắt đầu hội thoại mới', takesRequest: false},
 	{name: 'help', group: 'Phiên', summary: 'Danh sách lệnh và phím tắt', takesRequest: false},
 	{name: 'exit', group: 'Phiên', summary: 'Thoát PIRL', takesRequest: false},

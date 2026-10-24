@@ -1,11 +1,24 @@
 import {Box, useApp, useInput, usePaste, useWindowSize} from 'ink';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {dispatch, type OverlayKind} from '../commands/dispatch.js';
+import {dispatch, type Effect, type OverlayKind} from '../commands/dispatch.js';
 import {parseInput, suggestCommands} from '../commands/registry.js';
 import type {Config} from '../core/config.js';
 import type {DoctorReport} from '../doctor/doctor.js';
+import type {RunController, RunState} from '../engine/run.js';
+import {resumable} from '../engine/runStore.js';
+import {LAYER_LABELS, type RunKind} from '../engine/types.js';
 import {getProvider} from '../providers/index.js';
-import {cycleSetting, doctorLines, frameworkLines, helpLines, settingsLines, settingsRows, transcriptLines} from './content.js';
+import {
+	cycleSetting,
+	doctorLines,
+	frameworkLines,
+	helpLines,
+	plansLines,
+	recordsLines,
+	settingsLines,
+	settingsRows,
+	transcriptLines,
+} from './content.js';
 import {Header, type ProviderBadge} from './components/Header.js';
 import {InputBox, inputHeight, paletteLines} from './components/Input.js';
 import {bottomWindow, Lines} from './components/Lines.js';
@@ -13,6 +26,7 @@ import {Frame, SidePanel, statusLine, TooSmall} from './components/Panels.js';
 import {backspace, emptyEditor, insert, move, setValue, type EditorState} from './inputEditor.js';
 import {computeLayout} from './layout.js';
 import type {Line} from './lines.js';
+import {IMPROVEMENT_CHOICES, STATUS_LABELS, type Interaction} from './runView.js';
 import type {DoctorState, Message, NewMessage, Services, SessionInfo, StartupNote} from './session.js';
 import {createTheme} from './theme.js';
 
@@ -32,6 +46,8 @@ const OVERLAY_TITLES: Record<OverlayKind, string> = {
 	doctor: 'Kiểm tra môi trường',
 	settings: 'Cài đặt',
 	framework: 'Framework',
+	plans: 'Plan của repo này',
+	records: 'Record tự cải tiến',
 };
 
 /** One line after a clean start: the provider is signed in, plus the Python and Git versions found. */
@@ -42,13 +58,17 @@ function readySummary(report: DoctorReport): string {
 	return `Sẵn sàng: ${parts.filter(Boolean).join(' · ')}.`;
 }
 
+const ACTIVE: RunState['status'][] = ['running', 'checking'];
+/** Shift+Enter as xterm's modifyOtherKeys reports it, which Ink does not parse: ESC [27;<mod>;13~ */
+const MODIFIED_ENTER = /^\[27;\d+;13~$/;
+
 export function App(props: AppProps) {
 	const {exit} = useApp();
 	const {columns, rows} = useWindowSize();
 	const [config, setConfig] = useState(props.initialConfig);
 	const theme = useMemo(
 		() => createTheme(config, props.env ?? process.env, props.platform ?? process.platform),
-		[config.theme, config.glyphs, props.env, props.platform],
+		[config.theme, config.glyphs, config.colors, props.env, props.platform],
 	);
 	const nextId = useRef(0);
 	const newId = () => nextId.current++;
@@ -56,7 +76,15 @@ export function App(props: AppProps) {
 		{id: newId(), kind: 'welcome'},
 		...(props.startupNotes ?? []).map(note => ({id: newId(), kind: 'note' as const, ...note})),
 	]);
-	const [editor, setEditor] = useState<EditorState>(emptyEditor);
+	const [editor, setEditorState] = useState<EditorState>(emptyEditor);
+	// Key events of one burst (fast typing, or a Vietnamese input method sending backspaces and the accented
+	// letters together) are handled before React renders again; each must start from the result of the previous
+	// one, so the latest editor state lives in a ref that every update writes synchronously.
+	const editorRef = useRef(editor);
+	const setEditor = (next: EditorState | ((current: EditorState) => EditorState)) => {
+		editorRef.current = typeof next === 'function' ? next(editorRef.current) : next;
+		setEditorState(editorRef.current);
+	};
 	const [history, setHistory] = useState<string[]>([]);
 	const [historyIndex, setHistoryIndex] = useState<number | null>(null);
 	const [paletteIndex, setPaletteIndex] = useState(0);
@@ -65,6 +93,16 @@ export function App(props: AppProps) {
 	const [overlayTop, setOverlayTop] = useState(0);
 	const [settingsIndex, setSettingsIndex] = useState(0);
 	const [doctor, setDoctor] = useState<DoctorState>({state: 'idle'});
+
+	// Runs: their state for drawing, their controllers for acting, and the answers being collected.
+	const [runs, setRuns] = useState<Record<number, RunState>>({});
+	const controllers = useRef(new Map<number, RunController>());
+	const [activeRunId, setActiveRunId] = useState<number | null>(null);
+	const [lastRunId, setLastRunId] = useState<number | null>(null);
+	const chatSession = useRef<string | null>(null);
+	const [answers, setAnswers] = useState<string[]>([]);
+	// The option the pointer is on, remembered per question; a new question starts at its recommended option.
+	const [choiceState, setChoiceState] = useState<{key: string; index: number}>({key: '', index: 0});
 
 	const addMessages = useCallback((added: NewMessage[]) => {
 		setMessages(current => [...current, ...added.map(message => ({...message, id: nextId.current++}) as Message)]);
@@ -105,20 +143,51 @@ export function App(props: AppProps) {
 		// Only at start; later checks come from /doctor.
 	}, []);
 
-	const suggestions = overlay ? [] : suggestCommands(editor.value);
-	useEffect(() => setPaletteIndex(0), [editor.value]);
+	// Stop a running provider process when the TUI closes, so it does not keep working unseen.
+	useEffect(() => () => controllers.current.forEach(controller => controller.stop()), []);
 
-	const providerCheck = doctor.state === 'done' ? doctor.report.checks : doctor.state === 'running' ? doctor.previous?.checks : undefined;
-	const providerState = providerCheck?.find(check => check.id === 'provider')?.state;
+	const report = doctor.state === 'done' ? doctor.report : doctor.state === 'running' ? doctor.previous : undefined;
+	const providerState = report?.checks.find(check => check.id === 'provider')?.state;
 	const provider: ProviderBadge = {label: getProvider(config.provider).label, state: providerState ?? 'checking'};
+
+	const activeRun = activeRunId === null ? null : runs[activeRunId] ?? null;
+	const panelRun = activeRun ?? (lastRunId === null ? null : runs[lastRunId] ?? null);
+
+	// What the TUI waits for from the user, if anything: the next unanswered question, or the improvements decision.
+	const pending = (() => {
+		if (!activeRun) return null;
+		if (activeRun.status === 'waiting' && activeRun.questions.length > 0) {
+			const index = Math.min(answers.length, activeRun.questions.length - 1);
+			const question = activeRun.questions[index]!;
+			return {kind: 'question' as const, key: `q-${activeRun.id}-${index}`, index, question, count: question.options.length, initial: question.recommended ?? 0};
+		}
+		if (activeRun.status === 'improvements' && activeRun.improvements?.state === 'pending') {
+			return {kind: 'improvements' as const, key: `i-${activeRun.id}`, count: IMPROVEMENT_CHOICES.length, initial: 0};
+		}
+		return null;
+	})();
+	const choice = pending ? (choiceState.key === pending.key ? choiceState.index : pending.initial) : 0;
+	const moveChoice = (step: 1 | -1) => {
+		if (!pending || pending.count === 0) return;
+		setChoiceState(previous => {
+			const current = previous.key === pending.key ? previous.index : pending.initial;
+			return {key: pending.key, index: (current + step + pending.count) % pending.count};
+		});
+	};
+	const interaction: Interaction | null = !pending
+		? null
+		: pending.kind === 'question'
+			? {kind: 'question', runId: activeRun!.id, index: pending.index, total: activeRun!.questions.length, question: pending.question, selected: choice}
+			: {kind: 'improvements', runId: activeRun!.id, selected: choice};
 
 	const layout = computeLayout(columns, rows);
 	const bodyWidth = layout.kind === 'ok' ? columns - layout.sidePanel : columns;
 	const chatWidth = Math.max(1, bodyWidth - 2);
-	const transcript = useMemo(() => transcriptLines(messages, chatWidth, theme), [messages, chatWidth, theme]);
+	const transcript = useMemo(() => transcriptLines(messages, chatWidth, theme, {runs, interaction}), [messages, chatWidth, theme, runs, interaction]);
 
 	const overlayLines = (): Line[] => {
 		const inner = bodyWidth - 4;
+		const target = props.info.target.kind === 'git' ? props.info.target.root : null;
 		switch (overlay) {
 			case 'help':
 				return helpLines(inner, theme);
@@ -128,12 +197,121 @@ export function App(props: AppProps) {
 				return frameworkLines(props.info, inner, theme);
 			case 'settings':
 				return settingsLines(config, settingsIndex, inner, theme);
+			case 'plans':
+				return plansLines(target && props.services.plans ? props.services.plans() : null, props.info.hub?.path ?? null, inner, theme);
+			case 'records':
+				return recordsLines(props.services.records ? props.services.records() : null, inner, theme);
 			default:
 				return [];
 		}
 	};
 
+	// ---------- runs ----------
+
+	const watch = (controller: RunController) => {
+		const id = controller.state.id;
+		controllers.current.set(id, controller);
+		setRuns(current => ({...current, [id]: controller.state}));
+		setActiveRunId(id);
+		setLastRunId(id);
+		setAnswers([]);
+		let savedAs = '';
+		controller.subscribe(state => {
+			setRuns(current => ({...current, [id]: state}));
+			if (state.kind === 'chat') {
+				if (state.sessionId) chatSession.current = state.sessionId;
+				if (state.suggestion && state.status !== 'running') setEditor(setValue(state.suggestion));
+			} else {
+				// Saved for /resume whenever the session or the status changes, not on every tool call.
+				const key = `${state.sessionId}|${state.status}|${state.questions.length}`;
+				if (state.sessionId && key !== savedAs) {
+					savedAs = key;
+					props.services.saveRun?.(controller.persisted());
+				}
+			}
+			if (state.status === 'done' || state.status === 'failed' || state.status === 'stopped') {
+				setActiveRunId(current => (current === id ? null : current));
+			}
+		});
+		addMessages([{kind: 'run', runId: id}]);
+		void controller.start();
+	};
+
+	/** Python and a ready provider are required before anything is sent; the user gets the reason otherwise. */
+	const runBlocker = (kind: RunKind): string | null => {
+		if (!props.services.startRun) return 'Bản này chưa nối với provider.';
+		if (activeRunId !== null) return 'Đang có run chưa xong. Đợi run xong, trả lời câu hỏi của run, hoặc nhấn Esc để dừng.';
+		if (!props.info.hub) return `Không có Hub: ${props.info.hubError ?? 'lỗi không rõ'}.`;
+		if (!report) return 'Đang kiểm tra môi trường; thử lại sau giây lát.';
+		const providerCheck = report?.checks.find(check => check.id === 'provider');
+		if (providerCheck?.state === 'fail') return `${providerCheck.label} chưa sẵn sàng (${providerCheck.detail}). Gõ /doctor để xem cách xử lý.`;
+		if (kind !== 'chat' && report && !report.python) return 'Không tìm thấy Python 3.9+; các công cụ của framework cần Python. Gõ /doctor để xem cách xử lý.';
+		return null;
+	};
+
+	const recentOutputs = () =>
+		Object.values(runs)
+			.filter(run => run.kind !== 'chat' && run.status === 'done')
+			.flatMap(run => [run.outputs.planSet, run.outputs.planFile, run.outputs.report].filter((path): path is string => !!path))
+			.slice(-6);
+
+	const startRun = (kind: RunKind, request: string): string | null => {
+		const blocker = runBlocker(kind);
+		if (blocker) return blocker;
+		const controller = props.services.startRun!({
+			id: newId(),
+			kind,
+			request,
+			config,
+			python: report?.python ?? null,
+			// Chat messages continue one provider session, so the coordinator keeps the conversation's context.
+			resume: kind === 'chat' && chatSession.current ? {sessionId: chatSession.current, prompt: request} : undefined,
+			recentOutputs: kind === 'chat' ? recentOutputs() : undefined,
+		});
+		watch(controller);
+		return null;
+	};
+
+	const resumeRun = (): NewMessage => {
+		const last = props.services.lastRun?.() ?? null;
+		if (!resumable(last)) return {kind: 'note', tone: 'info', text: 'Không có run nào đang dở.'};
+		const blocker = runBlocker(last.kind);
+		if (blocker) return {kind: 'note', tone: 'error', text: blocker};
+		const controller = props.services.startRun!({
+			id: newId(),
+			kind: last.kind,
+			request: last.request,
+			config,
+			python: report?.python ?? null,
+			resume: {sessionId: last.sessionId!, status: last.status, questions: last.questions, before: last.before},
+		});
+		watch(controller);
+		return {kind: 'note', tone: 'info', text: `Chạy tiếp ${LAYER_LABELS[last.kind]}: ${last.request}`};
+	};
+
+	const copyLatest = async () => {
+		const run = [...Object.values(runs)].reverse().find(item => item.reply);
+		if (!run?.reply) {
+			addMessages([{kind: 'note', tone: 'info', text: 'Chưa có câu trả lời nào để copy.'}]);
+			return;
+		}
+		const how = props.services.clipboard ? await props.services.clipboard.copy(run.reply) : 'failed';
+		addMessages([
+			how === 'failed'
+				? {kind: 'note', tone: 'error', text: 'Không copy được: không tìm thấy công cụ clipboard của hệ thống.'}
+				: {kind: 'note', tone: 'success', text: how === 'native' ? 'Đã copy câu trả lời gần nhất vào clipboard.' : 'Đã gửi câu trả lời gần nhất tới clipboard qua terminal.'},
+		]);
+	};
+
+	const pasteClipboard = async () => {
+		const text = props.services.clipboard ? await props.services.clipboard.paste() : null;
+		if (text) setEditor(current => insert(current, text));
+		else addMessages([{kind: 'note', tone: 'warning', text: 'Không đọc được clipboard. Dùng phím dán của terminal (chuột phải, Ctrl+Shift+V).'}]);
+	};
+
 	// ---------- heights ----------
+	const suggestions = overlay || interaction ? [] : suggestCommands(editor.value);
+	useEffect(() => setPaletteIndex(0), [editor.value]);
 	const headerHeight = layout.kind === 'ok' && layout.header !== 'hidden' ? 1 : 0;
 	const inputLinesShown = layout.kind === 'ok' ? inputHeight(editor, columns - 4, layout.inputMaxLines, theme) : 1;
 	const inputBoxHeight = inputLinesShown + 2;
@@ -142,20 +320,18 @@ export function App(props: AppProps) {
 	const paletteShown = layout.kind === 'ok' ? Math.max(0, Math.min(suggestions.length, layout.paletteMax, room - 3)) : 0;
 	const bodyHeight = Math.max(1, room - paletteShown);
 	const overlayPage = Math.max(1, bodyHeight - 4);
+	const overlayContent = overlay ? overlayLines() : [];
+	// The first line of the last page: scrolling further down stops there, so one PgUp always moves back.
+	const overlayMaxTop = Math.max(0, overlayContent.length - Math.max(1, bodyHeight - 3 - 1));
 
-	const submit = (raw: string) => {
-		const parsed = parseInput(raw);
-		if (parsed.kind === 'empty') return;
-		setHistory(current => (current.at(-1) === raw ? current : [...current, raw]));
-		setHistoryIndex(null);
-		setEditor(emptyEditor);
-		const effects = dispatch(parsed, {target: props.info.target});
+	const applyEffects = (effects: Effect[], echo: string) => {
 		if (effects.some(effect => effect.type === 'clear')) {
 			setMessages([{id: newId(), kind: 'welcome'}]);
 			setScroll(0);
 			return;
 		}
-		const added: NewMessage[] = [{kind: 'user', text: raw.trim()}];
+		const added: NewMessage[] = [{kind: 'user', text: echo}];
+		let afterwards: (() => void) | null = null;
 		for (const effect of effects) {
 			if (effect.type === 'note') added.push({kind: 'note', tone: effect.tone, text: effect.text, hint: effect.hint});
 			if (effect.type === 'overlay') {
@@ -165,8 +341,62 @@ export function App(props: AppProps) {
 			}
 			if (effect.type === 'doctor') startDoctor(false);
 			if (effect.type === 'exit') exit();
+			if (effect.type === 'copy') afterwards = () => void copyLatest();
+			if (effect.type === 'resume') afterwards = () => addMessages([resumeRun()]);
+			if (effect.type === 'run') {
+				const kind = effect.kind;
+				const request = effect.request;
+				afterwards = () => {
+					const blocker = startRun(kind, request);
+					if (blocker) addMessages([{kind: 'note', tone: 'error', text: blocker}]);
+				};
+			}
 		}
 		addMessages(added);
+		(afterwards as (() => void) | null)?.();
+	};
+
+	const submit = (raw: string) => {
+		const parsed = parseInput(raw);
+		if (parsed.kind === 'empty') return;
+		setHistory(current => (current.at(-1) === raw ? current : [...current, raw]));
+		setHistoryIndex(null);
+		setEditor(emptyEditor);
+		applyEffects(dispatch(parsed, {target: props.info.target}), raw.trim());
+	};
+
+	/** Enter while a run waits on the user: picks an option, or sends typed text as the answer. */
+	const answerInteraction = (current: Interaction, typed: string) => {
+		const controller = controllers.current.get(current.runId);
+		if (!controller) return;
+		setEditor(emptyEditor);
+		if (current.kind === 'improvements') {
+			const number = Number(typed);
+			const index = typed && Number.isInteger(number) && number >= 1 && number <= IMPROVEMENT_CHOICES.length ? number - 1 : typed ? -1 : current.selected;
+			if (index < 0) {
+				addMessages([{kind: 'note', tone: 'warning', text: 'Chọn 1, 2 hoặc 3.'}]);
+				return;
+			}
+			void controller.resolveImprovements(IMPROVEMENT_CHOICES[index]!.id);
+			return;
+		}
+		const options = current.question.options;
+		const number = Number(typed);
+		const answer =
+			typed === ''
+				? options[current.selected] ?? ''
+				: Number.isInteger(number) && number >= 1 && number <= options.length
+					? options[number - 1]!
+					: typed;
+		if (!answer) return;
+		const collected = [...answers, answer];
+		addMessages([{kind: 'user', text: `${current.question.id}: ${answer}`}]);
+		if (collected.length >= current.total) {
+			setAnswers([]);
+			void controller.answer(collected);
+		} else {
+			setAnswers(collected);
+		}
 	};
 
 	const changeSetting = (step: 1 | -1) => {
@@ -180,15 +410,23 @@ export function App(props: AppProps) {
 		}
 	};
 
-	const complete = (index: number): string | null => {
-		const spec = suggestions[index];
-		if (!spec) return null;
-		const text = `/${spec.name}${spec.takesRequest ? ' ' : ''}`;
-		setEditor(setValue(text));
-		return text;
+	const complete = (index: number) => {
+		const spec = suggestCommands(editorRef.current.value)[index];
+		if (spec) setEditor(setValue(`/${spec.name}${spec.takesRequest ? ' ' : ''}`));
+	};
+
+	const stopActive = () => {
+		if (activeRunId === null) return false;
+		controllers.current.get(activeRunId)?.stop();
+		return true;
 	};
 
 	useInput((input, key) => {
+		const editor = editorRef.current;
+		if (key.ctrl && input === 'c') {
+			if (!stopActive()) exit();
+			return;
+		}
 		if (overlay) {
 			if (key.escape) {
 				setOverlay(null);
@@ -202,17 +440,32 @@ export function App(props: AppProps) {
 				else if (key.leftArrow) changeSetting(-1);
 				return;
 			}
-			if (key.upArrow) setOverlayTop(top => Math.max(0, top - 1));
-			else if (key.downArrow) setOverlayTop(top => top + 1);
-			else if (key.pageUp) setOverlayTop(top => Math.max(0, top - overlayPage));
-			else if (key.pageDown) setOverlayTop(top => top + overlayPage);
+			if (key.upArrow) setOverlayTop(top => Math.max(0, Math.min(top, overlayMaxTop) - 1));
+			else if (key.downArrow) setOverlayTop(top => Math.min(overlayMaxTop, top + 1));
+			else if (key.pageUp) setOverlayTop(top => Math.max(0, Math.min(top, overlayMaxTop) - overlayPage));
+			else if (key.pageDown) setOverlayTop(top => Math.min(overlayMaxTop, top + overlayPage));
 			return;
 		}
 
+		const newline = (key.return && (key.shift || key.meta)) || (key.ctrl && input === 'j') || input === '\n' || MODIFIED_ENTER.test(input);
+		if (newline) {
+			setEditor(insert(editor, '\n'));
+			return;
+		}
+		if (key.ctrl && input === 'v') {
+			void pasteClipboard();
+			return;
+		}
+
+		const suggestions = interaction ? [] : suggestCommands(editor.value);
 		const paletteOpen = suggestions.length > 0;
 		if (key.upArrow || key.downArrow) {
+			const step = key.upArrow ? -1 : 1;
+			if (interaction && editor.value === '') {
+				moveChoice(step);
+				return;
+			}
 			if (paletteOpen) {
-				const step = key.upArrow ? -1 : 1;
 				setPaletteIndex(index => (index + step + suggestions.length) % suggestions.length);
 				return;
 			}
@@ -237,6 +490,10 @@ export function App(props: AppProps) {
 				setEditor(insert(backspace(move(editor, 'end')), '\n'));
 				return;
 			}
+			if (interaction && !editor.value.startsWith('/')) {
+				answerInteraction(interaction, editor.value.trim());
+				return;
+			}
 			if (paletteOpen) {
 				const spec = suggestions[paletteIndex]!;
 				if (spec.takesRequest) complete(paletteIndex);
@@ -247,6 +504,10 @@ export function App(props: AppProps) {
 			return;
 		}
 		if (key.escape) {
+			if (editor.value === '' && activeRun && ACTIVE.includes(activeRun.status)) {
+				stopActive();
+				return;
+			}
 			setEditor(emptyEditor);
 			setHistoryIndex(null);
 			return;
@@ -282,21 +543,24 @@ export function App(props: AppProps) {
 	];
 
 	const g = theme.glyphs;
+	const running = activeRun && ACTIVE.includes(activeRun.status);
 	const hints = (
 		overlay
 			? overlay === 'settings'
 				? [`${g.upDown} chọn`, `${g.leftRight} đổi`, 'Esc đóng']
 				: [`${g.upDown} PgUp/PgDn cuộn`, 'Esc đóng']
-			: suggestions.length > 0
-				? [`${g.upDown} chọn`, 'Tab hoàn thành', 'Enter chạy']
-				: ['Enter gửi', 'PgUp/PgDn cuộn', '/help']
+			: interaction
+				? [`${g.upDown} chọn`, 'Enter xác nhận']
+				: running
+					? ['Esc dừng run', 'PgUp/PgDn cuộn']
+					: suggestions.length > 0
+						? [`${g.upDown} chọn`, 'Tab hoàn thành', 'Enter chạy']
+						: ['Enter gửi', 'Shift+Enter xuống dòng', '/help']
 	).join(` ${g.sep} `);
-	const status = statusLine(
-		{usage: '0 lượt gọi', run: doctor.state === 'running' ? 'đang kiểm tra môi trường' : 'không có run', hints},
-		layout.status,
-		columns,
-		theme,
-	);
+	const totals = Object.values(runs).reduce((sum, run) => ({calls: sum.calls + run.usage.calls, tokens: sum.tokens + run.usage.inputTokens + run.usage.outputTokens}), {calls: 0, tokens: 0});
+	const usage = totals.tokens > 0 ? `${totals.calls} lượt gọi ${g.sep} ${totals.tokens.toLocaleString('vi-VN')} token` : `${totals.calls} lượt gọi`;
+	const runText = activeRun ? `${LAYER_LABELS[activeRun.kind]}: ${STATUS_LABELS[activeRun.status]}` : doctor.state === 'running' ? 'đang kiểm tra môi trường' : 'không có run';
+	const status = statusLine({usage, run: runText, hints}, layout.status, columns, theme);
 
 	return (
 		<Box flexDirection="column" width={columns} height={rows}>
@@ -306,7 +570,7 @@ export function App(props: AppProps) {
 					<Frame
 						title={OVERLAY_TITLES[overlay]}
 						hint="Esc đóng"
-						lines={overlayLines()}
+						lines={overlayContent}
 						width={bodyWidth}
 						height={bodyHeight}
 						top={overlayTop}
@@ -318,9 +582,9 @@ export function App(props: AppProps) {
 						<Lines lines={chatLines} theme={theme} />
 					</Box>
 				)}
-				{layout.sidePanel > 0 && <SidePanel info={props.info} provider={provider} width={layout.sidePanel} height={bodyHeight} theme={theme} />}
+				{layout.sidePanel > 0 && <SidePanel info={props.info} provider={provider} run={panelRun} width={layout.sidePanel} height={bodyHeight} theme={theme} />}
 			</Box>
-			<InputBox editor={editor} columns={columns} maxLines={layout.inputMaxLines} theme={theme} focused={!overlay} />
+			<InputBox editor={editor} columns={columns} maxLines={layout.inputMaxLines} theme={theme} focused={!overlay} placeholder={interaction ? (interaction.kind === 'question' ? 'Nhập câu trả lời, hoặc Enter để chọn mục đang trỏ' : 'Enter để chọn mục đang trỏ, hoặc gõ 1–3') : undefined} />
 			{paletteShown > 0 && <Lines lines={paletteLines(suggestions, paletteIndex, paletteShown, columns, theme)} theme={theme} />}
 			<Lines lines={[status]} theme={theme} />
 		</Box>

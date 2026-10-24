@@ -5,10 +5,14 @@ export const PROVIDER_IDS = ['claude', 'codex', 'gemini', 'copilot'] as const;
 export type ProviderId = (typeof PROVIDER_IDS)[number];
 export type ThemeSetting = 'auto' | 'dark' | 'light';
 export type GlyphSetting = 'auto' | 'unicode' | 'ascii';
+export const COLOR_SCHEME_IDS = ['pirl', 'ocean', 'forest', 'sunset', 'grape', 'mono'] as const;
+export type ColorScheme = (typeof COLOR_SCHEME_IDS)[number];
 
 export type Config = {
 	provider: ProviderId;
 	theme: ThemeSetting;
+	/** Accent, prompt and border colors (src/ui/theme.ts, COLOR_SCHEMES). */
+	colors: ColorScheme;
 	glyphs: GlyphSetting;
 	/** How many independent roles of one layer run may call the provider at the same time. */
 	maxParallelRoles: number;
@@ -17,6 +21,7 @@ export type Config = {
 export const DEFAULT_CONFIG: Config = {
 	provider: 'claude',
 	theme: 'auto',
+	colors: 'pirl',
 	glyphs: 'auto',
 	maxParallelRoles: 2,
 };
@@ -33,6 +38,7 @@ export function normalizeConfig(raw: unknown): Config {
 	return {
 		provider: oneOf(data['provider'], PROVIDER_IDS, DEFAULT_CONFIG.provider),
 		theme: oneOf(data['theme'], ['auto', 'dark', 'light'] as const, DEFAULT_CONFIG.theme),
+		colors: oneOf(data['colors'], COLOR_SCHEME_IDS, DEFAULT_CONFIG.colors),
 		glyphs: oneOf(data['glyphs'], ['auto', 'unicode', 'ascii'] as const, DEFAULT_CONFIG.glyphs),
 		maxParallelRoles:
 			typeof parallel === 'number' && Number.isInteger(parallel) && parallel >= PARALLEL_LIMITS.min && parallel <= PARALLEL_LIMITS.max
