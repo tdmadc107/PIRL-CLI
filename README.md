@@ -227,9 +227,9 @@ Windows với Node 22 và 24.
    `pirl.frameworkVersion`: Hub của người dùng so bản này với nhánh `upstream` để báo có framework mới.
 2. Merge vào `main`, đợi CI xanh.
 3. Tạo tag `v<version>` (ví dụ `git tag v1.0.0 && git push origin v1.0.0`). Workflow
-   `.github/workflows/release.yml` kiểm tra tag khớp `package.json`, chạy `pack:check`, đăng lên npm kèm
-   provenance và tạo GitHub release. Workflow cần secret `NPM_TOKEN` (automation token của npm) trong
-   Settings → Secrets and variables → Actions của repo.
+   `.github/workflows/release.yml` kiểm tra tag khớp `package.json`, chạy `pack:check`, đăng lên npm và tạo
+   GitHub release. Provenance chỉ được ký khi repo public. Workflow cần secret `NPM_TOKEN` (granular access
+   token của npm có quyền publish) trong Settings → Secrets and variables → Actions của repo.
 
 `npm install` dùng `legacy-peer-deps` (đặt trong `.npmrc`) để tránh một lỗi của npm khi giải peer
 dependency của Vitest.
