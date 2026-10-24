@@ -614,22 +614,30 @@ export function App(props: AppProps) {
 
 		const suggestions = interaction ? [] : suggestCommands(editor.value);
 		const paletteOpen = suggestions.length > 0;
-		if (key.upArrow || key.downArrow) {
-			const step = key.upArrow ? -1 : 1;
-			if (interaction && editor.value === '') {
+		const recall = key.ctrl && (input === 'p' || input === 'n');
+		if (key.upArrow || key.downArrow || recall) {
+			const up = key.upArrow || input === 'p';
+			const step = up ? -1 : 1;
+			if (!recall && interaction && editor.value === '') {
 				moveChoice(step);
 				return;
 			}
-			if (paletteOpen) {
+			if (!recall && paletteOpen) {
 				setPaletteIndex(index => (index + step + suggestions.length) % suggestions.length);
 				return;
 			}
+			// With the mouse left to the terminal its wheel arrives as ↑/↓, so they scroll the chat and
+			// Ctrl+P/Ctrl+N recall what was typed.
+			if (!recall && config.mouse === 'select') {
+				scrollChat(up ? 1 : -1);
+				return;
+			}
 			if (editor.value.includes('\n')) return;
-			if (key.upArrow && history.length > 0) {
+			if (up && history.length > 0) {
 				const index = historyIndex === null ? history.length - 1 : Math.max(0, historyIndex - 1);
 				setHistoryIndex(index);
 				setEditor(setValue(history[index]!));
-			} else if (key.downArrow && historyIndex !== null) {
+			} else if (!up && historyIndex !== null) {
 				const index = historyIndex + 1;
 				setHistoryIndex(index >= history.length ? null : index);
 				setEditor(index >= history.length ? emptyEditor : setValue(history[index]!));
@@ -667,12 +675,8 @@ export function App(props: AppProps) {
 			setHistoryIndex(null);
 			return;
 		}
-		if (key.pageUp) {
-			setScroll(current => Math.min(current + Math.max(1, bodyHeight - 2), Math.max(0, transcript.length - bodyHeight + 1)));
-			return;
-		}
-		if (key.pageDown) {
-			setScroll(current => Math.max(0, current - Math.max(1, bodyHeight - 2)));
+		if (key.pageUp || key.pageDown) {
+			scrollChat((key.pageUp ? 1 : -1) * Math.max(1, bodyHeight - 2));
 			return;
 		}
 		if (key.backspace || key.delete) setEditor(backspace(editor));
@@ -686,13 +690,15 @@ export function App(props: AppProps) {
 
 	/** Mouse wheel: three lines per notch in the chat or the open panel. */
 	const WHEEL_LINES = 3;
+	/** Scrolls the chat by `lines`: positive toward older lines. */
+	const scrollChat = (lines: number) => setScroll(current => Math.max(0, Math.min(current + lines, Math.max(0, transcript.length - bodyHeight + 1))));
 	const scrollByWheel = (notches: number) => {
 		const lines = notches * WHEEL_LINES;
 		if (overlay === 'framework') framework.wheel(lines);
 		else if (overlay && listContent) list.wheel(lines, listContent.entries);
 		else if (overlay === 'settings') return;
 		else if (overlay) setOverlayTop(top => Math.max(0, Math.min(overlayMaxTop, Math.min(top, overlayMaxTop) - lines)));
-		else setScroll(current => Math.max(0, Math.min(current + lines, Math.max(0, transcript.length - bodyHeight + 1))));
+		else scrollChat(lines);
 	};
 
 	useInput((raw, key) => {

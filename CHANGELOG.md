@@ -29,9 +29,9 @@ Bản phát hành đầu tiên. Provider: Claude Code (2.1.281 trở lên). Fram
 - Theo dõi run: spinner, đồng hồ, việc từng role đang làm; nhật ký đầy đủ ở `~/.pirl/logs/`.
 - Token theo loại (đọc cache, ghi cache, ra, vào mới) gồm cả các role, và giá trị quy đổi theo giá API.
 - Hạn mức 5 giờ và tuần trong bảng bên phải: thanh phần trăm và giờ đặt lại.
-- Con lăn chuột cuộn hội thoại và các bảng.
+- Con lăn chuột cuộn hội thoại và các bảng, trong khi kéo chuột vẫn bôi đen chữ như bình thường.
 - `/settings`: model coordinator (mặc định Sonnet), model các role, mức suy luận (áp dụng cho mọi role), số role
-  chạy song song, bảng màu, giao diện, ký hiệu, hiệu ứng chuyển động, cuộn bằng chuột.
+  chạy song song, bảng màu, giao diện, ký hiệu, hiệu ứng chuyển động, chuột.
 - `/plans`, `/records`, `/doctor`, `/copy`, `/clear`, `/help`, `/exit`; dán bằng Ctrl+V; xuống dòng bằng
   Shift+Enter, Ctrl+J hoặc `\` + Enter.
 - Bố cục co giãn từ 40 cột; hỗ trợ bộ gõ tiếng Việt.

@@ -1,6 +1,6 @@
 import type {Tone} from '../commands/dispatch.js';
 import type {Clipboard} from '../core/clipboard.js';
-import type {Config} from '../core/config.js';
+import type {Config, MouseSetting} from '../core/config.js';
 import type {TargetRepo} from '../core/targetRepo.js';
 import type {DoctorReport} from '../doctor/doctor.js';
 import type {PlanPackage, RecordSummary} from '../engine/hubData.js';
@@ -84,8 +84,8 @@ export type Services = {
 	framework?: FrameworkServices;
 	/** The plan's usage windows from the provider (`/usage`, no model request); null when it does not report them. */
 	quota?(): Promise<QuotaRow[] | null>;
-	/** Turns the terminal's mouse reporting on or off, for wheel scrolling. */
-	setMouse?(on: boolean): void;
+	/** Tells the terminal what PIRL wants from the mouse (src/ui/terminalInput.ts, mouseSequence). */
+	setMouse?(mode: MouseSetting): void;
 };
 
 export type StartupNote = {tone: Tone; text: string; hint?: string};

@@ -68,7 +68,8 @@ Trong TUI, gõ `/` để xem danh sách lệnh, hoặc `/help` để xem lệnh 
 | Shift+Enter | Xuống dòng trong ô nhập. Cũng được: `\` rồi Enter, Ctrl+J, Alt+Enter |
 | Ctrl+V | Dán từ clipboard (phím dán của terminal, chuột phải cũng được) |
 | Tab | Hoàn thành tên lệnh đang chọn |
-| ↑ / ↓ | Chọn lệnh gợi ý, chọn đáp án khi run hỏi, hoặc xem lại nội dung đã gửi |
+| ↑ / ↓ | Chọn lệnh gợi ý hoặc đáp án khi run hỏi; ngoài ra cuộn khung chat (khi chuột là "Bôi đen tự do", mặc định) hoặc xem lại nội dung đã gửi |
+| Ctrl+P / Ctrl+N | Xem lại nội dung đã gửi |
 | PgUp / PgDn, con lăn chuột | Cuộn khung chat hoặc bảng đang mở |
 | Esc | Xoá ô nhập, đóng bảng đang mở, hoặc dừng run đang chạy |
 | Ctrl+C | Dừng run đang chạy; khi không có run thì thoát |
@@ -77,8 +78,11 @@ Shift+Enter cần terminal báo được phím bổ trợ (giao thức bàn phí
 kitty, WezTerm, Ghostty, iTerm2. Với Windows Terminal bản cũ hơn, dùng Ctrl+J, hoặc thêm vào `settings.json`
 một phím tắt `{"command": {"action": "sendInput", "input": "\n"}, "keys": "shift+enter"}`.
 
-Copy: giữ Shift rồi kéo chuột để bôi đen (vì con lăn đang dùng để cuộn); `/copy` copy nguyên câu trả lời gần
-nhất của PIRL. Muốn bôi đen không cần Shift thì tắt "Cuộn bằng chuột" trong `/settings`.
+Copy: kéo chuột để bôi đen như mọi nội dung trong terminal; `/copy` copy nguyên câu trả lời gần nhất của PIRL.
+Con lăn chuột cuộn hội thoại: terminal gửi con lăn thành phím ↑/↓, nên ↑/↓ cuộn hội thoại và Ctrl+P/Ctrl+N gọi
+lại lệnh đã gõ. Cách này cần terminal có alternate scroll (Windows Terminal, VS Code, iTerm2, Terminal của macOS,
+GNOME Terminal, kitty, WezTerm). Nếu con lăn không cuộn, chọn "Chuột: Con lăn của PIRL" trong `/settings`: con
+lăn chạy trên mọi terminal, nhưng bôi đen phải giữ Shift khi kéo.
 
 ### Một run diễn ra thế nào
 
@@ -135,7 +139,7 @@ giá API, rồi so với phần trăm hạn mức mà run đã dùng. Sau vài r
   chuyển mức này thành một con số nội bộ, khác nhau theo model và phiên bản. Ví dụ Sonnet nhận low 4, medium 5,
   high 10, xhigh 30; Opus nhận low 5, high 15, xhigh 40. Con số đó không phải thang điểm: model trả lời "10"
   nghĩa là Sonnet đang chạy mức high.
-- cuộn bằng chuột.
+- chuột: bôi đen tự do (mặc định), con lăn của PIRL, hoặc tắt.
 - số role chạy song song.
 
 PIRL CLI chỉ cấp cho run các công cụ nó dùng và không nạp MCP server của bạn. Nhờ vậy mỗi request gửi ít

@@ -1,4 +1,5 @@
 import {afterEach, describe, expect, test} from 'vitest';
+import {DEFAULT_CONFIG} from '../src/core/config.js';
 import {App} from '../src/ui/App.js';
 import {width} from '../src/ui/text.js';
 import {appProps, READY_REPORT, sessionInfo} from './helpers/fixtures.js';
@@ -139,14 +140,41 @@ describe('input and command palette', () => {
 		expect(terminal.frame()).toContain('› thêm');
 	});
 
-	test('↑ recalls what was sent; Esc clears the input', async () => {
+	const sent = (frame: string) => frame.split('› /resume').length - 1;
+
+	test('Ctrl+P recalls what was sent; Esc clears the input', async () => {
 		const {terminal} = await start(100, 30);
 		await terminal.type('/resume');
 		await terminal.press(KEYS.enter);
-		await terminal.press(KEYS.up);
-		expect(terminal.frame()).toContain('› /resume');
+		expect(sent(terminal.frame())).toBe(1);
+		await terminal.press('\x10');
+		expect(sent(terminal.frame())).toBe(2);
+		await terminal.press('\x0e');
+		expect(sent(terminal.frame())).toBe(1);
+		await terminal.press('\x10');
 		await terminal.press(KEYS.escape);
 		expect(terminal.frame()).toContain('Gõ / để xem lệnh, hoặc nhập yêu cầu');
+	});
+
+	test('with the mouse left to the terminal, ↑/↓ (and so its wheel) scroll the chat', async () => {
+		const {terminal} = await start(80, 16);
+		for (let i = 0; i < 6; i++) {
+			await terminal.type('/khong-co');
+			await terminal.press(KEYS.enter);
+		}
+		for (let i = 0; i < 40; i++) await terminal.press(KEYS.up);
+		expect(terminal.frame()).toContain('PIRL · Plan · Implement · Review');
+		expect(terminal.frame()).toContain('Gõ / để xem lệnh');
+		for (let i = 0; i < 40; i++) await terminal.press(KEYS.down);
+		expect(terminal.frame()).not.toContain('dòng mới hơn');
+	});
+
+	test('with the wheel taken by PIRL, ↑ recalls what was sent', async () => {
+		const {terminal} = await start(100, 30, {initialConfig: {...DEFAULT_CONFIG, mouse: 'wheel'}});
+		await terminal.type('/resume');
+		await terminal.press(KEYS.enter);
+		await terminal.press(KEYS.up);
+		expect(sent(terminal.frame())).toBe(2);
 	});
 
 	test('a trailing backslash and Enter add a line instead of sending', async () => {
@@ -185,7 +213,7 @@ describe('input and command palette', () => {
 	});
 
 	test('the mouse wheel scrolls the chat; terminal replies never reach the input', async () => {
-		const {terminal} = await start(80, 16);
+		const {terminal} = await start(80, 16, {initialConfig: {...DEFAULT_CONFIG, mouse: 'wheel'}});
 		for (let i = 0; i < 6; i++) {
 			await terminal.type('/khong-co');
 			await terminal.press(KEYS.enter);

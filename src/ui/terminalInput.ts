@@ -1,3 +1,5 @@
+import type {MouseSetting} from '../core/config.js';
+
 /**
  * Sequences the terminal sends that are not typed text. Ink passes some of them on as text with the leading ESC
  * removed, so they would land in the input box:
@@ -39,6 +41,16 @@ export function parseTerminalInput(input: string): TerminalInput {
 	return {text, wheel, filtered};
 }
 
-/** Turns SGR mouse reporting on or off: button presses and the wheel are reported, plain movement is not. */
-export const MOUSE_ON = '\x1b[?1000h\x1b[?1006h';
-export const MOUSE_OFF = '\x1b[?1000l\x1b[?1006l';
+/** Turns every mouse mode PIRL uses off: SGR mouse reporting and alternate scroll. */
+export const MOUSE_OFF = '\x1b[?1000l\x1b[?1006l\x1b[?1007l';
+
+/**
+ * What to send the terminal for a mouse setting (src/core/config.ts). `wheel` turns on SGR reporting of button
+ * presses and the wheel, not plain movement. `select` turns on alternate scroll: on the alternate screen the
+ * terminal sends the wheel as ↑/↓ and keeps dragging for its own selection.
+ */
+export function mouseSequence(mode: MouseSetting): string {
+	if (mode === 'wheel') return `${MOUSE_OFF}\x1b[?1000h\x1b[?1006h`;
+	if (mode === 'select') return `${MOUSE_OFF}\x1b[?1007h`;
+	return MOUSE_OFF;
+}

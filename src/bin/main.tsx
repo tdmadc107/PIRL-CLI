@@ -16,7 +16,7 @@ import {frameworkServices} from '../hub/services.js';
 import {ensureHub, type HubStatus} from '../hub/hub.js';
 import {getProvider} from '../providers/index.js';
 import {App} from '../ui/App.js';
-import {MOUSE_OFF, MOUSE_ON} from '../ui/terminalInput.js';
+import {MOUSE_OFF, mouseSequence} from '../ui/terminalInput.js';
 import type {StartupNote} from '../ui/session.js';
 
 /** The run's model settings as the provider's arguments; `default` and `inherit` leave the choice to it. */
@@ -107,7 +107,7 @@ async function main(): Promise<number> {
 				records: () => (hub ? readRecords(hub.path, targetRoot) : []),
 				clipboard: createClipboard({writeTerminal: data => process.stdout.write(data)}),
 				quota: () => (hub ? readClaudeQuota('claude', hub.path) : Promise.resolve(null)),
-				setMouse: on => process.stdout.write(on ? MOUSE_ON : MOUSE_OFF),
+				setMouse: mode => process.stdout.write(mouseSequence(mode)),
 				framework: hub && bundle ? frameworkServices(hub.path, bundle, runner, config => runModels(config).model) : undefined,
 			}}
 		/>,

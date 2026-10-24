@@ -13,6 +13,15 @@ export type ModelSetting = (typeof MODEL_IDS)[number];
 /** `inherit` runs the roles on the coordinator's model. */
 export const ROLE_MODEL_IDS = ['inherit', 'sonnet', 'opus', 'fable', 'haiku'] as const;
 export type RoleModelSetting = (typeof ROLE_MODEL_IDS)[number];
+/**
+ * What the mouse does in the TUI:
+ * - `select`: the terminal keeps the mouse, so dragging selects text as usual; the wheel reaches the TUI as the
+ *   arrow keys (alternate scroll mode), which scroll the chat.
+ * - `wheel`: the TUI receives the wheel itself; selecting text then needs Shift held while dragging.
+ * - `off`: the TUI asks nothing of the mouse.
+ */
+export const MOUSE_IDS = ['select', 'wheel', 'off'] as const;
+export type MouseSetting = (typeof MOUSE_IDS)[number];
 export const EFFORT_IDS = ['default', 'low', 'medium', 'high', 'xhigh', 'max'] as const;
 export type EffortSetting = (typeof EFFORT_IDS)[number];
 
@@ -24,8 +33,7 @@ export type Config = {
 	glyphs: GlyphSetting;
 	/** Spinner while a run works; off leaves a still glyph and updates the clock once a second. */
 	motion: boolean;
-	/** The mouse wheel scrolls the chat; the terminal then selects text with Shift held while dragging. */
-	mouse: boolean;
+	mouse: MouseSetting;
 	/** How many independent roles of one layer run may call the provider at the same time. */
 	maxParallelRoles: number;
 	/** Model of the coordinator, the main conversation of a run. */
@@ -42,7 +50,7 @@ export const DEFAULT_CONFIG: Config = {
 	colors: 'pirl',
 	glyphs: 'auto',
 	motion: true,
-	mouse: true,
+	mouse: 'select',
 	maxParallelRoles: 2,
 	model: 'sonnet',
 	roleModel: 'inherit',
@@ -64,7 +72,8 @@ export function normalizeConfig(raw: unknown): Config {
 		colors: oneOf(data['colors'], COLOR_SCHEME_IDS, DEFAULT_CONFIG.colors),
 		glyphs: oneOf(data['glyphs'], ['auto', 'unicode', 'ascii'] as const, DEFAULT_CONFIG.glyphs),
 		motion: typeof data['motion'] === 'boolean' ? data['motion'] : DEFAULT_CONFIG.motion,
-		mouse: typeof data['mouse'] === 'boolean' ? data['mouse'] : DEFAULT_CONFIG.mouse,
+		// Earlier versions stored on or off.
+		mouse: data['mouse'] === false ? 'off' : oneOf(data['mouse'], MOUSE_IDS, DEFAULT_CONFIG.mouse),
 		maxParallelRoles:
 			typeof parallel === 'number' && Number.isInteger(parallel) && parallel >= PARALLEL_LIMITS.min && parallel <= PARALLEL_LIMITS.max
 				? parallel

@@ -3,11 +3,13 @@ import type {Tone} from '../commands/dispatch.js';
 import {
 	COLOR_SCHEME_IDS,
 	EFFORT_IDS,
+	MOUSE_IDS,
 	MODEL_IDS,
 	PARALLEL_LIMITS,
 	ROLE_MODEL_IDS,
 	type Config,
 	type EffortSetting,
+	type MouseSetting,
 	type ModelSetting,
 	type RoleModelSetting,
 } from '../core/config.js';
@@ -97,7 +99,8 @@ export function helpLines(columns: number, theme: Theme): Line[] {
 		{term: 'Shift+Enter', description: 'Xuống dòng trong ô nhập (cũng được: \\ rồi Enter, Ctrl+J, Alt+Enter)'},
 		{term: 'Ctrl+V', description: 'Dán từ clipboard (chuột phải hoặc phím dán của terminal cũng được)'},
 		{term: 'Tab', description: 'Hoàn thành tên lệnh đang chọn'},
-		{term: theme.glyphs.upDown, description: 'Chọn lệnh gợi ý, hoặc xem lại nội dung đã gửi'},
+		{term: theme.glyphs.upDown, description: 'Chọn lệnh gợi ý hoặc đáp án; ngoài ra cuộn khung chat (chuột "Bôi đen tự do") hoặc xem lại nội dung đã gửi'},
+		{term: 'Ctrl+P / Ctrl+N', description: 'Xem lại nội dung đã gửi'},
 		{term: 'PgUp / PgDn', description: 'Cuộn khung chat'},
 		{term: 'Esc', description: 'Xoá ô nhập, đóng bảng đang mở, hoặc dừng run đang chạy'},
 		{term: 'Ctrl+C', description: 'Dừng run đang chạy; khi không có run thì thoát'},
@@ -154,6 +157,13 @@ export type SettingsRow = {
 
 const MODEL_LABELS: Record<ModelSetting, string> = {sonnet: 'Sonnet (khuyến nghị)', opus: 'Opus', fable: 'Fable', haiku: 'Haiku', default: 'Theo Claude Code'};
 const ROLE_MODEL_LABELS: Record<RoleModelSetting, string> = {inherit: 'Giống coordinator', sonnet: 'Sonnet', opus: 'Opus', fable: 'Fable', haiku: 'Haiku'};
+const MOUSE_LABELS: Record<MouseSetting, string> = {select: 'Bôi đen tự do', wheel: 'Con lăn của PIRL', off: 'Tắt'};
+const MOUSE_NOTES: Record<MouseSetting, string> = {
+	select:
+		'Kéo chuột bôi đen như bình thường. Con lăn cuộn hội thoại vì terminal gửi nó thành phím ↑/↓, nên ↑/↓ cuộn hội thoại và Ctrl+P/Ctrl+N gọi lại lệnh đã gõ. Cần terminal hỗ trợ: Windows Terminal, VS Code, iTerm2, Terminal của macOS, GNOME, kitty, WezTerm',
+	wheel: 'PIRL nhận con lăn trực tiếp, chạy trên mọi terminal có chuột. Bôi đen chữ phải giữ Shift khi kéo (iTerm2: Option); ↑/↓ gọi lại lệnh đã gõ',
+	off: 'PIRL không dùng chuột. Cuộn bằng PageUp/PageDown; ↑/↓ gọi lại lệnh đã gõ',
+};
 const EFFORT_LABELS: Record<EffortSetting, string> = {default: 'Theo Claude Code', low: 'Thấp', medium: 'Vừa', high: 'Cao', xhigh: 'Rất cao', max: 'Tối đa'};
 
 export function settingsRows(config: Config): SettingsRow[] {
@@ -184,9 +194,9 @@ export function settingsRows(config: Config): SettingsRow[] {
 		{key: 'glyphs', label: 'Ký hiệu', value: {auto: 'Tự nhận theo terminal', unicode: 'Unicode', ascii: 'ASCII'}[config.glyphs]},
 		{
 			key: 'mouse',
-			label: 'Cuộn bằng chuột',
-			value: config.mouse ? 'Bật' : 'Tắt',
-			note: 'Con lăn chuột cuộn hội thoại và các bảng. Khi bật, giữ Shift trong lúc kéo chuột để bôi đen chữ; tắt nếu bạn muốn bôi đen không cần Shift',
+			label: 'Chuột',
+			value: MOUSE_LABELS[config.mouse],
+			note: MOUSE_NOTES[config.mouse],
 		},
 		{key: 'motion', label: 'Hiệu ứng chuyển động', value: config.motion ? 'Bật' : 'Tắt', note: 'Spinner khi run đang chạy; tắt nếu terminal chậm hoặc bạn không thích chuyển động'},
 		{
@@ -220,7 +230,7 @@ export function cycleSetting(config: Config, key: SettingsRow['key'], step: 1 | 
 		case 'motion':
 			return {...config, motion: !config.motion};
 		case 'mouse':
-			return {...config, mouse: !config.mouse};
+			return {...config, mouse: cycle(MOUSE_IDS, config.mouse)};
 		case 'maxParallelRoles': {
 			const next = config.maxParallelRoles + step;
 			return {...config, maxParallelRoles: Math.min(PARALLEL_LIMITS.max, Math.max(PARALLEL_LIMITS.min, next))};
