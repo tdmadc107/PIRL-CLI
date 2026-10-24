@@ -33,13 +33,10 @@ PIRL CLI chưa phát hành lên npm.
 ```bash
 git clone https://github.com/tdmadc107/PIRL-CLI.git
 cd PIRL-CLI
-npm install
-npm pack                              # build và đóng gói thành pirl-cli-<version>.tgz
-npm install -g ./pirl-cli-0.1.0.tgz   # cài lệnh `pirl` cho toàn máy
-pirl --version
+npm run setup     # cài thư viện, build, đóng gói và cài lệnh `pirl` cho toàn máy
 ```
 
-Cập nhật: `git pull`, rồi chạy lại `npm pack` và `npm install -g` với file `.tgz` mới.
+Cập nhật: trong thư mục `PIRL-CLI`, chạy `git pull` rồi `npm run setup`.
 Gỡ: `npm uninstall -g pirl-cli` (Hub và cài đặt ở `~/.pirl` vẫn giữ lại; xoá tay nếu không cần).
 
 Trên PowerShell, nếu gõ `pirl` báo "running scripts is disabled on this system", chạy

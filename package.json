@@ -23,7 +23,8 @@
     "dev": "npm run bundle-framework && tsx src/bin/pirl.tsx",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run bundle-framework && vitest run",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "setup": "node scripts/setup.mjs"
   },
   "dependencies": {
     "cross-spawn": "7.0.6",
