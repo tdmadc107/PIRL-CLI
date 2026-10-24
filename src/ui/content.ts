@@ -177,7 +177,7 @@ export function settingsRows(config: Config): SettingsRow[] {
 			key: 'effort',
 			label: 'Mức suy luận',
 			value: EFFORT_LABELS[config.effort],
-			note: 'Áp dụng cho coordinator và mọi role. Phần suy luận tính như token ra, loại token đắt nhất: mức thấp hơn rẻ hơn nhưng phân tích kém kỹ hơn. Claude Code ghi mức này cho model dưới dạng số: low 10, medium 20, high 40, xhigh 80, max; "Theo Claude Code" hiện là medium (20)',
+			note: 'Áp dụng cho coordinator và mọi role. Phần suy luận tính như token ra, loại token đắt nhất: mức thấp hơn rẻ hơn nhưng phân tích kém kỹ hơn. Claude Code chuyển mức này thành một con số nội bộ, khác nhau theo model và phiên bản (Sonnet: low 4, medium 5, high 10, xhigh 30, max). Con số đó không phải thang điểm, nên hỏi model "đang ở mức nào" không cho biết mức. "Theo Claude Code" hiện là medium',
 		},
 		{key: 'theme', label: 'Giao diện', value: {auto: 'Tự nhận theo terminal', dark: 'Nền tối', light: 'Nền sáng'}[config.theme]},
 		{key: 'colors', label: 'Bảng màu', value: COLOR_SCHEMES[config.colors].label, note: 'Đổi màu nhấn, màu lời nhập và màu viền; màu báo thành công, cảnh báo, lỗi giữ nguyên'},

@@ -131,8 +131,10 @@ giá API, rồi so với phần trăm hạn mức mà run đã dùng. Sau vài r
 
 - model của coordinator: mặc định Sonnet. Theo giá API, Opus đắt gấp khoảng 2 lần, Fable gấp khoảng 5 lần.
 - model của các role: mặc định giống coordinator.
-- mức suy luận (effort), áp dụng cho coordinator và mọi role. Claude Code ghi mức này cho model dưới dạng số:
-  low 10, medium 20, high 40, xhigh 80, max. Mặc định của Claude Code là medium.
+- mức suy luận (effort), áp dụng cho coordinator và mọi role. Mặc định của Claude Code là medium. Claude Code
+  chuyển mức này thành một con số nội bộ, khác nhau theo model và phiên bản. Ví dụ Sonnet nhận low 4, medium 5,
+  high 10, xhigh 30; Opus nhận low 5, high 15, xhigh 40. Con số đó không phải thang điểm: model trả lời "10"
+  nghĩa là Sonnet đang chạy mức high.
 - cuộn bằng chuột.
 - số role chạy song song.
 
