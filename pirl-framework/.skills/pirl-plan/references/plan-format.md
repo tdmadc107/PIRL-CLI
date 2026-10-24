@@ -14,7 +14,8 @@ section must settle belongs to the
   task number (`T01` → `01`) and the timestamp is the package timestamp, shared
   by every file of the package.
 - Slugs are ASCII kebab-case: lowercase letters, digits and single hyphens.
-- Timestamps use the `+07:00` time zone.
+- Timestamps use the machine's local time zone and carry its UTC offset, for
+  example `+07:00`.
 - Task IDs start at `T01` and are consecutive within the package.
 - Never overwrite an existing file. Review reports of the package are placed
   per the [report format](../../pirl-review/references/review-format.md#location-and-naming).
@@ -34,7 +35,7 @@ section must settle belongs to the
 | `layer` | `implement`: the layer that carries out the Plan |
 | `status` | `planned` at handoff; Implement later sets `awaiting_confirmation`, `implemented`, `blocked` or `failed`, equal to the Implementation Record's `status` |
 | `depends_on` | Task IDs of the same package; never the task itself, never a cycle |
-| `created_at` | ISO-8601 timestamp with `+07:00`, quoted |
+| `created_at` | ISO-8601 timestamp with a UTC offset, quoted |
 | `target_repo` | Path of the target repository, relative to the Hub root or absolute; `.` for the Hub itself; an existing directory ([AGENTS.md](../../../AGENTS.md#target-repository)) |
 | `source_request` | Short version of the user's request, quoted |
 | `planning_roles` | Roles registered for `plan` |

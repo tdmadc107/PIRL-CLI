@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from datetime import datetime
 from pathlib import Path
 
 EVALS = Path(__file__).resolve().parents[1]
@@ -92,7 +93,7 @@ class LayerRecordTests(unittest.TestCase):
         [record] = self.stored()
         self.assertEqual(record["schema"], "pirl-record/v1")
         self.assertEqual(record["outcome"]["summary"], NON_ASCII)
-        self.assertTrue(record["recorded_at"].endswith("+07:00"))
+        self.assertIsNotNone(datetime.fromisoformat(record["recorded_at"]).utcoffset())
         code, again = self.append(IMPLEMENT)
         self.assertEqual(code, 0, again)
         self.assertNotEqual(again["record_id"], result["record_id"])
@@ -204,6 +205,26 @@ class LayerRecordTests(unittest.TestCase):
         later = text.replace('"recorded_at":"20', '"recorded_at":"29', 1)
         self.assertNotEqual(later, text)
         path.write_text(later, encoding="utf-8")
+        code, result = self.run_tool("check")
+        self.assertNotEqual(code, 0)
+        self.assertTrue(any("prior_fix" in error for error in result["errors"]), result)
+
+    def test_check_orders_records_by_instant_across_utc_offsets(self):
+        _, first = self.append(IMPLEMENT)
+        repeat = copy.deepcopy(IMPLEMENT)
+        repeat["issues"][0].update(cause="ineffective_fix", prior_fix=f"{first['record_id']}#FIX-01")
+        self.assertEqual(self.append(repeat)[0], 0)
+        path = self.root / first["path"]
+        lines = path.read_text(encoding="utf-8").splitlines()
+        # 10:00+07:00 is 03:00Z and comes before 04:00Z, although it sorts after "2026-10-14T04" as text.
+        stamps = ["2026-10-14T10:00:00+07:00", "2026-10-14T04:00:00+00:00"]
+        records = [json.loads(line) for line in lines]
+        for record, stamp in zip(records, stamps):
+            record["recorded_at"] = stamp
+        path.write_text("".join(json.dumps(r, ensure_ascii=False, separators=(",", ":")) + "\n" for r in records), encoding="utf-8")
+        self.assertEqual(self.run_tool("check")[0], 0)
+        records[0]["recorded_at"], records[1]["recorded_at"] = "2026-10-14T05:00:00+00:00", "2026-10-14T10:00:00+07:00"
+        path.write_text("".join(json.dumps(r, ensure_ascii=False, separators=(",", ":")) + "\n" for r in records), encoding="utf-8")
         code, result = self.run_tool("check")
         self.assertNotEqual(code, 0)
         self.assertTrue(any("prior_fix" in error for error in result["errors"]), result)

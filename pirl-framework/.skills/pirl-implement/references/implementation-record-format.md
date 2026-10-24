@@ -22,7 +22,7 @@ of the Implement contract.
   in the template, without backticks or a trailing period. `status` is one of
   `awaiting_confirmation`, `implemented`, `blocked`, `failed` and equals the
   Plan's frontmatter `status`; `updated_at` is an ISO-8601 timestamp with
-  `+07:00`, quoted. The other fields are free text.
+  the machine's UTC offset, quoted. The other fields are free text.
 - Fields that the contract requires to be present even when empty take exactly
   `N/A`, as the template shows.
 
@@ -30,7 +30,7 @@ of the Implement contract.
 
 - `.tmp/layout-snapshots/<plan-set>/<task-id>/<YYYYMMDD-HHmmss>/` under the Hub
   root, whatever directory holds the Plan; `scripts/new_layout_run.py` creates
-  it with the current `+07:00` timestamp. The `layout_verification` field names
+  it with the current local timestamp. The `layout_verification` field names
   it.
 
 ## Placeholders in the template

@@ -1,7 +1,7 @@
 ---
 id: .agents/roles/process-auditor
 kind: role
-version: 1.3.1
+version: 1.3.2
 status: active
 ---
 
@@ -9,9 +9,11 @@ status: active
 
 Evaluates a completed layer run: reconstructs the decisions of each role and of
 the coordinator, finds wrong decisions, identifies the root cause and rewrites
-the rules correctly. When it runs, how causes are classified, how fixes are
-made and the record belong to the
-[router's Self-evaluation and improvement section](../instructions/layered-task-execution.instructions.md#self-evaluation-and-improvement).
+the rules correctly. When it runs and how the result is reported belong to the
+[router's Self-evaluation and improvement section](../instructions/layered-task-execution.instructions.md#self-evaluation-and-improvement);
+how causes are classified, how fixes are made and the record belong to the
+[self-evaluation instructions](../instructions/self-evaluation.instructions.md),
+which it reads in full before evaluating.
 
 ## Questions the role answers
 
