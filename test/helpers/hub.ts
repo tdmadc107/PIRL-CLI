@@ -1,3 +1,4 @@
+import {costUsd} from '../../src/engine/pricing.js';
 import {execFileSync} from 'node:child_process';
 import {mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
@@ -119,7 +120,12 @@ export const result = (text: string, sessionId = 'session-1'): RunEvent => ({
 	text,
 	isError: false,
 	sessionId,
-	usage: {inputTokens: 1000, outputTokens: 200},
 });
+
+/** One model request: 10k of context, 9k of it from the cache, and 200 tokens out. */
+export const usage = (model = 'claude-sonnet-5-5'): RunEvent => {
+	const tokens = {inputTokens: 0, cacheWriteTokens: 1000, cacheReadTokens: 9000, outputTokens: 200};
+	return {type: 'usage', model, request: true, costUsd: costUsd(model, tokens), ...tokens};
+};
 
 export const outputsBlock = (outputs: Record<string, string | null>) => '\n```pirl-result\n' + JSON.stringify(outputs) + '\n```';

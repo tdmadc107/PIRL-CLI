@@ -80,12 +80,42 @@ Copy: bôi đen bằng chuột như mọi nội dung trong terminal; `/copy` cop
 4. Nếu run đã sửa file framework (tự cải tiến), CLI hỏi: commit vào Hub, giữ chưa commit, hay bỏ.
 5. CLI gợi ý layer tiếp theo dưới dạng lệnh để bạn tự gõ; không tự mở layer nào.
 
-Run không bao giờ commit, push hay đổi nhánh trong repo của bạn. Lệnh không nằm trong danh sách cho phép
-của run bị từ chối và được liệt kê trong run block. Esc hoặc Ctrl+C dừng run; `/resume` chạy tiếp, kể cả
-sau khi đóng TUI.
+Run không bao giờ commit, push hay đổi nhánh trong repo của bạn. Lệnh nằm ngoài quyền của run bị từ chối
+("Đã chặn N lệnh ngoài quyền của run"). Đây là luật quyền đang hoạt động, không phải lỗi: run vẫn tiếp tục,
+và run block liệt kê đúng lệnh bị chặn. Esc hoặc Ctrl+C dừng run; bấm Ctrl+C lần nữa để thoát ngay.
+`/resume` chạy tiếp, kể cả sau khi đóng TUI.
 
-Mỗi run gọi Claude Code nhiều lần (coordinator và các role) và tính vào hạn mức subscription của bạn.
-Thanh trạng thái hiện số lượt gọi và số token. `/settings` chỉnh số role chạy song song.
+Trong lúc run chạy, spinner và đồng hồ cho biết run còn đang làm. Bảng bên phải (hoặc run block, khi cửa sổ
+hẹp) hiện nhật ký: ai đang đọc, sửa hay chạy gì. Mỗi run ghi nhật ký đầy đủ vào `~/.pirl/logs/`. Nếu terminal
+chậm, tắt "Hiệu ứng chuyển động" trong `/settings`.
+
+### Token và hạn mức
+
+Mỗi run gọi Claude Code nhiều lần (coordinator và các role), và mọi lần gọi đều tính vào hạn mức
+subscription của bạn. Khi run xong, run block hiện:
+
+- token theo loại: đọc cache, ghi cache, ra, vào mới. Gồm cả token của các role.
+- giá trị quy đổi theo giá API niêm yết, do Claude Code ước tính.
+- hạn mức 5 giờ và hạn mức tuần, khi Claude Code báo: mức hiện tại, hoặc trước → sau của run nếu đọc được
+  mức trước khi run bắt đầu.
+
+Phần lớn token là token đọc cache. Mỗi request gửi lại toàn bộ ngữ cảnh, nhưng phần đã có trong cache chỉ
+tính 5% giá token đầu vào (Sonnet 5.5, Opus 5.5). Chi phí thật nằm ở token ghi cache (file đã đọc, kết quả
+lệnh), token ra (gồm phần suy luận) và model được chọn.
+
+Anthropic không công bố công thức đổi token ra phần trăm hạn mức. Cách ước lượng sát nhất là quy đổi theo
+giá API, rồi so với phần trăm hạn mức mà run đã dùng. Sau vài run, bạn sẽ biết 1% hạn mức của gói mình
+ứng với khoảng bao nhiêu đô la quy đổi.
+
+`/settings` chỉnh các mục sau:
+
+- model của coordinator: mặc định Sonnet. Theo giá API, Opus đắt gấp khoảng 2 lần, Fable gấp khoảng 5 lần.
+- model của các role: mặc định giống coordinator.
+- mức suy luận.
+- số role chạy song song.
+
+PIRL CLI chỉ cấp cho run các công cụ nó dùng và không nạp MCP server của bạn. Nhờ vậy mỗi request gửi ít
+ngữ cảnh hơn.
 
 ### Dữ liệu nằm ở đâu
 
@@ -98,6 +128,7 @@ cục bộ, không có remote, chứa framework đi kèm CLI.
 | Record tự đánh giá (`/records`) | `~/.pirl/hub/.agents/evals/records/<layer>/`, lọc theo repo đang mở |
 | Cài đặt | `~/.pirl/config.json` |
 | Run dở dang cho `/resume` | `~/.pirl/sessions/` (chỉ lưu session id của Claude Code, không lưu credential) |
+| Nhật ký đầy đủ của từng run | `~/.pirl/logs/` |
 
 Plan, report và record nằm trong Hub, không nằm trong repo project của bạn, và bị Git của Hub bỏ qua: chúng
 không bị commit ở đâu cả. Biến môi trường `PIRL_HOME` đổi thư mục `~/.pirl`.

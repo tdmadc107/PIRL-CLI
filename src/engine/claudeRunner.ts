@@ -7,6 +7,13 @@ import {createStreamParser} from './claudeStream.js';
 import type {AgentRunner, AgentRunRequest, RunEvent, RunHandle} from './types.js';
 
 /**
+ * The built-in tools a run gets: everything the coordinator and the roles use. Every tool's definition is sent
+ * with every model request, and Claude Code's full set (with the user's MCP servers) is about 25k tokens of
+ * context, while these come to about 7k. MCP tools would be refused by the run's permission rules anyway.
+ */
+export const RUN_TOOLS = ['Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep', 'Agent'];
+
+/**
  * Runs the coordinator with the user's own, unmodified Claude Code. The prompt goes through stdin and
  * the long arguments through files, so Vietnamese text and quotes survive Windows command lines.
  * Claude Code 2.1.281 or later reads `--agents` from a file.
@@ -21,6 +28,9 @@ export function claudeArgs(request: AgentRunRequest, files: {systemPrompt: strin
 		files.systemPrompt,
 		'--agents',
 		files.agents,
+		'--tools',
+		RUN_TOOLS.join(','),
+		'--strict-mcp-config',
 		'--permission-mode',
 		'dontAsk',
 		'--permission-prompts',
@@ -31,6 +41,7 @@ export function claudeArgs(request: AgentRunRequest, files: {systemPrompt: strin
 		request.permissions.deny.join(','),
 		...request.addDirs.flatMap(dir => ['--add-dir', dir]),
 		...(request.model ? ['--model', request.model] : []),
+		...(request.effort ? ['--effort', request.effort] : []),
 		...(request.resumeSessionId ? ['--resume', request.resumeSessionId] : []),
 	];
 }

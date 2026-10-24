@@ -1,6 +1,16 @@
 import {COMMANDS, commandUsage, type CommandSpec} from '../commands/registry.js';
 import type {Tone} from '../commands/dispatch.js';
-import {COLOR_SCHEME_IDS, PARALLEL_LIMITS, type Config} from '../core/config.js';
+import {
+	COLOR_SCHEME_IDS,
+	EFFORT_IDS,
+	MODEL_IDS,
+	PARALLEL_LIMITS,
+	ROLE_MODEL_IDS,
+	type Config,
+	type EffortSetting,
+	type ModelSetting,
+	type RoleModelSetting,
+} from '../core/config.js';
 import {basename} from 'node:path';
 import {displayPath} from '../core/paths.js';
 import type {PlanPackage, RecordSummary} from '../engine/hubData.js';
@@ -166,13 +176,40 @@ export function frameworkLines(info: SessionInfo, columns: number, theme: Theme)
 	return lines;
 }
 
-export type SettingsRow = {key: 'provider' | 'theme' | 'colors' | 'glyphs' | 'motion' | 'maxParallelRoles'; label: string; value: string; note?: string};
+export type SettingsRow = {
+	key: 'provider' | 'model' | 'roleModel' | 'effort' | 'theme' | 'colors' | 'glyphs' | 'motion' | 'maxParallelRoles';
+	label: string;
+	value: string;
+	note?: string;
+};
+
+const MODEL_LABELS: Record<ModelSetting, string> = {sonnet: 'Sonnet (khuyến nghị)', opus: 'Opus', fable: 'Fable', haiku: 'Haiku', default: 'Theo Claude Code'};
+const ROLE_MODEL_LABELS: Record<RoleModelSetting, string> = {inherit: 'Giống coordinator', sonnet: 'Sonnet', opus: 'Opus', fable: 'Fable', haiku: 'Haiku'};
+const EFFORT_LABELS: Record<EffortSetting, string> = {default: 'Theo Claude Code', low: 'Thấp', medium: 'Vừa', high: 'Cao', xhigh: 'Rất cao', max: 'Tối đa'};
 
 export function settingsRows(config: Config): SettingsRow[] {
 	const provider = PROVIDERS.find(p => p.id === config.provider);
 	const later = PROVIDERS.filter(p => !p.available).map(p => p.label);
 	return [
 		{key: 'provider', label: 'Provider', value: provider?.label ?? config.provider, note: later.length ? `Giai đoạn sau: ${later.join(', ')}` : undefined},
+		{
+			key: 'model',
+			label: 'Model coordinator',
+			value: MODEL_LABELS[config.model],
+			note: 'Model điều phối run. Theo giá API, Opus tốn quota khoảng gấp đôi Sonnet, Fable khoảng gấp năm; Haiku rẻ nhất nhưng điều phối kém hơn',
+		},
+		{
+			key: 'roleModel',
+			label: 'Model các role',
+			value: ROLE_MODEL_LABELS[config.roleModel],
+			note: 'Model của các role chạy như subagent (code-analyst, process-auditor…)',
+		},
+		{
+			key: 'effort',
+			label: 'Mức suy luận',
+			value: EFFORT_LABELS[config.effort],
+			note: 'Phần suy luận tính như token ra, loại token đắt nhất: mức thấp hơn rẻ hơn nhưng phân tích kém kỹ hơn',
+		},
 		{key: 'theme', label: 'Giao diện', value: {auto: 'Tự nhận theo terminal', dark: 'Nền tối', light: 'Nền sáng'}[config.theme]},
 		{key: 'colors', label: 'Bảng màu', value: COLOR_SCHEMES[config.colors].label, note: 'Đổi màu nhấn, màu lời nhập và màu viền; màu báo thành công, cảnh báo, lỗi giữ nguyên'},
 		{key: 'glyphs', label: 'Ký hiệu', value: {auto: 'Tự nhận theo terminal', unicode: 'Unicode', ascii: 'ASCII'}[config.glyphs]},
@@ -193,6 +230,12 @@ export function cycleSetting(config: Config, key: SettingsRow['key'], step: 1 | 
 	switch (key) {
 		case 'provider':
 			return {...config, provider: cycle(PROVIDERS.filter(p => p.available).map(p => p.id), config.provider)};
+		case 'model':
+			return {...config, model: cycle(MODEL_IDS, config.model)};
+		case 'roleModel':
+			return {...config, roleModel: cycle(ROLE_MODEL_IDS, config.roleModel)};
+		case 'effort':
+			return {...config, effort: cycle(EFFORT_IDS, config.effort)};
 		case 'theme':
 			return {...config, theme: cycle(['auto', 'dark', 'light'] as const, config.theme)};
 		case 'colors':

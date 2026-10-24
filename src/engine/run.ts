@@ -14,7 +14,8 @@ import {
 } from './hubData.js';
 import {permissionsFor} from './permissions.js';
 import {answersMessage, hostInstructions, parseOutputs, parseQuestions, parseSuggestion, stripBlocks, type RunOutputs} from './protocol.js';
-import {emptyUsage, LAYER_LABELS, type AgentRunner, type LayerKind, type Question, type RunEvent, type RunHandle, type RunKind, type Usage} from './types.js';
+import type {QuotaRow} from './claudeQuota.js';
+import {emptyUsage, type ModelTotals, LAYER_LABELS, type AgentRunner, type LayerKind, type Question, type RunEvent, type RunHandle, type RunKind, type Usage} from './types.js';
 
 export type RoleRun = {toolUseId: string; role: string; description: string; state: 'running' | 'done' | 'failed'; activity: string | null};
 
@@ -47,6 +48,8 @@ export type RunState = {
 	suggestion: string | null;
 	denials: string[];
 	usage: Usage;
+	/** The plan's usage meters when the run started and after its latest provider call; null when unknown. */
+	quota: {before: QuotaRow[] | null; after: QuotaRow[] | null};
 	error: string | null;
 	/** When the run started (epoch ms), for the elapsed time. */
 	startedAt: number;
@@ -68,6 +71,8 @@ export type PersistedRun = {
 	status: RunStatus;
 	questions: Question[];
 	before: RunSnapshot;
+	/** The provider session's token totals so far; a resumed session reports them again in its totals. */
+	providerTotals?: Record<string, ModelTotals>;
 };
 
 export type RunDeps = {
@@ -82,12 +87,25 @@ export type RunDeps = {
 	recentOutputs?: string[];
 	/** Times the coordinator is sent back to fix a failed validator or a missing record. */
 	maxRepairs?: number;
+	/** Model alias of the coordinator and of the roles; the provider's default, and the coordinator's, when left out. */
+	model?: string;
+	roleModel?: string;
+	effort?: string;
+	/** Reads the plan's usage meters (src/engine/claudeQuota.ts); the run shows no quota when left out. */
+	quota?: () => Promise<QuotaRow[] | null>;
 	/** Directory for the run's full log file (~/.pirl/logs); no file when left out. */
 	logDir?: string;
 	now?: () => number;
 };
 
 const MAX_REPAIRS = 2;
+
+/** One line for the log: the run's tokens so far by kind, and their price at the Claude API list price. */
+function usageDetail(usage: Usage): string | null {
+	if (usage.cacheReadTokens + usage.cacheWriteTokens + usage.inputTokens + usage.outputTokens === 0) return null;
+	const cost = usage.costUsd === null ? '' : `, ≈ $${usage.costUsd.toFixed(3)} theo giá API`;
+	return `Token đến giờ: ${usage.cacheReadTokens} đọc cache, ${usage.cacheWriteTokens} ghi cache, ${usage.outputTokens} ra, ${usage.inputTokens} vào mới${cost} (${usage.models.join(', ')})`;
+}
 
 /**
  * One layer run, or one chat message, from start to the user's decision on framework improvements.
@@ -104,6 +122,9 @@ export class RunController {
 	private before: RunSnapshot = {hubChanges: [], records: 0, planSets: [], targetChanges: []};
 	private resumedBefore: RunSnapshot | undefined;
 	private stopped = false;
+	/** The usage before the current provider call, and the provider session's totals reported so far. */
+	private callBase: Usage | null = null;
+	private providerTotals: Record<string, ModelTotals> = {};
 	private deniedIds = new Set<string>();
 	private logStream: WriteStream | null = null;
 	private now: () => number;
@@ -113,7 +134,7 @@ export class RunController {
 		id: number,
 		kind: RunKind,
 		request: string,
-		resume?: {sessionId: string; status?: RunStatus; questions?: Question[]; before?: RunSnapshot; prompt?: string},
+		resume?: {sessionId: string; status?: RunStatus; questions?: Question[]; before?: RunSnapshot; prompt?: string; providerTotals?: Record<string, ModelTotals>},
 	) {
 		this.exec = deps.exec ?? defaultExec;
 		this.now = deps.now ?? Date.now;
@@ -136,6 +157,7 @@ export class RunController {
 			suggestion: null,
 			denials: [],
 			usage: emptyUsage(),
+			quota: {before: null, after: null},
 			error: null,
 			startedAt,
 			log: [],
@@ -144,6 +166,7 @@ export class RunController {
 		};
 		if (resume?.status === 'waiting' && resume.questions?.length) this.state.status = 'waiting';
 		this.resumedBefore = resume?.before;
+		this.providerTotals = resume?.providerTotals ?? {};
 		this.firstPrompt = resume ? resume.prompt ?? 'Tiếp tục run bị dừng từ chỗ đã dừng.' : request;
 	}
 
@@ -159,6 +182,7 @@ export class RunController {
 			status: this.state.status,
 			questions: this.state.questions,
 			before: this.before,
+			providerTotals: this.providerTotals,
 		};
 	}
 
@@ -268,18 +292,26 @@ export class RunController {
 				maxParallelRoles: deps.maxParallelRoles,
 				recentOutputs: deps.recentOutputs,
 			}),
-			agents: deps.agents ?? roleAgents(deps.hub),
+			agents: deps.agents ?? roleAgents(deps.hub, undefined, deps.roleModel),
 			permissions: permissionsFor(this.state.kind, {hub: deps.hub, target: deps.target}, deps.python),
 			resumeSessionId: this.state.sessionId ?? undefined,
+			model: deps.model,
+			effort: deps.effort,
 		};
 		let result: Extract<RunEvent, {type: 'result'}> | null = null;
+		// The first meters are read while the provider starts up, before its first model request.
+		if (this.state.usage.calls === 0) void this.readQuota('before');
 		this.update({status: 'running', error: null, usage: {...this.state.usage, calls: this.state.usage.calls + 1}});
+		this.callBase = this.state.usage;
 		this.handle = deps.runner.start(request, event => {
 			if (event.type === 'result') result = event;
 			this.apply(event);
 		});
 		const exit = await this.handle.done;
 		this.handle = null;
+		void this.readQuota('after');
+		const spent = usageDetail(this.state.usage);
+		if (spent) this.update({}, {who: 'pirl', text: spent});
 		if (this.stopped) {
 			this.update({status: 'stopped', roles: this.state.roles.map(role => (role.state === 'running' ? {...role, state: 'failed'} : role))}, {who: 'pirl', text: 'Đã dừng theo yêu cầu', tone: 'warning'});
 			return;
@@ -293,6 +325,34 @@ export class RunController {
 		await this.afterReply(final.text);
 	}
 
+	/**
+	 * Replaces the live count of the provider call with its exact totals. They cover the whole provider session,
+	 * so the totals reported by its earlier calls are taken off. The request count stays the live one.
+	 */
+	private applyTotals(models: Record<string, ModelTotals>) {
+		const base = this.callBase ?? this.state.usage;
+		const usage: Usage = {...base, requests: this.state.usage.requests, models: [...base.models]};
+		const keys = ['inputTokens', 'cacheWriteTokens', 'cacheReadTokens', 'outputTokens'] as const;
+		for (const [model, total] of Object.entries(models)) {
+			const before = this.providerTotals[model];
+			for (const key of keys) usage[key] += Math.max(0, total[key] - (before?.[key] ?? 0));
+			const cost = total.costUsd === null ? null : Math.max(0, total.costUsd - (before?.costUsd ?? 0));
+			usage.costUsd = usage.costUsd === null || cost === null ? null : usage.costUsd + cost;
+			if (!usage.models.includes(model)) usage.models.push(model);
+		}
+		this.providerTotals = models;
+		this.update({usage});
+	}
+
+	private async readQuota(when: 'before' | 'after') {
+		if (!this.deps.quota) return;
+		let rows: QuotaRow[] | null = null;
+		try {
+			rows = await this.deps.quota();
+		} catch {}
+		if (rows) this.update({quota: {...this.state.quota, [when]: rows}});
+	}
+
 	private roleName(toolUseId: string | null): string | null {
 		return toolUseId ? this.state.roles.find(role => role.toolUseId === toolUseId)?.role ?? null : null;
 	}
@@ -300,6 +360,8 @@ export class RunController {
 	private apply(event: RunEvent) {
 		switch (event.type) {
 			case 'session':
+				// A new provider session starts its totals from zero.
+				if (this.state.sessionId && event.sessionId !== this.state.sessionId) this.providerTotals = {};
 				if (event.sessionId !== this.state.sessionId) this.update({sessionId: event.sessionId}, {who: 'pirl', text: `Session ${event.sessionId.slice(0, 8)}`});
 				break;
 			case 'role-start':
@@ -338,15 +400,31 @@ export class RunController {
 				if (event.id) this.deniedIds.add(event.id);
 				this.update({denials: [...this.state.denials, event.detail]}, {who: 'pirl', text: `Chặn (ngoài quyền của run): ${event.detail}`, tone: 'warning'});
 				break;
-			case 'result':
+			case 'usage': {
+				const usage = this.state.usage;
 				this.update({
-					sessionId: event.sessionId ?? this.state.sessionId,
 					usage: {
-						calls: this.state.usage.calls,
-						inputTokens: this.state.usage.inputTokens + event.usage.inputTokens,
-						outputTokens: this.state.usage.outputTokens + event.usage.outputTokens,
+						calls: usage.calls,
+						requests: usage.requests + (event.request ? 1 : 0),
+						inputTokens: usage.inputTokens + event.inputTokens,
+						cacheWriteTokens: usage.cacheWriteTokens + event.cacheWriteTokens,
+						cacheReadTokens: usage.cacheReadTokens + event.cacheReadTokens,
+						outputTokens: usage.outputTokens + event.outputTokens,
+						costUsd: usage.costUsd === null || event.costUsd === null ? null : usage.costUsd + event.costUsd,
+						models: usage.models.includes(event.model) ? usage.models : [...usage.models, event.model],
 					},
 				});
+				break;
+			}
+			case 'usage-totals':
+				this.applyTotals(event.models);
+				break;
+			case 'quota':
+				// The windows as they stand now; the level before the run comes only from the reading taken before it.
+				this.update({quota: {...this.state.quota, after: event.rows}});
+				break;
+			case 'result':
+				this.update({sessionId: event.sessionId ?? this.state.sessionId});
 				break;
 			case 'text':
 				break;

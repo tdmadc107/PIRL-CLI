@@ -1,11 +1,12 @@
 import {join} from 'node:path';
 import {render} from 'ink';
 import {createClipboard} from '../core/clipboard.js';
-import {loadConfig, saveConfig} from '../core/config.js';
+import {loadConfig, saveConfig, type Config} from '../core/config.js';
 import {exec} from '../core/exec.js';
 import {configFile, displayPath, hubDir, packageInfo, packageRoot, pirlHome} from '../core/paths.js';
 import {detectTargetRepo} from '../core/targetRepo.js';
 import {runDoctor} from '../doctor/doctor.js';
+import {readClaudeQuota} from '../engine/claudeQuota.js';
 import {createClaudeRunner} from '../engine/claudeRunner.js';
 import {readPlanPackages, readRecords} from '../engine/hubData.js';
 import {RunController} from '../engine/run.js';
@@ -15,6 +16,13 @@ import {ensureHub, type HubStatus} from '../hub/hub.js';
 import {getProvider} from '../providers/index.js';
 import {App} from '../ui/App.js';
 import type {StartupNote} from '../ui/session.js';
+
+/** The run's model settings as the provider's arguments; `default` and `inherit` leave the choice to it. */
+const runModels = (config: Config) => ({
+	model: config.model === 'default' ? undefined : config.model,
+	roleModel: config.roleModel === 'inherit' ? undefined : config.roleModel,
+	effort: config.effort === 'default' ? undefined : config.effort,
+});
 
 const HELP = `PIRL CLI: chạy PIRL framework (Plan – Implement – Review) bằng agent CLI bạn đã đăng nhập.
 
@@ -83,7 +91,7 @@ async function main(): Promise<number> {
 				saveConfig: next => saveConfig(configFile(home), next),
 				startRun: options =>
 					new RunController(
-						{runner, hub: hub!.path, target: targetRoot, logDir: join(home, 'logs'), python: options.python, maxParallelRoles: options.config.maxParallelRoles, recentOutputs: options.recentOutputs},
+						{runner, hub: hub!.path, target: targetRoot, logDir: join(home, 'logs'), quota: () => readClaudeQuota('claude', hub!.path), python: options.python, maxParallelRoles: options.config.maxParallelRoles, recentOutputs: options.recentOutputs, ...runModels(options.config)},
 						options.id,
 						options.kind,
 						options.request,

@@ -34,7 +34,7 @@ export type StartRunOptions = {
 	config: Config;
 	python: {command: string; args: string[]} | null;
 	/** Continue a provider session: a stopped run (/resume) or the session of earlier chat messages. */
-	resume?: {sessionId: string; status?: PersistedRun['status']; questions?: Question[]; before?: PersistedRun['before']; prompt?: string};
+	resume?: {sessionId: string; status?: PersistedRun['status']; questions?: Question[]; before?: PersistedRun['before']; prompt?: string; providerTotals?: PersistedRun['providerTotals']};
 	recentOutputs?: string[];
 };
 

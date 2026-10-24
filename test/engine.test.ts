@@ -9,7 +9,8 @@ import {permissionsFor, ruleRoot} from '../src/engine/permissions.js';
 import {answersMessage, hostInstructions, parseOutputs, parseQuestions, parseSuggestion, stripBlocks} from '../src/engine/protocol.js';
 import {formatElapsed, LOG_LIMIT, RunController} from '../src/engine/run.js';
 import {loadRun, resumable, saveRun} from '../src/engine/runStore.js';
-import {cleanupTemp, fakeRunner, git, hubAndTarget, outputsBlock, PYTHON, result, tempDir, writePlan, writeRecord} from './helpers/hub.js';
+import type {RunEvent} from '../src/engine/types.js';
+import {cleanupTemp, fakeRunner, git, hubAndTarget, outputsBlock, PYTHON, result, tempDir, usage, writePlan, writeRecord} from './helpers/hub.js';
 
 afterEach(cleanupTemp);
 
@@ -43,8 +44,57 @@ describe('Claude Code stream-json', () => {
 			),
 		).toEqual([
 			{type: 'denied', id: null, detail: 'Chạy git commit -m x'},
-			{type: 'result', text: 'Xong', isError: false, sessionId: 's-1', usage: {inputTokens: 100, outputTokens: 5}},
+			{type: 'result', text: 'Xong', isError: false, sessionId: 's-1'},
 		]);
+	});
+
+	test('tokens are counted per model request, roles included, and only once per request', () => {
+		const parse = createStreamParser();
+		const message = (id: string, usage: Record<string, unknown>, parent: string | null = null) =>
+			JSON.stringify({type: 'assistant', parent_tool_use_id: parent, message: {id, model: 'claude-opus-5-5', usage, content: [{type: 'text', text: 'x'}]}});
+		const usage = {input_tokens: 2, cache_creation_input_tokens: 1000, cache_read_input_tokens: 20000, output_tokens: 50, cache_creation: {ephemeral_1h_input_tokens: 1000}};
+		// Opus 5.5: 2 in at $4, 1k one-hour writes at $8, 20k reads at $0.20, 50 out at $20 per million.
+		const cost = (2 * 4 + 1000 * 8 + 20000 * 0.2 + 50 * 20) / 1e6;
+		expect(parse(message('m1', usage))[0]).toEqual({type: 'usage', model: 'claude-opus-5-5', request: true, inputTokens: 2, cacheWriteTokens: 1000, cacheReadTokens: 20000, outputTokens: 50, costUsd: cost});
+		// The next content block of the same request repeats its usage: nothing new to count.
+		expect(parse(message('m1', usage)).filter(event => event.type === 'usage')).toEqual([]);
+		// A later block with more output adds only the difference.
+		expect(parse(message('m1', {...usage, output_tokens: 80}))[0]).toMatchObject({type: 'usage', request: false, outputTokens: 30, cacheReadTokens: 0});
+		// A role's request counts too.
+		expect(parse(message('m2', usage, 'tu-1'))[0]).toMatchObject({type: 'usage', request: true, cacheReadTokens: 20000});
+	});
+
+	test('a request\'s output arrives at its end; the result gives exact totals; the plan windows come with the call', () => {
+		const parse = createStreamParser();
+		const start = {type: 'stream_event', event: {type: 'message_start', message: {id: 'm9', model: 'claude-sonnet-5-5', usage: {input_tokens: 2, cache_creation_input_tokens: 6716, cache_read_input_tokens: 0, output_tokens: 16}}}};
+		expect(parse(JSON.stringify(start))[0]).toMatchObject({type: 'usage', request: true, cacheWriteTokens: 6716, outputTokens: 16});
+		const end = {type: 'stream_event', api_message_id: 'm9', event: {type: 'message_delta', usage: {input_tokens: 2, cache_creation_input_tokens: 6716, cache_read_input_tokens: 0, output_tokens: 214}}};
+		expect(parse(JSON.stringify(end))[0]).toMatchObject({type: 'usage', model: 'claude-sonnet-5-5', request: false, cacheWriteTokens: 0, outputTokens: 198});
+		// The assistant message of the same request repeats the start values: nothing new, and nothing taken back.
+		const message = {type: 'assistant', message: {id: 'm9', model: 'claude-sonnet-5-5', usage: start.event.message.usage, content: []}};
+		expect(parse(JSON.stringify(message))).toEqual([]);
+		const result = {
+			type: 'result',
+			subtype: 'success',
+			result: 'OK',
+			session_id: 's',
+			modelUsage: {'claude-sonnet-5-5': {inputTokens: 8, outputTokens: 363, cacheReadInputTokens: 10016, cacheCreationInputTokens: 10628, costUSD: 0.0419516}},
+		};
+		expect(parse(JSON.stringify(result))[0]).toEqual({
+			type: 'usage-totals',
+			models: {'claude-sonnet-5-5': {inputTokens: 8, outputTokens: 363, cacheReadTokens: 10016, cacheWriteTokens: 10628, costUsd: 0.0419516}},
+		});
+		const limits = {
+			type: 'rate_limit_event',
+			rate_limit_info: {status: 'allowed', rateLimitType: 'five_hour', utilization: 0.4, unifiedWindows: {five_hour: {utilization: 0.4, resetsAt: 1792823400}, seven_day: {utilization: 0.22, resetsAt: 1793332800}}},
+		};
+		expect(parse(JSON.stringify(limits))[0]).toEqual({
+			type: 'quota',
+			rows: [
+				{kind: 'five_hour', label: '5 giờ', percent: 40, resetsAt: new Date(1792823400 * 1000).toISOString()},
+				{kind: 'seven_day', label: 'Tuần', percent: 22, resetsAt: new Date(1793332800 * 1000).toISOString()},
+			],
+		});
 	});
 
 	test('a denial names the refused command, which Claude Code only gives in the earlier tool call', () => {
@@ -63,7 +113,7 @@ describe('Claude Code stream-json', () => {
 		expect(parseStreamLine('not json')).toEqual([]);
 		// The shape Claude Code 2.1.309 prints for a resume of an unknown session.
 		expect(parseStreamLine('{"type":"result","subtype":"error_during_execution","is_error":true,"session_id":"s","usage":{"input_tokens":0,"output_tokens":0},"permission_denials":[],"errors":["No conversation found with session ID: s"]}')).toEqual([
-			{type: 'result', text: 'No conversation found with session ID: s', isError: true, sessionId: 's', usage: {inputTokens: 0, outputTokens: 0}},
+			{type: 'result', text: 'No conversation found with session ID: s', isError: true, sessionId: 's'},
 		]);
 		expect(describeTool('Bash', {command: 'git log --oneline -5'})).toBe('Chạy git log --oneline -5');
 	});
@@ -100,10 +150,19 @@ describe('permissions', () => {
 			{cwd: '/h', addDirs: ['/w'], prompt: 'x', systemPrompt: 'y', agents: {}, permissions: {allow: ['Read', 'Bash(git log *)'], deny: ['Bash(rm *)']}, resumeSessionId: 's-9'},
 			{systemPrompt: '/tmp/host.md', agents: '/tmp/agents.json'},
 		);
-		expect(args.join(' ')).toContain('-p --output-format stream-json --verbose --append-system-prompt-file /tmp/host.md --agents /tmp/agents.json --permission-mode dontAsk --permission-prompts none');
+		expect(args.join(' ')).toContain('-p --output-format stream-json --verbose --append-system-prompt-file /tmp/host.md --agents /tmp/agents.json --tools Read,Write,Edit,Bash,Glob,Grep,Agent --strict-mcp-config --permission-mode dontAsk --permission-prompts none');
 		expect(args).toContain('Read,Bash(git log *)');
 		expect(args.slice(-4)).toEqual(['--add-dir', '/w', '--resume', 's-9']);
 		expect(args).not.toContain('--bare'); // bare mode would not use the user's subscription
+		expect(args).not.toContain('--model');
+	});
+
+	test('the model and effort settings reach the coordinator', () => {
+		const args = claudeArgs(
+			{cwd: '/h', addDirs: [], prompt: 'x', systemPrompt: 'y', agents: {}, permissions: {allow: [], deny: []}, model: 'sonnet', effort: 'medium'},
+			{systemPrompt: '/tmp/host.md', agents: '/tmp/agents.json'},
+		);
+		expect(args.join(' ')).toContain('--model sonnet --effort medium');
 	});
 });
 
@@ -154,6 +213,9 @@ describe('role agents', () => {
 		expect(agents['process-auditor']!.tools).toContain('Edit');
 		for (const agent of Object.values(agents)) expect(agent.tools).not.toContain('Agent');
 		expect(agents['ux-designer']!.prompt).toContain(join('.agents', 'roles', 'ux-designer.role.md'));
+		// Without a role model the roles run on the coordinator's; with one, every role gets it.
+		expect(Object.values(agents).some(agent => 'model' in agent)).toBe(false);
+		expect(Object.values(roleAgents(hub, catalog, 'haiku')).every(agent => agent.model === 'haiku')).toBe(true);
 	});
 });
 
@@ -233,11 +295,11 @@ describe('RunController', () => {
 	test('questions pause the run; answers resume the same session', async () => {
 		const {hub, target} = await hubAndTarget();
 		const {runner, calls} = fakeRunner([
-			() => [result('Cần quyết định.\n```pirl-questions\n[{"id":"Q1","question":"Gửi email khi admin huỷ?","options":["Có","Không"]}]\n```')],
+			() => [usage(), result('Cần quyết định.\n```pirl-questions\n[{"id":"Q1","question":"Gửi email khi admin huỷ?","options":["Có","Không"]}]\n```')],
 			() => {
 				const {planSet} = writePlan(hub, target);
 				writeRecord(hub, target, planSet);
-				return [result('Xong.' + outputsBlock({plan_set: planSet, plan_file: null, report: null, record_id: null}))];
+				return [usage(), usage('claude-haiku-5-5'), result('Xong.' + outputsBlock({plan_set: planSet, plan_file: null, report: null, record_id: null}))];
 			},
 		]);
 		const run = new RunController(deps(hub, target, runner), 1, 'plan', 'Email huỷ đơn');
@@ -248,7 +310,44 @@ describe('RunController', () => {
 		expect(calls[1]!.resumeSessionId).toBe('session-1');
 		expect(calls[1]!.prompt).toContain('Q1 (Gửi email khi admin huỷ?): Không');
 		expect(run.state.status).toBe('done');
-		expect(run.state.usage).toEqual({calls: 2, inputTokens: 2000, outputTokens: 400});
+		expect(run.state.usage).toMatchObject({calls: 2, requests: 3, inputTokens: 0, cacheWriteTokens: 3000, cacheReadTokens: 27000, outputTokens: 600, models: ['claude-sonnet-5-5', 'claude-haiku-5-5']});
+		// Sonnet 5.5: 1k cache writes at $2.50, 9k reads at $0.10, 200 out at $10 per million; Haiku 5.5 a twentieth of that.
+		expect(run.state.usage.costUsd).toBeCloseTo(2 * 0.0054 + 0.000315, 6);
+	});
+
+	test('exact totals replace the live count; a resumed session\'s earlier totals are taken off', async () => {
+		const {hub, target} = await hubAndTarget();
+		const totals = (cacheRead: number, cost: number): RunEvent => ({
+			type: 'usage-totals',
+			models: {'claude-sonnet-5-5': {inputTokens: 10, cacheWriteTokens: 1000, cacheReadTokens: cacheRead, outputTokens: 100, costUsd: cost}},
+		});
+		const {runner} = fakeRunner([
+			() => [usage(), totals(5000, 0.01), result('Cần quyết định.\n```pirl-questions\n[{"id":"Q1","question":"Có?","options":["Có","Không"]}]\n```')],
+			// The resumed session reports the first call's tokens again, plus its own.
+			() => [usage(), {type: 'usage-totals', models: {'claude-sonnet-5-5': {inputTokens: 20, cacheWriteTokens: 1500, cacheReadTokens: 12000, outputTokens: 250, costUsd: 0.025}}}, result('Xong')],
+		]);
+		const run = new RunController(deps(hub, target, runner), 1, 'chat', 'Hỏi');
+		await run.start();
+		expect(run.state.usage).toMatchObject({calls: 1, requests: 1, inputTokens: 10, cacheWriteTokens: 1000, cacheReadTokens: 5000, outputTokens: 100, costUsd: 0.01});
+		await run.answer(['Có']);
+		expect(run.state.usage).toMatchObject({calls: 2, requests: 2, inputTokens: 20, cacheWriteTokens: 1500, cacheReadTokens: 12000, outputTokens: 250});
+		expect(run.state.usage.costUsd).toBeCloseTo(0.025, 6);
+		expect(run.persisted().providerTotals?.['claude-sonnet-5-5']?.cacheReadTokens).toBe(12000);
+	});
+
+	test('the plan meters are read when the run starts and after each provider call', async () => {
+		const {hub, target} = await hubAndTarget();
+		const {runner} = fakeRunner([() => [usage(), result('Xong')]]);
+		const meters = [
+			[{kind: 'session', label: '5 giờ', percent: 12, resetsAt: null}],
+			[{kind: 'session', label: '5 giờ', percent: 19, resetsAt: null}],
+		];
+		const run = new RunController({...deps(hub, target, runner), quota: async () => meters.shift() ?? null}, 1, 'chat', 'Hỏi');
+		await run.start();
+		await new Promise(resolve => setTimeout(resolve, 20));
+		expect(run.state.quota.before?.[0]?.percent).toBe(12);
+		expect(run.state.quota.after?.[0]?.percent).toBe(19);
+		expect(run.state.log.some(entry => entry.text.startsWith('Token đến giờ: 9000 đọc cache'))).toBe(true);
 	});
 
 	test('a failing validator and a missing record send the coordinator back, at most twice', async () => {
@@ -368,7 +467,7 @@ describe('RunController', () => {
 
 	test('a provider error fails the run with its message', async () => {
 		const {hub, target} = await hubAndTarget();
-		const {runner} = fakeRunner([() => [{type: 'result', text: 'Credit balance is too low', isError: true, sessionId: 's', usage: {inputTokens: 0, outputTokens: 0}}]]);
+		const {runner} = fakeRunner([() => [{type: 'result', text: 'Credit balance is too low', isError: true, sessionId: 's'}]]);
 		const run = new RunController(deps(hub, target, runner), 1, 'plan', 'Email');
 		await run.start();
 		expect(run.state).toMatchObject({status: 'failed', error: 'Credit balance is too low'});

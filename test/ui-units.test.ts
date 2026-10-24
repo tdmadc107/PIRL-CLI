@@ -2,6 +2,9 @@ import {describe, expect, test} from 'vitest';
 import {backspace, emptyEditor, insert, layoutEditor, move, setValue} from '../src/ui/inputEditor.js';
 import {computeLayout, heightTier, widthTier} from '../src/ui/layout.js';
 import {createTheme, detectMode, detectUnicode} from '../src/ui/theme.js';
+import {parseQuotaLine} from '../src/engine/claudeQuota.js';
+import {emptyUsage} from '../src/engine/types.js';
+import {compactTokens, quotaText, usageDetail} from '../src/ui/runView.js';
 import {truncateEnd, truncateMiddle, width, wrapText} from '../src/ui/text.js';
 
 describe('text', () => {
@@ -105,5 +108,41 @@ describe('theme', () => {
 		const theme = createTheme({theme: 'light', glyphs: 'ascii'}, {WT_SESSION: '1'}, 'win32');
 		expect(theme).toMatchObject({mode: 'light', unicode: false, border: 'classic'});
 		expect(theme.fg('accent')).not.toBe(createTheme({theme: 'dark', glyphs: 'ascii'}, {}, 'linux').fg('accent'));
+	});
+});
+
+describe('usage and quota', () => {
+	test('token counts at a glance', () => {
+		expect([compactTokens(950), compactTokens(1234), compactTokens(56_789), compactTokens(1_209_213)]).toEqual(['950', '1,2k', '57k', '1,21M']);
+	});
+
+	test('the run tokens by kind, their API price and the models', () => {
+		const usage = {...emptyUsage(), calls: 1, requests: 24, inputTokens: 48, cacheWriteTokens: 104_452, cacheReadTokens: 731_777, outputTokens: 11_351, costUsd: 0.61, models: ['claude-sonnet-5-5']};
+		expect(usageDetail(usage, '·')).toEqual(['848k token: 732k đọc cache · 104k ghi cache · 11k ra · 48 vào mới', '≈ $0.61 theo giá API · sonnet-5-5']);
+		expect(usageDetail(emptyUsage(), '·')).toEqual([]);
+	});
+
+	test('the plan meters from /usage, and what the run took of each', () => {
+		const line = JSON.stringify({
+			type: 'assistant',
+			message: {content: [{type: 'text', text: 'Usage'}]},
+			usage_report: {
+				session: {},
+				rate_limits: {
+					limits: [
+						{kind: 'session', group: 'session', percent: 19.4, resets_at: '2026-10-24T08:00:00Z', severity: 'normal', is_active: true},
+						{kind: 'weekly_all', group: 'weekly', percent: 31, resets_at: null, severity: 'normal', is_active: true},
+						{kind: 'weekly_scoped', group: 'weekly', percent: 8, resets_at: null, scope: {model: {display_name: 'Sonnet'}}, severity: 'normal', is_active: true},
+					],
+				},
+			},
+		});
+		const after = parseQuotaLine(line)!;
+		expect(after.map(row => row.label)).toEqual(['5 giờ', 'Tuần', 'Tuần (Sonnet)']);
+		expect(parseQuotaLine(JSON.stringify({type: 'assistant', message: {content: []}}))).toBeNull();
+		const before = after.map(row => ({...row, percent: row.percent - (row.kind === 'session' ? 7 : 1)}));
+		expect(quotaText({before, after}, '·', '→')).toBe('Hạn mức: 5 giờ 12% → 19% (+7) · Tuần 30% → 31% (+1) · Tuần (Sonnet) 7% → 8% (+1)');
+		expect(quotaText({before: null, after}, '·', '→')).toBe('Hạn mức hiện tại: 5 giờ 19% · Tuần 31% · Tuần (Sonnet) 8%');
+		expect(quotaText({before, after: null}, '·', '→')).toBeNull();
 	});
 });

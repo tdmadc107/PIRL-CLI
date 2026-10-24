@@ -232,7 +232,7 @@ describe('spinner and log', () => {
 		const {terminal} = await startWithRuns([busy], {}, [100, 30]);
 		await terminal.type('/settings');
 		await terminal.press(KEYS.enter);
-		for (let i = 0; i < 4; i++) await terminal.press(KEYS.down);
+		for (let i = 0; i < 7; i++) await terminal.press(KEYS.down);
 		await terminal.press(KEYS.right);
 		await until(terminal, 'Hiệu ứng chuyển động  ‹ Tắt ›');
 		await terminal.press(KEYS.escape);

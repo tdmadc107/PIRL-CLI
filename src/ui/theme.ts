@@ -91,6 +91,8 @@ export type Glyphs = {
 	pointer: string;
 	up: string;
 	down: string;
+	/** From one value to the next, as in "12% → 19%". */
+	arrow: string;
 	/** Key names as the status bar and help show them. */
 	upDown: string;
 	leftRight: string;
@@ -112,6 +114,7 @@ const UNICODE_GLYPHS: Glyphs = {
 	pointer: '❯',
 	up: '↑',
 	down: '↓',
+	arrow: '→',
 	upDown: '↑↓',
 	leftRight: '←→',
 	spinner: ['⠋', '⠙', '⠸', '⠴', '⠦', '⠇'],
@@ -131,6 +134,7 @@ const ASCII_GLYPHS: Glyphs = {
 	pointer: '>',
 	up: '^',
 	down: 'v',
+	arrow: '->',
 	upDown: 'Up/Down',
 	leftRight: 'Left/Right',
 	spinner: ['|', '/', '-', '\\'],

@@ -37,13 +37,16 @@ describe('config', () => {
 	});
 
 	test('invalid fields fall back one by one; valid ones are kept', () => {
-		expect(normalizeConfig({provider: 'codex', theme: 'neon', colors: 'forest', glyphs: 'ascii', motion: 'yes', maxParallelRoles: 9})).toEqual({
+		expect(normalizeConfig({provider: 'codex', theme: 'neon', colors: 'forest', glyphs: 'ascii', motion: 'yes', maxParallelRoles: 9, model: 'gpt-5', roleModel: 'haiku', effort: 'max'})).toEqual({
 			provider: 'codex',
 			theme: 'auto',
 			colors: 'forest',
 			glyphs: 'ascii',
 			motion: true,
 			maxParallelRoles: DEFAULT_CONFIG.maxParallelRoles,
+			model: 'sonnet',
+			roleModel: 'haiku',
+			effort: 'max',
 		});
 	});
 

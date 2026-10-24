@@ -598,8 +598,8 @@ bắt được đúng lỗi đó.
 | Giao diện | Run block trong khung chat; bảng "Phiên làm việc" hiện role đang chạy; 6 bảng màu trong `/settings` |
 | Kiểm chứng | 130 test Vitest pass (engine với Hub thật và provider giả lập, luồng run trong TUI, phím, clipboard). Đối chiếu tham số với Claude Code 2.1.309 thật. Chạy thật một lượt chat và một lượt `/pirl-plan` qua adapter: hai role chạy bằng subagent, Plan qua validator, record được ghi, trả lời bằng tiếng Việt |
 
-Kết quả lượt `/pirl-plan` thật trên repo demo một file: khoảng 6 phút, 585 nghìn token đầu vào (phần
-lớn đọc từ cache) và 6 nghìn token đầu ra. Hai lần chạy đầu lộ ra 4 lỗi tích hợp, đã sửa: coordinator ghi
+Kết quả lượt `/pirl-plan` thật trên repo demo một file: khoảng 6 phút. Số đếm lúc đó là 585 nghìn token
+đầu vào (phần lớn đọc từ cache) và 6 nghìn token đầu ra, nhưng chỉ tính coordinator (xem 14.5). Hai lần chạy đầu lộ ra 4 lỗi tích hợp, đã sửa: coordinator ghi
 file tạm ra `/tmp` và dùng heredoc (bị chặn); xin người dùng cấp quyền; trả lời bằng tiếng Anh; gọi
 `ScheduleWakeup` làm `claude -p` không kết thúc.
 
@@ -616,7 +616,55 @@ Windows, macOS.
 | Lệnh | 12 lệnh | 13 lệnh: thêm `/copy` | Người dùng yêu cầu copy |
 | Ctrl+C | Thoát | Dừng run đang chạy; không có run thì thoát | Tránh mất run vì bấm nhầm |
 
-### 14.5. Bước tiếp theo
+### 14.5. Theo dõi run, token và model
+
+**Theo dõi run.**
+- Spinner và đồng hồ: chạy 5 khung hình/giây, và chỉ ô spinner được vẽ lại.
+- Nhật ký run: giữ 200 dòng trong bộ nhớ và ghi toàn bộ ra file trong `~/.pirl/logs/`.
+- Lệnh bị chặn: hiện đúng lệnh bị chặn (trước đây chỉ hiện "Bash") và mỗi lệnh chỉ đếm một lần.
+
+**Hiệu năng.** Đo trên PTY thật, khi run đang chạy và không có sự kiện mới:
+
+| Cửa sổ | Ban đầu | Hiện tại | Tắt chuyển động |
+| --- | --- | --- | --- |
+| 160x45 | 36,5% CPU | 14,8% CPU | 2,7% CPU |
+| 100x30 | không đo | 8% CPU | 1,8% CPU |
+
+Mức giảm đến từ bốn thay đổi:
+- gộp cập nhật run mỗi 100 ms;
+- cache dòng chat theo từng tin nhắn;
+- bật incremental rendering, và chạy React ở chế độ production;
+- spinner 5 khung hình/giây thay vì 10.
+
+**Token.** Đo trên lượt `/pirl-plan` thật trên repo demo, model Sonnet 5.5:
+
+| Loại | Token | Tỷ lệ chi phí quy đổi |
+| --- | --- | --- |
+| Đọc cache | 653k | 13% |
+| Ghi cache | 98k | 65% |
+| Ra | 10,5k | 21% |
+| Tổng quy đổi | | ≈ $0,49 |
+
+- Bản trước chỉ đếm token của coordinator và cộng token đọc cache vào token đầu vào, nên con số trông rất lớn.
+- Stream của Claude Code báo thiếu token ra, và thiếu một số request của role. Vì vậy CLI chỉ dùng số đếm từ
+  stream để hiển thị trong lúc chạy. Khi lượt gọi kết thúc, CLI thay bằng `modelUsage` của kết quả, có tính
+  đến việc session resume cộng dồn tổng của các lượt trước.
+- Hạn mức 5 giờ và tuần lấy từ `rate_limit_event` trong stream, cùng `/usage` đọc trước run (lệnh này không
+  gọi model).
+
+**Tiết kiệm.**
+- `--tools` chỉ cấp Read, Write, Edit, Bash, Glob, Grep và Agent; `--strict-mcp-config` bỏ MCP server của
+  người dùng. Ngữ cảnh ban đầu của coordinator giảm từ 25k xuống 18k token. Trên repo demo, chi phí giảm
+  khoảng 9%.
+- Cài đặt model coordinator (mặc định Sonnet), model các role và mức suy luận.
+
+**Chưa làm (cần quyết định).**
+- Coordinator dùng cache TTL 5 phút thay vì 1 giờ: rẻ hơn khoảng 37% phần ghi cache của coordinator, nhưng
+  mất cache nếu một role chạy quá 5 phút.
+- Rút gọn tài liệu framework mà coordinator đọc ở mỗi run. Hiện khoảng 78 nghìn ký tự, chiếm khoảng một nửa
+  ngữ cảnh của coordinator.
+
+### 14.6. Bước tiếp theo
 
 Giai đoạn 3: `/framework` cập nhật framework trên bản nháp, giải quyết xung đột, hoàn tác (mục 9).
 

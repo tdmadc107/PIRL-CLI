@@ -7,6 +7,14 @@ export type ThemeSetting = 'auto' | 'dark' | 'light';
 export type GlyphSetting = 'auto' | 'unicode' | 'ascii';
 export const COLOR_SCHEME_IDS = ['pirl', 'ocean', 'forest', 'sunset', 'grape', 'mono'] as const;
 export type ColorScheme = (typeof COLOR_SCHEME_IDS)[number];
+/** Model aliases the provider resolves to its newest version; `default` leaves the choice to the provider. */
+export const MODEL_IDS = ['sonnet', 'opus', 'fable', 'haiku', 'default'] as const;
+export type ModelSetting = (typeof MODEL_IDS)[number];
+/** `inherit` runs the roles on the coordinator's model. */
+export const ROLE_MODEL_IDS = ['inherit', 'sonnet', 'opus', 'fable', 'haiku'] as const;
+export type RoleModelSetting = (typeof ROLE_MODEL_IDS)[number];
+export const EFFORT_IDS = ['default', 'low', 'medium', 'high', 'xhigh', 'max'] as const;
+export type EffortSetting = (typeof EFFORT_IDS)[number];
 
 export type Config = {
 	provider: ProviderId;
@@ -18,6 +26,12 @@ export type Config = {
 	motion: boolean;
 	/** How many independent roles of one layer run may call the provider at the same time. */
 	maxParallelRoles: number;
+	/** Model of the coordinator, the main conversation of a run. */
+	model: ModelSetting;
+	/** Model of the role subagents. */
+	roleModel: RoleModelSetting;
+	/** Reasoning effort of the run; thinking counts as output tokens, the most expensive kind. */
+	effort: EffortSetting;
 };
 
 export const DEFAULT_CONFIG: Config = {
@@ -27,6 +41,9 @@ export const DEFAULT_CONFIG: Config = {
 	glyphs: 'auto',
 	motion: true,
 	maxParallelRoles: 2,
+	model: 'sonnet',
+	roleModel: 'inherit',
+	effort: 'default',
 };
 
 export const PARALLEL_LIMITS = {min: 1, max: 4} as const;
@@ -48,6 +65,9 @@ export function normalizeConfig(raw: unknown): Config {
 			typeof parallel === 'number' && Number.isInteger(parallel) && parallel >= PARALLEL_LIMITS.min && parallel <= PARALLEL_LIMITS.max
 				? parallel
 				: DEFAULT_CONFIG.maxParallelRoles,
+		model: oneOf(data['model'], MODEL_IDS, DEFAULT_CONFIG.model),
+		roleModel: oneOf(data['roleModel'], ROLE_MODEL_IDS, DEFAULT_CONFIG.roleModel),
+		effort: oneOf(data['effort'], EFFORT_IDS, DEFAULT_CONFIG.effort),
 	};
 }
 

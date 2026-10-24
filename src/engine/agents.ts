@@ -31,7 +31,8 @@ export function roleTools(role: CatalogRole): string[] {
 	return read;
 }
 
-export function roleAgents(hub: string, roles: CatalogRole[] = readRoleCatalog(hub)): Record<string, AgentDefinition> {
+/** `model` is the roles' model alias; they run on the coordinator's model when it is left out. */
+export function roleAgents(hub: string, roles: CatalogRole[] = readRoleCatalog(hub), model?: string): Record<string, AgentDefinition> {
 	return Object.fromEntries(
 		roles.map(role => [
 			role.id,
@@ -46,6 +47,7 @@ export function roleAgents(hub: string, roles: CatalogRole[] = readRoleCatalog(h
 					'Report every reviewer outside your role that you consulted. Never commit, push or change files your assignment does not cover.',
 				].join('\n'),
 				tools: roleTools(role),
+				...(model ? {model} : {}),
 			},
 		]),
 	);

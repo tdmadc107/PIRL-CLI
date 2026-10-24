@@ -237,9 +237,7 @@ describe('startup check and panels', () => {
 		const {terminal, saved} = await start(100, 30);
 		await terminal.type('/settings');
 		await terminal.press(KEYS.enter);
-		await terminal.press(KEYS.down);
-		await terminal.press(KEYS.down);
-		await terminal.press(KEYS.down);
+		for (let i = 0; i < 6; i++) await terminal.press(KEYS.down);
 		await terminal.press(KEYS.right);
 		await terminal.press(KEYS.right);
 		expect(saved.at(-1)).toMatchObject({glyphs: 'ascii'});

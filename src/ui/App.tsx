@@ -6,7 +6,7 @@ import type {Config} from '../core/config.js';
 import type {DoctorReport} from '../doctor/doctor.js';
 import type {RunController, RunState} from '../engine/run.js';
 import {resumable} from '../engine/runStore.js';
-import {LAYER_LABELS, type RunKind} from '../engine/types.js';
+import {LAYER_LABELS, totalTokens, type RunKind} from '../engine/types.js';
 import {getProvider} from '../providers/index.js';
 import {
 	cycleSetting,
@@ -26,7 +26,7 @@ import {Frame, SidePanel, statusLine, TooSmall} from './components/Panels.js';
 import {backspace, emptyEditor, insert, move, setValue, type EditorState} from './inputEditor.js';
 import {computeLayout} from './layout.js';
 import type {Line} from './lines.js';
-import {clockSpan, IMPROVEMENT_CHOICES, isActive, spinnerSpan, STATUS_LABELS, type Interaction, type Live} from './runView.js';
+import {clockSpan, compactTokens, costText, IMPROVEMENT_CHOICES, isActive, spinnerSpan, STATUS_LABELS, type Interaction, type Live} from './runView.js';
 import {SPINNER_MS, setTickInterval} from './ticker.js';
 import type {DoctorState, Message, NewMessage, Services, SessionInfo, StartupNote} from './session.js';
 import {createTheme} from './theme.js';
@@ -335,7 +335,7 @@ export function App(props: AppProps) {
 			request: last.request,
 			config,
 			python: report?.python ?? null,
-			resume: {sessionId: last.sessionId!, status: last.status, questions: last.questions, before: last.before},
+			resume: {sessionId: last.sessionId!, status: last.status, questions: last.questions, before: last.before, providerTotals: last.providerTotals},
 		});
 		watch(controller);
 		return {kind: 'note', tone: 'info', text: `Chạy tiếp ${LAYER_LABELS[last.kind]}: ${last.request}`};
@@ -625,8 +625,16 @@ export function App(props: AppProps) {
 						? [`${g.upDown} chọn`, 'Tab hoàn thành', 'Enter chạy']
 						: ['Enter gửi', 'Shift+Enter xuống dòng', '/help']
 	).join(` ${g.sep} `);
-	const totals = Object.values(runs).reduce((sum, run) => ({calls: sum.calls + run.usage.calls, tokens: sum.tokens + run.usage.inputTokens + run.usage.outputTokens}), {calls: 0, tokens: 0});
-	const usage = totals.tokens > 0 ? `${totals.calls} lượt gọi ${g.sep} ${totals.tokens.toLocaleString('vi-VN')} token` : `${totals.calls} lượt gọi`;
+	const totals = Object.values(runs).reduce(
+		(sum, run) => ({
+			calls: sum.calls + run.usage.calls,
+			tokens: sum.tokens + totalTokens(run.usage),
+			cost: sum.cost === null || run.usage.costUsd === null ? null : sum.cost + run.usage.costUsd,
+		}),
+		{calls: 0, tokens: 0, cost: 0 as number | null},
+	);
+	const cost = totals.tokens > 0 ? costText(totals.cost) : null;
+	const usage = [`${totals.calls} lượt gọi`, totals.tokens > 0 && `${compactTokens(totals.tokens)} token`, cost].filter(Boolean).join(` ${g.sep} `);
 	const runText = activeRun ? `${LAYER_LABELS[activeRun.kind]}: ${STATUS_LABELS[activeRun.status]}` : doctor.state === 'running' ? 'đang kiểm tra môi trường' : 'không có run';
 	const runWorking = activeRun !== null && isActive(activeRun);
 	const status = statusLine(

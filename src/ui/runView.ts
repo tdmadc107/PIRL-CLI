@@ -1,7 +1,7 @@
 import {basename} from 'node:path';
 import {formatElapsed, type LogEntry, type RunState, type RunStatus} from '../engine/run.js';
 import {displayPath} from '../core/paths.js';
-import {LAYER_LABELS, type Question} from '../engine/types.js';
+import {LAYER_LABELS, totalTokens, type Question, type Usage} from '../engine/types.js';
 import {blank, hanging, type Line, type Span} from './lines.js';
 import {padEnd, truncateEnd} from './text.js';
 import {ROLE_IDS, type RoleId, type Theme} from './theme.js';
@@ -213,12 +213,55 @@ export function runLines(run: RunState, columns: number, theme: Theme, interacti
 		lines.push(...hanging([{text: '  '}, {text: 'Bước tiếp theo, khi bạn muốn: ', dim: true}], next, columns, {color: 'accent'}));
 	}
 	if (run.usage.calls > 0 && !active) {
-		const tokens = run.usage.inputTokens + run.usage.outputTokens;
 		const took = run.log.length > 0 ? ` ${g.sep} ${formatElapsed(run.log.at(-1)!.at)}` : '';
-		lines.push([{text: `  ${run.usage.calls} lượt gọi ${g.sep} ${tokens.toLocaleString('vi-VN')} token${took}`, dim: true}]);
+		lines.push([{text: `  ${run.usage.calls} lượt gọi${took}`, dim: true}]);
+		for (const text of usageDetail(run.usage, g.sep)) lines.push(...hanging([{text: '  '}], text, columns, {dim: true}));
+		const quota = quotaText(run.quota, g.sep, g.arrow);
+		if (quota) lines.push(...hanging([{text: '  '}], quota, columns, {dim: true}));
 	}
 	if (run.logFile && !active) lines.push(...hanging([{text: '  '}], `Nhật ký đầy đủ: ${displayPath(run.logFile)}`, columns, {dim: true}));
 	return lines;
+}
+
+/** 950 → "950", 12_345 → "12k", 1_209_213 → "1,21M": token counts at a glance. */
+export function compactTokens(count: number): string {
+	const format = (value: number, digits: number) => value.toLocaleString('vi-VN', {maximumFractionDigits: digits});
+	if (count < 1000) return String(count);
+	if (count < 1_000_000) return `${format(count / 1000, count < 10_000 ? 1 : 0)}k`;
+	return `${format(count / 1_000_000, 2)}M`;
+}
+
+export const costText = (usd: number | null) => (usd === null ? null : `≈ $${usd < 0.1 ? usd.toFixed(3) : usd.toFixed(2)}`);
+
+/** The tokens of a run by kind, then what they come to at the Claude API list price, with the models used. */
+export function usageDetail(usage: Usage, sep: string): string[] {
+	const total = totalTokens(usage);
+	if (total === 0) return [];
+	const parts = [
+		`${compactTokens(usage.cacheReadTokens)} đọc cache`,
+		`${compactTokens(usage.cacheWriteTokens)} ghi cache`,
+		`${compactTokens(usage.outputTokens)} ra`,
+		`${compactTokens(usage.inputTokens)} vào mới`,
+	];
+	const cost = costText(usage.costUsd);
+	const models = usage.models.map(model => model.replace(/^claude-/, '')).join(', ');
+	return [`${compactTokens(total)} token: ${parts.join(` ${sep} `)}`, [cost && `${cost} theo giá API`, models].filter(Boolean).join(` ${sep} `)].filter(Boolean);
+}
+
+/**
+ * How much of each plan limit the run took: "Hạn mức: 5 giờ 12% → 19% (+7)". The meters count the whole
+ * account, so other sessions at the same time are in the difference too.
+ */
+export function quotaText(quota: RunState['quota'], sep: string, arrow: string): string | null {
+	const {before, after} = quota;
+	if (!after) return null;
+	const rows = after.map(row => {
+		const start = before?.find(item => item.label === row.label);
+		if (!start) return `${row.label} ${Math.round(row.percent)}%`;
+		const added = Math.round(row.percent - start.percent);
+		return `${row.label} ${Math.round(start.percent)}% ${arrow} ${Math.round(row.percent)}% (${added >= 0 ? '+' : ''}${added})`;
+	});
+	return rows.length ? `Hạn mức${before ? '' : ' hiện tại'}: ${rows.join(` ${sep} `)}` : null;
 }
 
 /**
