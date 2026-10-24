@@ -321,7 +321,9 @@ export function useFrameworkConsole(props: FrameworkConsoleProps) {
 				const {draft, resolved} = current;
 				const auto = draft.changed.filter(path => !draft.conflicts.some(conflict => conflict.path === path));
 				const head: Line[] = hanging([], `Bản nháp: ${draft.tag} gộp vào framework của bạn. Hub chưa thay đổi gì.`, columns, {bold: true});
-				head.push(blank, ...hanging([], `${auto.length} file bản gốc mới thay đổi, nhận tự động.`, columns, {dim: true}));
+				head.push(blank, ...hanging([], `${auto.length} file bản gốc mới thay đổi, nhận tự động${auto.length ? ':' : '.'}`, columns, {dim: true}));
+				for (const path of auto.slice(0, 8)) head.push(...hanging([{text: '  '}], path, columns, {dim: true}));
+				if (auto.length > 8) head.push(...hanging([{text: '  '}], `… và ${auto.length - 8} file khác`, columns, {dim: true}));
 				const open = draft.conflicts.filter(conflict => !resolved[conflict.path]).length;
 				if (draft.conflicts.length > 0) {
 					head.push(...hanging([], `${draft.conflicts.length} file xung đột: cả bản gốc mới và cải tiến của bạn cùng sửa một đoạn. Chọn cách xử lý từng file:`, columns), blank);
