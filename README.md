@@ -28,10 +28,10 @@ Giai đoạn 0 (khung TUI) đã xong. Bảng dưới cho biết mỗi lệnh dù
 
 ## Cài từ mã nguồn
 
-PIRL CLI chưa phát hành lên npm. Mã nguồn hiện nằm trên nhánh `develop`.
+PIRL CLI chưa phát hành lên npm.
 
 ```bash
-git clone -b develop https://github.com/tdmadc107/PIRL-CLI.git
+git clone https://github.com/tdmadc107/PIRL-CLI.git
 cd PIRL-CLI
 npm install
 npm pack                              # build và đóng gói thành pirl-cli-<version>.tgz
