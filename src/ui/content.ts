@@ -11,9 +11,6 @@ import {
 	type ModelSetting,
 	type RoleModelSetting,
 } from '../core/config.js';
-import {basename} from 'node:path';
-import {displayPath} from '../core/paths.js';
-import type {PlanPackage, RecordSummary} from '../engine/hubData.js';
 import type {RunState} from '../engine/run.js';
 import type {Check, CheckState} from '../doctor/doctor.js';
 import {PROVIDERS} from '../providers/index.js';
@@ -257,37 +254,3 @@ export function settingsLines(config: Config, selected: number, columns: number,
 
 // ---------- /plans and /records ----------
 
-export function plansLines(packages: PlanPackage[] | null, hub: string | null, columns: number, theme: Theme): Line[] {
-	const g = theme.glyphs;
-	if (!packages) return hanging([{text: `${g.fail} `, color: 'danger'}], 'Không đọc được Hub.', columns);
-	const lines: Line[] = hanging([], `Đọc trong Hub${hub ? ` (${displayPath(hub)})` : ''}: các Plan package có target_repo là repo hiện tại.`, columns, {dim: true});
-	if (packages.length === 0) {
-		lines.push(blank, ...hanging([{text: `${g.pending} `, dim: true}], 'Chưa có Plan nào cho repo này. Gõ /pirl-plan <request> để tạo.', columns));
-		return lines;
-	}
-	for (const item of packages) {
-		lines.push(blank, [{text: item.planSet, bold: true, color: 'accent'}]);
-		for (const task of item.tasks) {
-			const tone = task.status === 'implemented' ? 'success' : task.status === 'failed' || task.status === 'blocked' ? 'danger' : 'warning';
-			lines.push(...hanging([{text: '  '}, {text: `${task.taskId} `, bold: true}, {text: `[${task.status}] `, color: tone}], task.title, columns));
-			for (const report of item.reports.filter(report => report.taskId === task.taskId)) {
-				const verdictTone = report.verdict === 'PASS' ? 'success' : report.verdict === 'FAIL' ? 'danger' : 'warning';
-				lines.push(...hanging([{text: '    '}, {text: `Review vòng ${report.round}: `, dim: true}, {text: report.verdict, color: verdictTone}, {text: '  '}], basename(report.file), columns, {dim: true}));
-			}
-		}
-	}
-	return lines;
-}
-
-export function recordsLines(records: RecordSummary[] | null, columns: number, theme: Theme): Line[] {
-	const g = theme.glyphs;
-	if (!records) return hanging([{text: `${g.fail} `, color: 'danger'}], 'Không đọc được Hub.', columns);
-	const lines: Line[] = hanging([], 'Record tự đánh giá của các run trên repo này, mới nhất trước (đọc trong Hub, .agents/evals/records/).', columns, {dim: true});
-	if (records.length === 0) return [...lines, blank, ...hanging([{text: `${g.pending} `, dim: true}], 'Chưa có record nào.', columns)];
-	for (const record of records) {
-		const fixes = record.fixes > 0 || record.pending > 0 ? ` ${g.sep} ${record.fixes} cải tiến đã áp dụng${record.pending ? `, ${record.pending} chờ duyệt` : ''}` : '';
-		lines.push(blank, [{text: record.recordId, bold: true, color: 'accent'}, {text: `  ${record.layer} ${g.sep} ${record.status}${fixes}`, dim: true}]);
-		lines.push(...hanging([{text: '  '}], record.summary, columns));
-	}
-	return lines;
-}

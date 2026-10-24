@@ -36,7 +36,16 @@ export type StartRunOptions = {
 	config: Config;
 	python: {command: string; args: string[]} | null;
 	/** Continue a provider session: a stopped run (/resume) or the session of earlier chat messages. */
-	resume?: {sessionId: string; status?: PersistedRun['status']; questions?: Question[]; before?: PersistedRun['before']; prompt?: string; providerTotals?: PersistedRun['providerTotals']};
+	resume?: {
+		sessionId: string;
+		status?: PersistedRun['status'];
+		questions?: Question[];
+		before?: PersistedRun['before'];
+		prompt?: string;
+		providerTotals?: PersistedRun['providerTotals'];
+		key?: string;
+		startedAt?: string;
+	};
 	recentOutputs?: string[];
 };
 
@@ -67,7 +76,8 @@ export type Services = {
 	saveConfig(config: Config): void;
 	startRun?(options: StartRunOptions): RunController;
 	saveRun?(run: PersistedRun): void;
-	lastRun?(): PersistedRun | null;
+	/** The saved layer runs of the target repository, newest first, for /resume. */
+	runs?(): PersistedRun[];
 	plans?(): PlanPackage[];
 	records?(): RecordSummary[];
 	clipboard?: Clipboard;

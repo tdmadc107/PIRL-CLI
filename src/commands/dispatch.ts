@@ -3,7 +3,7 @@ import type {RunKind} from '../engine/types.js';
 import {commandUsage, type ParsedInput} from './registry.js';
 
 export type Tone = 'info' | 'success' | 'warning' | 'error';
-export type OverlayKind = 'help' | 'doctor' | 'settings' | 'framework' | 'plans' | 'records';
+export type OverlayKind = 'help' | 'doctor' | 'settings' | 'framework' | 'plans' | 'records' | 'resume';
 
 /** What the TUI does for one submitted input. Kept free of UI code so every rule can be tested directly. */
 export type Effect =

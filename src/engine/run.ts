@@ -66,6 +66,11 @@ export type RunState = {
 export type RunSnapshot = {hubChanges: string[]; records: number; planSets: string[]; targetChanges: string[]};
 
 export type PersistedRun = {
+	/** Names the run's file in ~/.pirl/sessions/; a resumed run keeps it, so it updates the same entry. */
+	key: string;
+	/** When the run first started and when it was saved last (ISO). */
+	startedAt?: string;
+	savedAt?: string;
 	kind: RunKind;
 	request: string;
 	sessionId: string | null;
@@ -125,6 +130,8 @@ export class RunController {
 	private stopped = false;
 	/** The usage before the current provider call, and the provider session's totals reported so far. */
 	private callBase: Usage | null = null;
+	private readonly key: string;
+	private readonly firstStartedAt: string;
 	private providerTotals: Record<string, ModelTotals> = {};
 	private deniedIds = new Set<string>();
 	private logStream: WriteStream | null = null;
@@ -135,11 +142,22 @@ export class RunController {
 		id: number,
 		kind: RunKind,
 		request: string,
-		resume?: {sessionId: string; status?: RunStatus; questions?: Question[]; before?: RunSnapshot; prompt?: string; providerTotals?: Record<string, ModelTotals>},
+		resume?: {
+			sessionId: string;
+			status?: RunStatus;
+			questions?: Question[];
+			before?: RunSnapshot;
+			prompt?: string;
+			providerTotals?: Record<string, ModelTotals>;
+			key?: string;
+			startedAt?: string;
+		},
 	) {
 		this.exec = deps.exec ?? defaultExec;
 		this.now = deps.now ?? Date.now;
 		const startedAt = this.now();
+		this.key = resume?.key ?? `${logStamp(new Date(startedAt))}-${kind}-${id}`;
+		this.firstStartedAt = resume?.startedAt ?? new Date(startedAt).toISOString();
 		const logFile = deps.logDir ? join(deps.logDir, `${logStamp(new Date(startedAt))}-${kind}-${id}.log`) : null;
 		this.state = {
 			id,
@@ -177,6 +195,9 @@ export class RunController {
 	/** What /resume needs to continue this run after PIRL CLI was closed. */
 	persisted(): PersistedRun {
 		return {
+			key: this.key,
+			startedAt: this.firstStartedAt,
+			savedAt: new Date(this.now()).toISOString(),
 			kind: this.state.kind,
 			request: this.state.request,
 			sessionId: this.state.sessionId,

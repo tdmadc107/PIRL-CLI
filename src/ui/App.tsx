@@ -4,7 +4,7 @@ import {dispatch, type Effect, type OverlayKind} from '../commands/dispatch.js';
 import {parseInput, suggestCommands} from '../commands/registry.js';
 import type {Config} from '../core/config.js';
 import type {DoctorReport} from '../doctor/doctor.js';
-import type {RunController, RunState} from '../engine/run.js';
+import type {PersistedRun, RunController, RunState} from '../engine/run.js';
 import {resumable} from '../engine/runStore.js';
 import {LAYER_LABELS, totalTokens, type QuotaRow, type RunKind} from '../engine/types.js';
 import {getProvider} from '../providers/index.js';
@@ -12,8 +12,6 @@ import {
 	cycleSetting,
 	doctorLines,
 	helpLines,
-	plansLines,
-	recordsLines,
 	settingsLines,
 	settingsRows,
 	transcriptLines,
@@ -22,7 +20,11 @@ import {Header, type ProviderBadge} from './components/Header.js';
 import {InputBox, inputHeight, paletteLines} from './components/Input.js';
 import {bottomWindow, Lines} from './components/Lines.js';
 import {Frame, SidePanel, statusLine, TooSmall} from './components/Panels.js';
+import {displayPath} from '../core/paths.js';
+import {planEntries, recordEntries, resumeEntries} from './browse.js';
 import {useFrameworkConsole} from './frameworkConsole.js';
+import {blank, hanging} from './lines.js';
+import {useListOverlay, type ListEntry} from './listOverlay.js';
 import {backspace, emptyEditor, insert, move, setValue, type EditorState} from './inputEditor.js';
 import {computeLayout} from './layout.js';
 import type {Line} from './lines.js';
@@ -50,6 +52,7 @@ const OVERLAY_TITLES: Record<OverlayKind, string> = {
 	framework: 'Framework',
 	plans: 'Plan của repo này',
 	records: 'Record tự cải tiến',
+	resume: 'Chạy tiếp run',
 };
 
 /** One line after a clean start: the provider is signed in, plus the Python and Git versions found. */
@@ -220,6 +223,7 @@ export function App(props: AppProps) {
 	useEffect(() => props.services.setMouse?.(config.mouse), [config.mouse]);
 	const live: Live = {motion: config.motion};
 
+
 	// Each message is laid out once per change of what it shows: a finished run or a note is not laid out again
 	// when the spinner moves or another run streams events. Only the working run's block is redone.
 	const lineCache = useRef(new Map<number, {key: unknown[]; lines: Line[]}>());
@@ -245,9 +249,8 @@ export function App(props: AppProps) {
 		return lines;
 	})();
 
-	const overlayLines = (frameworkView: {lines: Line[]}): Line[] => {
+	const overlayLines = (frameworkView: {lines: Line[]}, listView: {lines: Line[]}): Line[] => {
 		const inner = bodyWidth - 4;
-		const target = props.info.target.kind === 'git' ? props.info.target.root : null;
 		switch (overlay) {
 			case 'help':
 				return helpLines(inner, theme);
@@ -258,9 +261,9 @@ export function App(props: AppProps) {
 			case 'settings':
 				return settingsLines(config, settingsIndex, inner, theme);
 			case 'plans':
-				return plansLines(target && props.services.plans ? props.services.plans() : null, hub?.path ?? null, inner, theme);
 			case 'records':
-				return recordsLines(props.services.records ? props.services.records() : null, inner, theme);
+			case 'resume':
+				return listView.lines;
 			default:
 				return [];
 		}
@@ -355,9 +358,10 @@ export function App(props: AppProps) {
 		return null;
 	};
 
-	const resumeRun = (): NewMessage => {
-		const last = props.services.lastRun?.() ?? null;
-		if (!resumable(last)) return {kind: 'note', tone: 'info', text: 'Không có run nào đang dở.'};
+	/** The runs /resume offers: stopped, failed or waiting ones that have a provider session. */
+	const resumableRuns = () => (props.services.runs?.() ?? []).filter(run => resumable(run));
+
+	const resumeRun = (last: PersistedRun): NewMessage => {
 		const blocker = runBlocker(last.kind);
 		if (blocker) return {kind: 'note', tone: 'error', text: blocker};
 		const controller = props.services.startRun!({
@@ -366,7 +370,15 @@ export function App(props: AppProps) {
 			request: last.request,
 			config,
 			python: report?.python ?? null,
-			resume: {sessionId: last.sessionId!, status: last.status, questions: last.questions, before: last.before, providerTotals: last.providerTotals},
+			resume: {
+				sessionId: last.sessionId!,
+				status: last.status,
+				questions: last.questions,
+				before: last.before,
+				providerTotals: last.providerTotals,
+				key: last.key,
+				startedAt: last.startedAt,
+			},
 		});
 		watch(controller);
 		return {kind: 'note', tone: 'info', text: `Chạy tiếp ${LAYER_LABELS[last.kind]}: ${last.request}`};
@@ -392,6 +404,42 @@ export function App(props: AppProps) {
 		else addMessages([{kind: 'note', tone: 'warning', text: 'Không đọc được clipboard. Dùng phím dán của terminal (chuột phải, Ctrl+Shift+V).'}]);
 	};
 
+	const list = useListOverlay();
+	// What /plans, /records and /resume list: read once when the panel opens, not on every frame.
+	const listContent = useMemo((): {entries: ListEntry[]; header: Line[]} | null => {
+		const target = props.info.target.kind === 'git' ? props.info.target.root : null;
+		const width = Math.max(20, bodyWidth - 4);
+		const intro = (text: string) => hanging([], text, width, {dim: true});
+		const unreadable = () => hanging([{text: `${theme.glyphs.fail} `, color: 'danger'}], 'Không đọc được Hub.', width);
+		switch (overlay) {
+			case 'plans': {
+				if (!target || !props.services.plans) return {entries: [], header: unreadable()};
+				const packages = props.services.plans();
+				const header = intro(`Đọc trong Hub${hub ? ` (${displayPath(hub.path)})` : ''}: các Plan package có target_repo là repo hiện tại. Enter để xem một Plan hoặc report.`);
+				if (packages.length === 0) header.push(blank, ...hanging([{text: `${theme.glyphs.pending} `, dim: true}], 'Chưa có Plan nào cho repo này. Gõ /pirl-plan <request> để tạo.', width));
+				return {entries: planEntries(packages, theme), header};
+			}
+			case 'records': {
+				const records = props.services.records?.() ?? null;
+				if (!records) return {entries: [], header: unreadable()};
+				const header = intro('Record tự đánh giá của các run trên repo này, mới nhất trước (đọc trong Hub, .agents/evals/records/). Enter để xem chi tiết.');
+				if (records.length === 0) header.push(blank, ...hanging([{text: `${theme.glyphs.pending} `, dim: true}], 'Chưa có record nào.', width));
+				return {entries: recordEntries(records, theme), header};
+			}
+			case 'resume':
+				return {
+					entries: resumeEntries(resumableRuns(), theme, run => {
+						setOverlay(null);
+						addMessages([{kind: 'user', text: `/resume ${LAYER_LABELS[run.kind]}: ${run.request.split('\n')[0]!.slice(0, 80)}`}, resumeRun(run)]);
+					}),
+					header: intro('Chọn run muốn chạy tiếp, mới nhất trước. Run chạy tiếp đúng session của provider mà nó đã dừng.'),
+				};
+			default:
+				return null;
+		}
+		// Read again when the panel opens or the window width changes.
+	}, [overlay, bodyWidth, theme]);
+
 	// ---------- heights ----------
 	const suggestions = overlay || interaction ? [] : suggestCommands(editor.value);
 	useEffect(() => setPaletteIndex(0), [editor.value]);
@@ -404,7 +452,8 @@ export function App(props: AppProps) {
 	const bodyHeight = Math.max(1, room - paletteShown);
 	const overlayPage = Math.max(1, bodyHeight - 4);
 	const frameworkView = overlay === 'framework' ? framework.view(bodyWidth - 4, bodyHeight - 3, theme) : {lines: [], top: 0};
-	const overlayContent = overlay ? overlayLines(frameworkView) : [];
+	const listView = listContent ? list.view(listContent.entries, listContent.header, bodyWidth - 4, bodyHeight - 3, theme) : {lines: [], top: 0};
+	const overlayContent = overlay ? overlayLines(frameworkView, listView) : [];
 	// The first line of the last page: scrolling further down stops there, so one PgUp always moves back.
 	const overlayMaxTop = Math.max(0, overlayContent.length - Math.max(1, bodyHeight - 3 - 1));
 
@@ -423,11 +472,21 @@ export function App(props: AppProps) {
 				setOverlayTop(0);
 				setSettingsIndex(0);
 				if (effect.overlay === 'framework') framework.open();
+				list.reset();
 			}
 			if (effect.type === 'doctor') startDoctor(false);
 			if (effect.type === 'exit') exit();
 			if (effect.type === 'copy') afterwards = () => void copyLatest();
-			if (effect.type === 'resume') afterwards = () => addMessages([resumeRun()]);
+			if (effect.type === 'resume') {
+				afterwards = () => {
+					if (resumableRuns().length === 0) addMessages([{kind: 'note', tone: 'info', text: 'Không có run nào đang dở.'}]);
+					else if (activeRunId !== null) addMessages([{kind: 'note', tone: 'error', text: runBlocker('plan') ?? ''}]);
+					else {
+						list.reset();
+						setOverlay('resume');
+					}
+				};
+			}
 			if (effect.type === 'run') {
 				const kind = effect.kind;
 				const request = effect.request;
@@ -517,6 +576,10 @@ export function App(props: AppProps) {
 		}
 		if (overlay === 'framework') {
 			if (!framework.handleKey(input, key, overlayPage)) setOverlay(null);
+			return;
+		}
+		if (overlay && listContent) {
+			if (!list.handleKey(input, key, overlayPage, listContent.entries)) setOverlay(null);
 			return;
 		}
 		if (overlay) {
@@ -626,6 +689,7 @@ export function App(props: AppProps) {
 	const scrollByWheel = (notches: number) => {
 		const lines = notches * WHEEL_LINES;
 		if (overlay === 'framework') framework.wheel(lines);
+		else if (overlay && listContent) list.wheel(lines, listContent.entries);
 		else if (overlay === 'settings') return;
 		else if (overlay) setOverlayTop(top => Math.max(0, Math.min(overlayMaxTop, Math.min(top, overlayMaxTop) - lines)));
 		else setScroll(current => Math.max(0, Math.min(current + lines, Math.max(0, transcript.length - bodyHeight + 1))));
@@ -670,6 +734,8 @@ export function App(props: AppProps) {
 				? [`${g.upDown} chọn`, `${g.leftRight} đổi`, 'Esc đóng']
 				: overlay === 'framework'
 					? framework.hints(theme)
+					: listContent
+						? list.hints(theme, overlay === 'resume' ? 'chạy tiếp' : 'xem')
 					: [`${g.upDown} PgUp/PgDn cuộn`, 'Esc đóng']
 			: interaction
 				? [`${g.upDown} chọn`, 'Enter xác nhận']
@@ -711,7 +777,7 @@ export function App(props: AppProps) {
 						lines={overlayContent}
 						width={bodyWidth}
 						height={bodyHeight}
-						top={overlay === 'framework' ? frameworkView.top : overlayTop}
+						top={overlay === 'framework' ? frameworkView.top : listContent ? listView.top : overlayTop}
 						theme={theme}
 						active
 					/>

@@ -20,7 +20,7 @@ afterEach(() => {
 async function startWithRuns(scripts: FakeScript[], extra: Partial<Services> = {}, size: [number, number] = [110, 40]) {
 	const {hub, target} = await hubAndTarget();
 	const {runner, calls} = fakeRunner(scripts);
-	let saved: PersistedRun | null = null;
+	const saved = new Map<string, PersistedRun>();
 	const base = appProps({
 		info: sessionInfo({
 			target: {kind: 'git', root: target, name: 'shop', branch: 'main'},
@@ -31,8 +31,8 @@ async function startWithRuns(scripts: FakeScript[], extra: Partial<Services> = {
 		...base.props.services,
 		startRun: options =>
 			new RunController({runner, hub, target, python: PYTHON, maxParallelRoles: 2, recentOutputs: options.recentOutputs}, options.id, options.kind, options.request, options.resume),
-		saveRun: run => void (saved = run),
-		lastRun: () => saved,
+		saveRun: run => void saved.set(run.key, run),
+		runs: () => [...saved.values()].reverse(),
 		plans: () => readPlanPackages(hub, target),
 		records: () => readRecords(hub, target),
 		...extra,
@@ -127,6 +127,10 @@ describe('layer runs in the TUI', () => {
 		await until(terminal, 'Đã dừng. Gõ /resume để chạy tiếp.');
 		await terminal.type('/resume');
 		await terminal.press(KEYS.enter);
+		await until(terminal, 'Chọn run muốn chạy tiếp');
+		expect(terminal.frame()).toMatch(/Plan đã dừng \d{2}\/\d{2} \d{2}:\d{2}/);
+		expect(terminal.frame()).toContain('Email huỷ đơn');
+		await terminal.press(KEYS.enter);
 		await until(terminal, 'Đã chạy tiếp.');
 		expect(calls[1]!.prompt).toBe('Tiếp tục run bị dừng từ chỗ đã dừng.');
 		expect(calls[1]!.resumeSessionId).toBe('session-7');
@@ -212,11 +216,47 @@ describe('layer runs in the TUI', () => {
 		const plans = terminal.frame();
 		expect(plans).toMatch(/order-email_\d{8}-\d{6}/);
 		expect(plans).toContain('T01 [planned]');
+		// Enter opens the chosen Plan: its frontmatter and its sections; Esc goes back to the list.
+		await terminal.press(KEYS.enter);
+		const detail = await until(terminal, 'task_id: T01');
+		expect(detail).toContain('target_repo:');
+		expect(detail).toContain('What to do');
+		await terminal.press(KEYS.escape);
+		await until(terminal, 'T01 [planned]');
 		await terminal.press(KEYS.escape);
 		await terminal.type('/records');
 		await terminal.press(KEYS.enter);
 		expect(terminal.frame()).toContain('plan · ready');
 		expect(terminal.frame()).toContain('Plan cho email huỷ đơn');
+		await terminal.press(KEYS.enter);
+		const record = await until(terminal, 'Vấn đề (0)');
+		expect(record).toContain('Kết quả: ready');
+		expect(record).toContain('Cải tiến (0)');
+		expect(record).toMatch(/code-analyst agent PASS/);
+	});
+
+	test('/resume lists the runs that can continue and resumes the one chosen', async () => {
+		const stopped = (sessionId: string): FakeScript => (_call, emit) => {
+			emit({type: 'session', sessionId});
+			return new Promise(() => {});
+		};
+		const {terminal, calls} = await startWithRuns([stopped('s-a'), stopped('s-b'), () => [result('Chạy tiếp A.', 's-a')]]);
+		for (const request of ['Việc A', 'Việc B']) {
+			await terminal.type(`/pirl-plan ${request}`);
+			await terminal.press(KEYS.enter);
+			for (const end = Date.now() + 30_000; calls.length < (request === 'Việc A' ? 1 : 2) && Date.now() < end; ) await tick(40);
+			await tick(100);
+			await terminal.press(KEYS.escape);
+			await until(terminal, request === 'Việc A' ? 'Plan · đã dừng' : /đã dừng[\s\S]*đã dừng/);
+		}
+		await terminal.type('/resume');
+		await terminal.press(KEYS.enter);
+		const picker = await until(terminal, 'Chọn run muốn chạy tiếp');
+		expect(picker.indexOf('Việc B')).toBeLessThan(picker.indexOf('Việc A')); // newest first
+		await terminal.press(KEYS.down);
+		await terminal.press(KEYS.enter);
+		await until(terminal, 'Chạy tiếp A.');
+		expect(calls[2]!.resumeSessionId).toBe('s-a');
 	});
 });
 

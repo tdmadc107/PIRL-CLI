@@ -10,7 +10,7 @@ import {readClaudeQuota} from '../engine/claudeQuota.js';
 import {createClaudeRunner} from '../engine/claudeRunner.js';
 import {readPlanPackages, readRecords} from '../engine/hubData.js';
 import {RunController} from '../engine/run.js';
-import {loadRun, saveRun} from '../engine/runStore.js';
+import {listRuns, saveRun} from '../engine/runStore.js';
 import {loadBundledFramework, type BundledFramework} from '../hub/framework.js';
 import {frameworkServices} from '../hub/services.js';
 import {ensureHub, type HubStatus} from '../hub/hub.js';
@@ -102,7 +102,7 @@ async function main(): Promise<number> {
 						options.resume,
 					),
 				saveRun: run => targetRoot && saveRun(home, targetRoot, run),
-				lastRun: () => (targetRoot ? loadRun(home, targetRoot) : null),
+				runs: () => (targetRoot ? listRuns(home, targetRoot) : []),
 				plans: () => (hub && targetRoot ? readPlanPackages(hub.path, targetRoot) : []),
 				records: () => (hub ? readRecords(hub.path, targetRoot) : []),
 				clipboard: createClipboard({writeTerminal: data => process.stdout.write(data)}),

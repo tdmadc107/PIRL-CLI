@@ -69,7 +69,7 @@ Trong TUI, gõ `/` để xem danh sách lệnh, hoặc `/help` để xem lệnh 
 | Ctrl+V | Dán từ clipboard (phím dán của terminal, chuột phải cũng được) |
 | Tab | Hoàn thành tên lệnh đang chọn |
 | ↑ / ↓ | Chọn lệnh gợi ý, chọn đáp án khi run hỏi, hoặc xem lại nội dung đã gửi |
-| PgUp / PgDn | Cuộn khung chat hoặc bảng đang mở |
+| PgUp / PgDn, con lăn chuột | Cuộn khung chat hoặc bảng đang mở |
 | Esc | Xoá ô nhập, đóng bảng đang mở, hoặc dừng run đang chạy |
 | Ctrl+C | Dừng run đang chạy; khi không có run thì thoát |
 
@@ -77,7 +77,8 @@ Shift+Enter cần terminal báo được phím bổ trợ (giao thức bàn phí
 kitty, WezTerm, Ghostty, iTerm2. Với Windows Terminal bản cũ hơn, dùng Ctrl+J, hoặc thêm vào `settings.json`
 một phím tắt `{"command": {"action": "sendInput", "input": "\n"}, "keys": "shift+enter"}`.
 
-Copy: bôi đen bằng chuột như mọi nội dung trong terminal; `/copy` copy nguyên câu trả lời gần nhất của PIRL.
+Copy: giữ Shift rồi kéo chuột để bôi đen (vì con lăn đang dùng để cuộn); `/copy` copy nguyên câu trả lời gần
+nhất của PIRL. Muốn bôi đen không cần Shift thì tắt "Cuộn bằng chuột" trong `/settings`.
 
 ### Một run diễn ra thế nào
 
@@ -95,16 +96,23 @@ Copy: bôi đen bằng chuột như mọi nội dung trong terminal; `/copy` cop
 Run không bao giờ commit, push hay đổi nhánh trong repo của bạn. Lệnh nằm ngoài quyền của run bị từ chối
 ("Đã chặn N lệnh ngoài quyền của run"). Đây là luật quyền đang hoạt động, không phải lỗi: run vẫn tiếp tục,
 và run block liệt kê đúng lệnh bị chặn. Esc hoặc Ctrl+C dừng run; bấm Ctrl+C lần nữa để thoát ngay.
-`/resume` chạy tiếp, kể cả sau khi đóng TUI.
+`/resume` mở danh sách các run còn chạy tiếp được của repo (đã dừng, lỗi, hoặc đang chờ trả lời), mới nhất
+trước; chọn run bằng ↑↓ rồi Enter. Run chạy tiếp đúng session Claude Code của nó, kể cả sau khi đóng TUI.
 
-Trong lúc run chạy, spinner và đồng hồ cho biết run còn đang làm. Bảng bên phải (hoặc run block, khi cửa sổ
-hẹp) hiện nhật ký: ai đang đọc, sửa hay chạy gì. Mỗi run ghi nhật ký đầy đủ vào `~/.pirl/logs/`. Nếu terminal
+Trong lúc run chạy, spinner và đồng hồ cho biết run còn đang làm; run block hiện từng role đang làm gì. Nhật ký
+đầy đủ của mỗi run ghi vào `~/.pirl/logs/` (TUI không hiện nhật ký; nhật ký không tốn token). Nếu terminal
 chậm, tắt "Hiệu ứng chuyển động" trong `/settings`.
+
+`/plans` liệt kê Plan và report Review của repo; `/records` liệt kê record tự đánh giá. Chọn một mục rồi Enter
+để xem chi tiết: nội dung Plan hoặc report; với record là kết quả, các role, vấn đề tìm thấy và cải tiến đã làm.
 
 ### Token và hạn mức
 
 Mỗi run gọi Claude Code nhiều lần (coordinator và các role), và mọi lần gọi đều tính vào hạn mức
-subscription của bạn. Khi run xong, run block hiện:
+subscription của bạn. Bảng bên phải có mục "Hạn mức": phần trăm đã dùng của hạn mức 5 giờ và hạn mức tuần, kèm
+giờ đặt lại. Số liệu lấy từ `/usage` của Claude Code lúc mở TUI (lệnh này không gọi model) và được cập nhật
+sau mỗi run. Khi cửa sổ hẹp không có bảng bên phải, hạn mức hiện ở thanh trạng thái. Khi run xong, run block
+hiện:
 
 - token theo loại: đọc cache, ghi cache, ra, vào mới. Gồm cả token của các role.
 - giá trị quy đổi theo giá API niêm yết, do Claude Code ước tính.
@@ -123,7 +131,9 @@ giá API, rồi so với phần trăm hạn mức mà run đã dùng. Sau vài r
 
 - model của coordinator: mặc định Sonnet. Theo giá API, Opus đắt gấp khoảng 2 lần, Fable gấp khoảng 5 lần.
 - model của các role: mặc định giống coordinator.
-- mức suy luận.
+- mức suy luận (effort), áp dụng cho coordinator và mọi role. Claude Code ghi mức này cho model dưới dạng số:
+  low 10, medium 20, high 40, xhigh 80, max. Mặc định của Claude Code là medium.
+- cuộn bằng chuột.
 - số role chạy song song.
 
 PIRL CLI chỉ cấp cho run các công cụ nó dùng và không nạp MCP server của bạn. Nhờ vậy mỗi request gửi ít
@@ -160,7 +170,7 @@ cục bộ, không có remote, chứa framework đi kèm CLI.
 | Plan và report Review (`/plans`) | Gốc Hub, mỗi Plan package một thư mục `<request-slug>_<YYYYMMDD-HHmmss>/`. `/plans` chỉ hiện các package có `target_repo` là repo đang mở |
 | Record tự đánh giá (`/records`) | `~/.pirl/hub/.agents/evals/records/<layer>/`, lọc theo repo đang mở |
 | Cài đặt | `~/.pirl/config.json` |
-| Run dở dang cho `/resume` | `~/.pirl/sessions/` (chỉ lưu session id của Claude Code, không lưu credential) |
+| Run cho `/resume` | `~/.pirl/sessions/<repo>/`, mỗi run một file, giữ 20 run gần nhất mỗi repo (chỉ lưu session id của Claude Code, không lưu credential) |
 | Bản nháp khi đang cập nhật framework | `~/.pirl/hub-update/` (tự xoá khi cập nhật xong hoặc huỷ) |
 | Nhật ký đầy đủ của từng run | `~/.pirl/logs/` |
 
