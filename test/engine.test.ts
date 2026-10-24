@@ -4,7 +4,7 @@ import {afterEach, describe, expect, test} from 'vitest';
 import {readRoleCatalog, roleAgents} from '../src/engine/agents.js';
 import {claudeArgs} from '../src/engine/claudeRunner.js';
 import {createStreamParser, describeTool, parseStreamLine} from '../src/engine/claudeStream.js';
-import {allowedPaths, outsideAllowed, readPlanPackages, readRecords, sameRepo} from '../src/engine/hubData.js';
+import {allowedPaths, outsideAllowed, readFrontmatter, readPlanPackages, readRecords, sameRepo} from '../src/engine/hubData.js';
 import {permissionsFor, ruleRoot} from '../src/engine/permissions.js';
 import {answersMessage, hostInstructions, parseOutputs, parseQuestions, parseSuggestion, stripBlocks} from '../src/engine/protocol.js';
 import {formatElapsed, LOG_LIMIT, RunController} from '../src/engine/run.js';
@@ -236,6 +236,11 @@ describe('Hub data for /plans and /records', () => {
 		expect(readRecords(hub, target)).toEqual([expect.objectContaining({layer: 'plan', status: 'ready', summary: 'Plan cho email huỷ đơn'})]);
 		expect(readRecords(hub, tempDir())).toEqual([]);
 		expect(sameRepo('../x', '/a/hub', '/a/x')).toBe(true);
+	});
+
+	test('quoted frontmatter values keep Windows backslashes, as the validator reads them', () => {
+		const fields = readFrontmatter('---\ntarget_repo: "D:\\new-app\\shop"\ntitle: \'it\'\'s\'\nplan_set: "a \\"b\\""\n---\n');
+		expect(fields).toEqual({target_repo: 'D:\\new-app\\shop', title: "it's", plan_set: 'a "b"'});
 	});
 
 	test('Allowed paths: directories with a trailing slash, exact files', () => {

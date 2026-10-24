@@ -21,7 +21,7 @@ const tempDir = (prefix = 'pirl-fwui-') => {
 };
 afterEach(() => {
 	for (const terminal of open.splice(0)) terminal.cleanup();
-	for (const dir of temporary.splice(0)) rmSync(dir, {recursive: true, force: true});
+	for (const dir of temporary.splice(0)) rmSync(dir, {recursive: true, force: true, maxRetries: 10, retryDelay: 200});
 });
 
 const git = (cwd: string, ...args: string[]) =>

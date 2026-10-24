@@ -39,5 +39,7 @@ Bản phát hành đầu tiên. Provider: Claude Code (2.1.281 trở lên). Fram
 - Phần chi tiết của tự đánh giá chuyển sang `self-evaluation.instructions.md`, kèm mẫu JSON của record. Không quy
   tắc nào thay đổi.
 - Plan, report và record dùng múi giờ của máy thay vì UTC+7 cố định.
+- Validator đọc nguyên văn chuỗi trong ngoặc của frontmatter. Trước đây, một `target_repo` dạng đường dẫn Windows
+  (`"C:\Users\..."`) bị từ chối, hoặc `\n` trong `"D:\new-app"` bị đổi thành ký tự xuống dòng.
 
 [1.0.0]: https://github.com/tdmadc107/PIRL-CLI/releases/tag/v1.0.0

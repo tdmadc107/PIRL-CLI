@@ -44,6 +44,13 @@ def _scalar(raw: str, source: str, number: int) -> Any:
         return lowered == "true"
     if lowered in ("null", "~"):
         return None
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
+        # A quoted string is taken as written: Windows paths such as "D:\new-app" keep their backslashes.
+        # Only an escaped quote or backslash in double quotes, and a doubled quote in single quotes, are decoded.
+        inner = value[1:-1]
+        if value[0] == "'":
+            return inner.replace("''", "'")
+        return re.sub(r'\\(["\\])', r"\1", inner)
     if value.startswith(("[", "{", "'", '"')):
         try:
             return ast.literal_eval(value)

@@ -19,9 +19,16 @@ export function readFrontmatter(text: string): Record<string, string> {
 	const fields: Record<string, string> = {};
 	for (const line of match?.[1]?.split(/\r?\n/) ?? []) {
 		const field = /^([a-z_]+):\s*(.*)$/.exec(line);
-		if (field) fields[field[1]!] = field[2]!.trim().replace(/^"(.*)"$/, '$1');
+		if (field) fields[field[1]!] = unquote(field[2]!.trim());
 	}
 	return fields;
+}
+
+/** A quoted value as the framework's validator reads it: backslashes kept, so Windows paths stay intact. */
+function unquote(value: string): string {
+	if (value.length >= 2 && value[0] === "'" && value.endsWith("'")) return value.slice(1, -1).replace(/''/g, "'");
+	if (value.length >= 2 && value[0] === '"' && value.endsWith('"')) return value.slice(1, -1).replace(/\\(["\\])/g, '$1');
+	return value;
 }
 
 /** A target_repo value names the same repository as `target`: absolute, or relative to the Hub root. */

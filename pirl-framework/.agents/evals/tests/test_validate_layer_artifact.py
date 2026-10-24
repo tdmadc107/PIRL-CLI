@@ -13,7 +13,7 @@ EVALS = Path(__file__).resolve().parents[1]
 REPO = EVALS.parents[1]
 sys.path.insert(0, str(EVALS))
 from layer_record import LAYER_USAGES  # noqa: E402
-from validate_layer_artifact import CATALOG, load_roles  # noqa: E402
+from validate_layer_artifact import CATALOG, _scalar, load_roles  # noqa: E402
 
 ROLES = """### Role catalog
 
@@ -132,6 +132,13 @@ class HandoffIOTests(unittest.TestCase):
                 code, result = self.write_plan(invalid)
                 self.assertNotEqual(code, 0)
                 self.assertTrue(any(field in error for error in result["errors"]), result)
+
+    def test_quoted_values_keep_windows_backslashes(self):
+        # target_repo is usually an absolute path; on Windows it holds backslashes that are not escapes.
+        self.assertEqual(_scalar('"D:\\new-app\\shop"', "plan", 1), "D:\\new-app\\shop")
+        self.assertEqual(_scalar('"C:\\Users\\dev"', "plan", 1), "C:\\Users\\dev")
+        self.assertEqual(_scalar("'it''s'", "plan", 1), "it's")
+        self.assertEqual(_scalar('"say \\"hi\\""', "plan", 1), 'say "hi"')
 
     def test_target_repo_must_be_an_existing_directory(self):
         outside = tempfile.TemporaryDirectory()

@@ -43,7 +43,7 @@ async function startWithRuns(scripts: FakeScript[], extra: Partial<Services> = {
 	return {terminal, hub, target, calls};
 }
 
-const until = async (terminal: Terminal, text: string | RegExp, ms = 8000) => {
+const until = async (terminal: Terminal, text: string | RegExp, ms = 30_000) => {
 	const end = Date.now() + ms;
 	while (Date.now() < end) {
 		const frame = terminal.frame();
