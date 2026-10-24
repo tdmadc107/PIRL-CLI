@@ -1,15 +1,35 @@
 {
   "name": "pirl-cli",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "PIRL CLI: a terminal UI that runs the PIRL framework (Plan – Implement – Review Layer) through the AI agent CLI you are already signed in to.",
+  "keywords": [
+    "pirl",
+    "cli",
+    "tui",
+    "ai-agents",
+    "claude-code",
+    "plan",
+    "code-review",
+    "workflow"
+  ],
+  "homepage": "https://github.com/tdmadc107/PIRL-CLI#readme",
+  "bugs": {
+    "url": "https://github.com/tdmadc107/PIRL-CLI/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tdmadc107/PIRL-CLI.git"
+  },
+  "author": "tdmadc107",
   "license": "MIT",
   "type": "module",
   "bin": {
     "pirl": "dist/bin/pirl.js"
   },
   "files": [
-    "dist",
-    "bundled-framework"
+    "dist/**/*.js",
+    "bundled-framework",
+    "CHANGELOG.md"
   ],
   "engines": {
     "node": ">=22"
@@ -24,7 +44,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run bundle-framework && vitest run",
     "prepack": "npm run build",
-    "setup": "node scripts/setup.mjs"
+    "setup": "node scripts/setup.mjs",
+    "prepublishOnly": "npm run typecheck && npm test",
+    "pack:check": "node scripts/pack-check.mjs"
   },
   "dependencies": {
     "cross-spawn": "7.0.6",
@@ -40,5 +62,8 @@
     "tsx": "4.23.15",
     "typescript": "5.9.3",
     "vitest": "4.1.12"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

@@ -1,0 +1,3 @@
+# Text files are stored and checked out with LF on every platform. The bundled framework is hashed byte for byte
+# and compared with each user's Hub, so a Windows checkout with CRLF would make every framework file look changed.
+* text=auto eol=lf
