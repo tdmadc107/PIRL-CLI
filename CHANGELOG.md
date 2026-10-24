@@ -9,6 +9,8 @@ Bản phát hành đầu tiên. Provider: Claude Code (2.1.281 trở lên). Fram
 
 ### Thêm
 
+- Đính kèm file hoặc thư mục bằng `@`: gợi ý đường dẫn của repo khi gõ; khi gửi, file văn bản nhỏ đi kèm nội
+  dung, file lớn và thư mục đi kèm đường dẫn hoặc danh sách file.
 - TUI mở bằng `pirl` trong thư mục của một git repo; repo đó là target repo.
 - `/pirl-plan`, `/pirl-implement`, `/pirl-review` chạy một layer của PIRL bằng Claude Code của bạn. Mỗi role là
   một subagent riêng, quyền theo layer.

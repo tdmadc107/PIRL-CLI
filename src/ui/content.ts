@@ -63,7 +63,7 @@ export function messageLines(message: Message, columns: number, theme: Theme, co
 					{text: 'PIRL', color: 'accent', bold: true},
 					{text: ` ${g.sep} Plan ${g.sep} Implement ${g.sep} Review`, dim: true},
 				],
-				...hanging([], 'Gõ / để xem lệnh, hoặc nhập yêu cầu.', columns),
+				...hanging([], 'Gõ / để xem lệnh, hoặc nhập yêu cầu. Gõ @ để đính kèm file hoặc thư mục.', columns),
 				blank,
 				...definitionList(commandItems(COMMANDS.filter(spec => spec.group === 'Layer' || spec.name === 'help')), columns),
 			];
@@ -101,6 +101,7 @@ export function helpLines(columns: number, theme: Theme): Line[] {
 		{term: 'Tab', description: 'Hoàn thành tên lệnh đang chọn'},
 		{term: theme.glyphs.upDown, description: 'Chọn lệnh gợi ý hoặc đáp án; ngoài ra cuộn khung chat (chuột "Bôi đen tự do") hoặc xem lại nội dung đã gửi'},
 		{term: 'Ctrl+P / Ctrl+N', description: 'Xem lại nội dung đã gửi'},
+		{term: '@', description: 'Đính kèm file hoặc thư mục: Tab/Enter chọn, Enter lần nữa trên thư mục đang mở để đính kèm cả thư mục, Esc ẩn danh sách'},
 		{term: 'PgUp / PgDn', description: 'Cuộn khung chat'},
 		{term: 'Esc', description: 'Xoá ô nhập, đóng bảng đang mở, hoặc dừng run đang chạy'},
 		{term: 'Ctrl+C', description: 'Dừng run đang chạy; khi không có run thì thoát'},

@@ -5,7 +5,7 @@ exports[`snapshots > palette open at 100x24 1`] = `
 
 
  PIRL · Plan · Implement · Review
- Gõ / để xem lệnh, hoặc nhập yêu cầu.
+ Gõ / để xem lệnh, hoặc nhập yêu cầu. Gõ @ để đính kèm file hoặc thư mục.
 
    /pirl-plan <request>       Tạo hoặc điều chỉnh Plan
    /pirl-implement <request>  Thực hiện một task của Plan, hoặc sửa theo report
@@ -29,7 +29,7 @@ exports[`snapshots > palette open at 100x24 1`] = `
 
 exports[`snapshots > welcome screen at 60x16 1`] = `
 "PIRL · shop-web · ✔ Claude Code
- ↑ 2 dòng cũ hơn (PgUp)
+ ↑ 3 dòng cũ hơn (PgUp)
 
    /pirl-plan <request>       Tạo hoặc điều chỉnh Plan
    /pirl-implement <request>  Thực hiện một task của Plan,
@@ -41,7 +41,7 @@ exports[`snapshots > welcome screen at 60x16 1`] = `
  ✔ Sẵn sàng: Claude Code đã đăng nhập · Python 3.12.4 · Git
    2.43.0.
 ╭──────────────────────────────────────────────────────────╮
-│ ›  Gõ / để xem lệnh, hoặc nhập yêu cầu                   │
+│ ›  Gõ / để xem lệnh, @ để đính kèm file, hoặc nhập yêu … │
 ╰──────────────────────────────────────────────────────────╯
 0 lượt gọi"
 `;
@@ -59,7 +59,7 @@ exports[`snapshots > welcome screen at 100x24 1`] = `
 
 
  PIRL · Plan · Implement · Review
- Gõ / để xem lệnh, hoặc nhập yêu cầu.
+ Gõ / để xem lệnh, hoặc nhập yêu cầu. Gõ @ để đính kèm file hoặc thư mục.
 
    /pirl-plan <request>       Tạo hoặc điều chỉnh Plan
    /pirl-implement <request>  Thực hiện một task của Plan, hoặc sửa theo report
@@ -68,7 +68,7 @@ exports[`snapshots > welcome screen at 100x24 1`] = `
 
  ✔ Sẵn sàng: Claude Code đã đăng nhập · Python 3.12.4 · Git 2.43.0.
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ ›  Gõ / để xem lệnh, hoặc nhập yêu cầu                                                           │
+│ ›  Gõ / để xem lệnh, @ để đính kèm file, hoặc nhập yêu cầu                                       │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 0 lượt gọi · không có run                                 Enter gửi · Shift+Enter xuống dòng · /help"
 `;
@@ -92,7 +92,7 @@ exports[`snapshots > welcome screen at 140x30 1`] = `
                                                                                               │ khi chạy run.                              │
                                                                                               │                                            │
  PIRL · Plan · Implement · Review                                                             │                                            │
- Gõ / để xem lệnh, hoặc nhập yêu cầu.                                                         │                                            │
+ Gõ / để xem lệnh, hoặc nhập yêu cầu. Gõ @ để đính kèm file hoặc thư mục.                     │                                            │
                                                                                               │                                            │
    /pirl-plan <request>       Tạo hoặc điều chỉnh Plan                                        │                                            │
    /pirl-implement <request>  Thực hiện một task của Plan, hoặc sửa theo report               │                                            │
@@ -101,7 +101,7 @@ exports[`snapshots > welcome screen at 140x30 1`] = `
                                                                                               │                                            │
  ✔ Sẵn sàng: Claude Code đã đăng nhập · Python 3.12.4 · Git 2.43.0.                           ╰────────────────────────────────────────────╯
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ ›  Gõ / để xem lệnh, hoặc nhập yêu cầu                                                                                                   │
+│ ›  Gõ / để xem lệnh, @ để đính kèm file, hoặc nhập yêu cầu                                                                               │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 0 lượt gọi · không có run                                                                         Enter gửi · Shift+Enter xuống dòng · /help"
 `;

@@ -97,6 +97,8 @@ export type RunDeps = {
 	model?: string;
 	roleModel?: string;
 	effort?: string;
+	/** Files and folders the user attached with `@` (src/engine/attachments.ts): sent with the request. */
+	attachments?: {text: string; dirs: string[]};
 	/** Reads the plan's usage meters (src/engine/claudeQuota.ts); the run shows no quota when left out. */
 	quota?: () => Promise<QuotaRow[] | null>;
 	/** Directory for the run's full log file (~/.pirl/logs); no file when left out. */
@@ -187,6 +189,8 @@ export class RunController {
 		this.resumedBefore = resume?.before;
 		this.providerTotals = resume?.providerTotals ?? {};
 		this.firstPrompt = resume ? resume.prompt ?? 'Tiếp tục run bị dừng từ chỗ đã dừng.' : request;
+		// Attachments go with the user's own words: a new request or a chat message, not a "continue".
+		if (deps.attachments?.text && (!resume || resume.prompt)) this.firstPrompt = `${this.firstPrompt}\n\n${deps.attachments.text}`;
 	}
 
 	/** What the first call sends: the request, a chat message into an existing session, or "continue". */
@@ -309,7 +313,7 @@ export class RunController {
 		const deps = this.deps;
 		const request = {
 			cwd: deps.hub,
-			addDirs: deps.target && deps.target !== deps.hub ? [deps.target] : [],
+			addDirs: [...(deps.target && deps.target !== deps.hub ? [deps.target] : []), ...(deps.attachments?.dirs ?? [])],
 			prompt,
 			systemPrompt: hostInstructions({
 				kind: this.state.kind,

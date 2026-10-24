@@ -153,7 +153,7 @@ describe('input and command palette', () => {
 		expect(sent(terminal.frame())).toBe(1);
 		await terminal.press('\x10');
 		await terminal.press(KEYS.escape);
-		expect(terminal.frame()).toContain('Gõ / để xem lệnh, hoặc nhập yêu cầu');
+		expect(terminal.frame()).toContain('Gõ / để xem lệnh, @ để đính kèm file, hoặc nhập yêu cầu');
 	});
 
 	test('with the mouse left to the terminal, ↑/↓ (and so its wheel) scroll the chat', async () => {

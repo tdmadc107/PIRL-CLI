@@ -7,6 +7,7 @@ import {configFile, displayPath, hubDir, packageInfo, packageRoot, pirlHome} fro
 import {detectTargetRepo} from '../core/targetRepo.js';
 import {runDoctor} from '../doctor/doctor.js';
 import {readClaudeQuota} from '../engine/claudeQuota.js';
+import {attachmentContext, pathIndex, resolveMentions, type PathEntry} from '../engine/attachments.js';
 import {createClaudeRunner} from '../engine/claudeRunner.js';
 import {readPlanPackages, readRecords} from '../engine/hubData.js';
 import {RunController} from '../engine/run.js';
@@ -84,6 +85,9 @@ async function main(): Promise<number> {
 	}
 
 	const targetRoot = target.kind === 'git' ? target.root : null;
+	// `@` mentions are read from the target repository, or from the start directory outside one.
+	const attachBase = targetRoot ?? process.cwd();
+	const paths = cachedPaths(() => pathIndex(attachBase));
 	const runner = createClaudeRunner();
 	const instance = render(
 		<App
@@ -95,7 +99,7 @@ async function main(): Promise<number> {
 				saveConfig: next => saveConfig(configFile(home), next),
 				startRun: options =>
 					new RunController(
-						{runner, hub: hub!.path, target: targetRoot, logDir: join(home, 'logs'), quota: () => readClaudeQuota('claude', hub!.path), python: options.python, maxParallelRoles: options.config.maxParallelRoles, recentOutputs: options.recentOutputs, ...runModels(options.config)},
+						{runner, hub: hub!.path, target: targetRoot, logDir: join(home, 'logs'), quota: () => readClaudeQuota('claude', hub!.path), python: options.python, maxParallelRoles: options.config.maxParallelRoles, recentOutputs: options.recentOutputs, attachments: options.attachments, ...runModels(options.config)},
 						options.id,
 						options.kind,
 						options.request,
@@ -107,6 +111,8 @@ async function main(): Promise<number> {
 				records: () => (hub ? readRecords(hub.path, targetRoot) : []),
 				clipboard: createClipboard({writeTerminal: data => process.stdout.write(data)}),
 				quota: () => (hub ? readClaudeQuota('claude', hub.path) : Promise.resolve(null)),
+				paths: () => paths.get(),
+				attach: text => attachmentContext(resolveMentions(text, attachBase, process.cwd()), [attachBase, ...(hub ? [hub.path] : [])]),
 				setMouse: mode => process.stdout.write(mouseSequence(mode)),
 				framework: hub && bundle ? frameworkServices(hub.path, bundle, runner, config => runModels(config).model) : undefined,
 			}}
@@ -130,3 +136,14 @@ main().then(
 		process.exit(1);
 	},
 );
+
+/** The path index for `@` completion, read again when older than a few seconds so new files show up. */
+function cachedPaths(read: () => Promise<PathEntry[]>, maxAgeMs = 10_000) {
+	let cached: {at: number; value: Promise<PathEntry[]>} | null = null;
+	return {
+		get(): Promise<PathEntry[]> {
+			if (!cached || Date.now() - cached.at > maxAgeMs) cached = {at: Date.now(), value: read().catch(() => [])};
+			return cached.value;
+		},
+	};
+}

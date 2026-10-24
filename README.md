@@ -70,6 +70,7 @@ Trong TUI, gõ `/` để xem danh sách lệnh, hoặc `/help` để xem lệnh 
 | Tab | Hoàn thành tên lệnh đang chọn |
 | ↑ / ↓ | Chọn lệnh gợi ý hoặc đáp án khi run hỏi; ngoài ra cuộn khung chat (khi chuột là "Bôi đen tự do", mặc định) hoặc xem lại nội dung đã gửi |
 | Ctrl+P / Ctrl+N | Xem lại nội dung đã gửi |
+| `@` | Đính kèm file hoặc thư mục (Tab/Enter chọn, Esc ẩn danh sách) |
 | PgUp / PgDn, con lăn chuột | Cuộn khung chat hoặc bảng đang mở |
 | Esc | Xoá ô nhập, đóng bảng đang mở, hoặc dừng run đang chạy |
 | Ctrl+C | Dừng run đang chạy; khi không có run thì thoát |
@@ -83,6 +84,24 @@ Con lăn chuột cuộn hội thoại: terminal gửi con lăn thành phím ↑/
 lại lệnh đã gõ. Cách này cần terminal có alternate scroll (Windows Terminal, VS Code, iTerm2, Terminal của macOS,
 GNOME Terminal, kitty, WezTerm). Nếu con lăn không cuộn, chọn "Chuột: Con lăn của PIRL" trong `/settings`: con
 lăn chạy trên mọi terminal, nhưng bôi đen phải giữ Shift khi kéo.
+
+### Đính kèm file hoặc thư mục bằng `@`
+
+Gõ `@` trong ô nhập để chọn file hoặc thư mục của target repo (ngoài git repo thì của thư mục đang đứng). Danh
+sách lọc theo chữ bạn gõ tiếp và bỏ qua những gì `.gitignore` loại ra. Tab hoặc Enter trên một thư mục sẽ mở
+thư mục đó để chọn tiếp. Thư mục đang mở luôn nằm đầu danh sách; Enter trên nó đính kèm cả thư mục. Esc ẩn danh
+sách mà giữ nguyên chữ đã gõ. Gõ tay cũng được: `@src/orders/cancel.ts`, `@docs/`, `@~/specs/api.md`,
+`@"thư mục có dấu cách/file.md"`.
+
+Khi gửi, mỗi `@` trỏ tới một đường dẫn có thật được gửi kèm request. Dùng được cho mọi lệnh layer lẫn câu hỏi:
+
+- file văn bản đến 100 KB: gửi kèm toàn bộ nội dung, tổng tối đa 300 KB một lần gửi;
+- file lớn hơn, hoặc ảnh, PDF: gửi đường dẫn để agent tự đọc bằng Read;
+- thư mục: gửi danh sách file (tối đa 300), agent đọc file nào cần.
+
+Coordinator được dặn chuyển các đường dẫn này cho role liên quan, vì role không thấy tin nhắn gốc. Thư mục nằm
+ngoài target repo được cấp quyền đọc cho run đó. Một `@` không trỏ tới đường dẫn nào, như `dev@shop.vn`, giữ
+nguyên là chữ. Nội dung gửi kèm tính vào token vào của run.
 
 ### Một run diễn ra thế nào
 

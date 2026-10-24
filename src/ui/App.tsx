@@ -1,9 +1,10 @@
 import {Box, useApp, useInput, usePaste, useWindowSize, type Key} from 'ink';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {dispatch, type Effect, type OverlayKind} from '../commands/dispatch.js';
-import {parseInput, suggestCommands} from '../commands/registry.js';
+import {parseInput, suggestCommands, type CommandSpec} from '../commands/registry.js';
 import type {Config} from '../core/config.js';
 import type {DoctorReport} from '../doctor/doctor.js';
+import {findMentions, mentionText, suggestPaths, type AttachedContext, type PathEntry} from '../engine/attachments.js';
 import type {PersistedRun, RunController, RunState} from '../engine/run.js';
 import {resumable} from '../engine/runStore.js';
 import {LAYER_LABELS, totalTokens, type QuotaRow, type RunKind} from '../engine/types.js';
@@ -17,7 +18,7 @@ import {
 	transcriptLines,
 } from './content.js';
 import {Header, type ProviderBadge} from './components/Header.js';
-import {InputBox, inputHeight, paletteLines} from './components/Input.js';
+import {commandItem, InputBox, inputHeight, paletteLines, type PaletteItem} from './components/Input.js';
 import {bottomWindow, Lines} from './components/Lines.js';
 import {Frame, SidePanel, statusLine, TooSmall} from './components/Panels.js';
 import {displayPath} from '../core/paths.js';
@@ -25,7 +26,7 @@ import {planEntries, recordEntries, resumeEntries} from './browse.js';
 import {useFrameworkConsole} from './frameworkConsole.js';
 import {blank, hanging} from './lines.js';
 import {useListOverlay, type ListEntry} from './listOverlay.js';
-import {backspace, emptyEditor, insert, move, setValue, type EditorState} from './inputEditor.js';
+import {backspace, emptyEditor, insert, mentionAt, move, replaceMention, setValue, type EditorState} from './inputEditor.js';
 import {computeLayout} from './layout.js';
 import type {Line} from './lines.js';
 import {clockSpan, compactTokens, costText, IMPROVEMENT_CHOICES, isActive, spinnerSpan, STATUS_LABELS, type Interaction, type Live} from './runView.js';
@@ -104,6 +105,9 @@ export function App(props: AppProps) {
 	const [history, setHistory] = useState<string[]>([]);
 	const [historyIndex, setHistoryIndex] = useState<number | null>(null);
 	const [paletteIndex, setPaletteIndex] = useState(0);
+	// Paths offered for `@` mentions, read when a mention starts; the mention whose list Esc hid, by its position.
+	const [pathIndex, setPathIndex] = useState<PathEntry[] | null>(null);
+	const [hiddenMention, setHiddenMention] = useState<number | null>(null);
 	const [scroll, setScroll] = useState(0);
 	const [overlay, setOverlay] = useState<OverlayKind | null>(null);
 	const [overlayTop, setOverlayTop] = useState(0);
@@ -341,7 +345,40 @@ export function App(props: AppProps) {
 			.flatMap(run => [run.outputs.planSet, run.outputs.planFile, run.outputs.report].filter((path): path is string => !!path))
 			.slice(-6);
 
-	const startRun = (kind: RunKind, request: string): string | null => {
+	/** Starts a run for a submitted request, with the files and folders its `@` mentions name. */
+	const launching = useRef(false);
+	const launch = async (kind: RunKind, request: string) => {
+		const blocker = launching.current ? 'Đang chuẩn bị run trước; thử lại sau giây lát.' : runBlocker(kind);
+		if (blocker) {
+			addMessages([{kind: 'note', tone: 'error', text: blocker}]);
+			return;
+		}
+		let attached: AttachedContext | null = null;
+		if (findMentions(request).length > 0 && props.services.attach) {
+			launching.current = true;
+			try {
+				attached = await props.services.attach(request);
+			} catch (error) {
+				addMessages([{kind: 'note', tone: 'error', text: `Không đọc được file đính kèm: ${error instanceof Error ? error.message : String(error)}`}]);
+				return;
+			} finally {
+				launching.current = false;
+			}
+			if (attached.summary.length > 0) {
+				addMessages([
+					{
+						kind: 'note',
+						tone: attached.summary.some(item => item.tone === 'warning') ? 'warning' : 'info',
+						text: `Đính kèm ${attached.summary.map(item => `${item.display} (${item.detail})`).join(' · ')}`,
+					},
+				]);
+			}
+		}
+		const failed = startRun(kind, request, attached);
+		if (failed) addMessages([{kind: 'note', tone: 'error', text: failed}]);
+	};
+
+	const startRun = (kind: RunKind, request: string, attached: AttachedContext | null = null): string | null => {
 		const blocker = runBlocker(kind);
 		if (blocker) return blocker;
 		const controller = props.services.startRun!({
@@ -353,6 +390,7 @@ export function App(props: AppProps) {
 			// Chat messages continue one provider session, so the coordinator keeps the conversation's context.
 			resume: kind === 'chat' && chatSession.current ? {sessionId: chatSession.current, prompt: request} : undefined,
 			recentOutputs: kind === 'chat' ? recentOutputs() : undefined,
+			attachments: attached?.text ? {text: attached.text, dirs: attached.dirs} : undefined,
 		});
 		watch(controller);
 		return null;
@@ -440,8 +478,31 @@ export function App(props: AppProps) {
 		// Read again when the panel opens or the window width changes.
 	}, [overlay, bodyWidth, theme]);
 
+	// ---------- palette ----------
+	/** What the palette offers for the text: paths while an `@` mention is typed, else commands while a command name is. */
+	const paletteFor = (state: EditorState): {items: PaletteItem[]; commands: CommandSpec[]; paths: PathEntry[]; mention: {start: number; query: string} | null} => {
+		const mention = mentionAt(state);
+		if (mention) {
+			const paths = pathIndex && hiddenMention !== mention.start ? suggestPaths(pathIndex, mention.query) : [];
+			const typed = mention.query.replace(/\\/g, '/').toLowerCase();
+			const items = paths.map(entry => ({
+				label: mentionText(entry),
+				summary: !entry.folder ? '' : typed === `${entry.path.toLowerCase()}/` ? 'Enter: đính kèm cả thư mục' : 'thư mục',
+			}));
+			return {items, commands: [], paths, mention};
+		}
+		const commands = suggestCommands(state.value);
+		return {items: commands.map(commandItem), commands, paths: [], mention: null};
+	};
+	const mentionStart = overlay || interaction ? null : (mentionAt(editor)?.start ?? null);
+	useEffect(() => {
+		if (mentionStart === null) setHiddenMention(null);
+		else props.services.paths?.().then(setPathIndex, () => {});
+	}, [mentionStart]);
+
 	// ---------- heights ----------
-	const suggestions = overlay || interaction ? [] : suggestCommands(editor.value);
+	const palette = overlay || interaction ? null : paletteFor(editor);
+	const suggestions = palette?.items ?? [];
 	useEffect(() => setPaletteIndex(0), [editor.value]);
 	const headerHeight = layout.kind === 'ok' && layout.header !== 'hidden' ? 1 : 0;
 	const inputLinesShown = layout.kind === 'ok' ? inputHeight(editor, columns - 4, layout.inputMaxLines, theme) : 1;
@@ -490,10 +551,7 @@ export function App(props: AppProps) {
 			if (effect.type === 'run') {
 				const kind = effect.kind;
 				const request = effect.request;
-				afterwards = () => {
-					const blocker = startRun(kind, request);
-					if (blocker) addMessages([{kind: 'note', tone: 'error', text: blocker}]);
-				};
+				afterwards = () => void launch(kind, request);
 			}
 		}
 		addMessages(added);
@@ -554,8 +612,23 @@ export function App(props: AppProps) {
 		}
 	};
 
+	/**
+	 * Takes the chosen suggestion. A file is written as `@path ` and the list closes; a folder is opened as
+	 * `@folder/` to choose inside it, and choosing it again (it is listed first) attaches the whole folder.
+	 */
 	const complete = (index: number) => {
-		const spec = suggestCommands(editorRef.current.value)[index];
+		const state = editorRef.current;
+		const offered = paletteFor(state);
+		if (offered.mention) {
+			const entry = offered.paths[index];
+			if (!entry) return;
+			const typed = offered.mention.query.replace(/\\/g, '/').toLowerCase();
+			const open = entry.folder && typed !== `${entry.path.toLowerCase()}/`;
+			const text = open ? (/\s/.test(entry.path) ? `@"${entry.path}/` : `@${entry.path}/`) : `${mentionText(entry)} `;
+			setEditor(replaceMention(state, offered.mention.start, text));
+			return;
+		}
+		const spec = offered.commands[index];
 		if (spec) setEditor(setValue(`/${spec.name}${spec.takesRequest ? ' ' : ''}`));
 	};
 
@@ -612,7 +685,8 @@ export function App(props: AppProps) {
 			return;
 		}
 
-		const suggestions = interaction ? [] : suggestCommands(editor.value);
+		const offered = interaction ? null : paletteFor(editor);
+		const suggestions = offered?.items ?? [];
 		const paletteOpen = suggestions.length > 0;
 		const recall = key.ctrl && (input === 'p' || input === 'n');
 		if (key.upArrow || key.downArrow || recall) {
@@ -658,8 +732,8 @@ export function App(props: AppProps) {
 				return;
 			}
 			if (paletteOpen) {
-				const spec = suggestions[paletteIndex]!;
-				if (spec.takesRequest) complete(paletteIndex);
+				const spec = offered!.commands[paletteIndex];
+				if (!spec || spec.takesRequest) complete(paletteIndex);
 				else submit(`/${spec.name}`);
 				return;
 			}
@@ -667,6 +741,10 @@ export function App(props: AppProps) {
 			return;
 		}
 		if (key.escape) {
+			if (paletteOpen && offered!.mention) {
+				setHiddenMention(offered!.mention.start);
+				return;
+			}
 			if (editor.value === '' && activeRun && ACTIVE.includes(activeRun.status)) {
 				stopActive();
 				return;
@@ -748,7 +826,9 @@ export function App(props: AppProps) {
 				: running
 					? ['Esc dừng run', 'PgUp/PgDn cuộn']
 					: suggestions.length > 0
-						? [`${g.upDown} chọn`, 'Tab hoàn thành', 'Enter chạy']
+						? palette?.mention
+							? [`${g.upDown} chọn`, 'Tab/Enter chọn', 'Esc ẩn']
+							: [`${g.upDown} chọn`, 'Tab hoàn thành', 'Enter chạy']
 						: ['Enter gửi', 'Shift+Enter xuống dòng', '/help']
 	).join(` ${g.sep} `);
 	const totals = Object.values(runs).reduce(

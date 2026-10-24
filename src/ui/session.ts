@@ -7,6 +7,7 @@ import type {PlanPackage, RecordSummary} from '../engine/hubData.js';
 import type {PersistedRun, RunController} from '../engine/run.js';
 import type {Question, QuotaRow, RunKind} from '../engine/types.js';
 import type {MergeProposal} from '../engine/agentMerge.js';
+import type {AttachedContext, PathEntry} from '../engine/attachments.js';
 import type {HubStatus} from '../hub/hub.js';
 import type {Conflict, Draft, FinishResult, HistoryEntry, LastUpdate, LocalChange} from '../hub/update.js';
 
@@ -35,6 +36,8 @@ export type StartRunOptions = {
 	request: string;
 	config: Config;
 	python: {command: string; args: string[]} | null;
+	/** Context from the files and folders attached with `@`. */
+	attachments?: {text: string; dirs: string[]};
 	/** Continue a provider session: a stopped run (/resume) or the session of earlier chat messages. */
 	resume?: {
 		sessionId: string;
@@ -84,6 +87,10 @@ export type Services = {
 	framework?: FrameworkServices;
 	/** The plan's usage windows from the provider (`/usage`, no model request); null when it does not report them. */
 	quota?(): Promise<QuotaRow[] | null>;
+	/** Files and folders of the target repository (the start directory outside one), for completing `@`. */
+	paths?(): Promise<PathEntry[]>;
+	/** The context of the `@` mentions of a request that name existing paths (src/engine/attachments.ts). */
+	attach?(text: string): Promise<AttachedContext>;
 	/** Tells the terminal what PIRL wants from the mouse (src/ui/terminalInput.ts, mouseSequence). */
 	setMouse?(mode: MouseSetting): void;
 };
