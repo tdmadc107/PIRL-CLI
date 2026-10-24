@@ -658,11 +658,24 @@ Mức giảm đến từ bốn thay đổi:
   khoảng 9%.
 - Cài đặt model coordinator (mặc định Sonnet), model các role và mức suy luận.
 
-**Chưa làm (cần quyết định).**
-- Coordinator dùng cache TTL 5 phút thay vì 1 giờ: rẻ hơn khoảng 37% phần ghi cache của coordinator, nhưng
-  mất cache nếu một role chạy quá 5 phút.
-- Rút gọn tài liệu framework mà coordinator đọc ở mỗi run. Hiện khoảng 78 nghìn ký tự, chiếm khoảng một nửa
-  ngữ cảnh của coordinator.
+**Đã quyết định.**
+- Giữ cache TTL 1 giờ cho coordinator. Cache chỉ ảnh hưởng chi phí, không ảnh hưởng chất lượng. Nhưng chỉ cần
+  một lần mất cache (role chạy quá 5 phút, hoặc người dùng trả lời câu hỏi sau 5 phút) là mất hết phần tiết
+  kiệm của TTL 5 phút.
+- Framework 1.1.0 thu gọn những gì mỗi run phải nạp, không cắt quy tắc:
+  - Phần chi tiết của tự đánh giá (phân loại nguyên nhân, cách sửa, chế độ `mode: self`, record) chuyển
+    nguyên văn sang `self-evaluation.instructions.md`. `process-auditor` đọc file này; coordinator chỉ đọc
+    khi tự đánh giá.
+  - Thêm mẫu JSON của record, nên `process-auditor` không phải đọc mã nguồn `layer_record.py`.
+- CLI thêm `--disable-slash-commands`. Không giảm thêm token, vì `--tools` đã bỏ danh sách skill khỏi ngữ
+  cảnh, nhưng Claude Code không phải nạp skill và lệnh của người dùng lúc khởi động.
+- Đo lại cùng request `/pirl-plan` trên repo demo (một lần chạy):
+  - chi phí quy đổi ≈ $0,49 → $0,47 (giảm khoảng 5%);
+  - phần của `process-auditor`: ghi cache giảm khoảng 30%, đọc cache giảm khoảng 23%;
+  - validator và record đều pass ngay lần đầu.
+- Không làm: gộp các câu lặp trong cột "Done when" của bảng role. Đó có thể là các bản sửa tăng tính bắt buộc
+  từ trước, mà framework được nhập vào repo không kèm lịch sử để kiểm tra. Cũng không chuyển "Choosing a layer"
+  ra khỏi `AGENTS.md`, vì mục này chứa quy tắc an toàn.
 
 ### 14.6. Bước tiếp theo
 

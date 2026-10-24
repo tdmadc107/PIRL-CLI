@@ -55,7 +55,8 @@ layer is opened.
 Safety rules are: every rule in this Safety section; the [Git](#git) section;
 and any rule anywhere in the framework that limits commit, push, deploy,
 secrets or destructive and externally consequential actions, or that requires
-the user's decision or authorization. The self-improvement guards of the router
+the user's decision or authorization. The self-improvement guards of the
+[self-evaluation instructions](.agents/instructions/self-evaluation.instructions.md)
 are safety rules too: the mode-self guard (a self-evaluation record never
 applies fixes itself; improvements that touch no safety rule are applied in the
 same turn as user-directed maintenance under the standing authorization in the
@@ -142,7 +143,7 @@ Framework improvement is a mandatory part of every run, not a proposal:
 improvements that touch no safety rule are applied within the run, even when
 the self-evaluation runs in `mode: self`, without waiting for the user to
 confirm; the procedure lives in the
-[router](.agents/instructions/layered-task-execution.instructions.md#self-evaluation-when-mode-self).
+[self-evaluation instructions](.agents/instructions/self-evaluation.instructions.md#self-evaluation-when-mode-self).
 This authorization covers only improvements that touch no safety rule;
 improvements that touch a safety rule still need the user's approval.
 

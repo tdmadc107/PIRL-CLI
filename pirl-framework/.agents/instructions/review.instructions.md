@@ -5,7 +5,7 @@ applyTo: ".agents/instructions/review.instructions.md"
 metadata:
   id: ".agents/instructions/review"
   kind: "instruction"
-  version: "2.0.3"
+  version: "2.0.4"
   status: "active"
 ---
 
@@ -178,7 +178,8 @@ has more evidence than Implement's own self-evaluation.
    missed FINDs that Review found, whether it relied on run results instead of
    reasoning.
 3. Each issue of an Implement role is classified by cause and improved per the
-   router, recorded in the Review record with `record` set to the record in
+   [self-evaluation instructions](self-evaluation.instructions.md#issues-and-causes),
+   recorded in the Review record with `record` set to the record in
    `evaluates`; the issue is attributed to the task and run that produced it per
    the [Shared snapshots and older records section](layered-task-execution.instructions.md#shared-snapshots-and-older-records)
    of the router. The EVAL records the cause, the `issue_key` and where it was

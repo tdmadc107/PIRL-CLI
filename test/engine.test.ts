@@ -150,7 +150,7 @@ describe('permissions', () => {
 			{cwd: '/h', addDirs: ['/w'], prompt: 'x', systemPrompt: 'y', agents: {}, permissions: {allow: ['Read', 'Bash(git log *)'], deny: ['Bash(rm *)']}, resumeSessionId: 's-9'},
 			{systemPrompt: '/tmp/host.md', agents: '/tmp/agents.json'},
 		);
-		expect(args.join(' ')).toContain('-p --output-format stream-json --verbose --append-system-prompt-file /tmp/host.md --agents /tmp/agents.json --tools Read,Write,Edit,Bash,Glob,Grep,Agent --strict-mcp-config --permission-mode dontAsk --permission-prompts none');
+		expect(args.join(' ')).toContain('-p --output-format stream-json --verbose --append-system-prompt-file /tmp/host.md --agents /tmp/agents.json --tools Read,Write,Edit,Bash,Glob,Grep,Agent --strict-mcp-config --disable-slash-commands --permission-mode dontAsk --permission-prompts none');
 		expect(args).toContain('Read,Bash(git log *)');
 		expect(args.slice(-4)).toEqual(['--add-dir', '/w', '--resume', 's-9']);
 		expect(args).not.toContain('--bare'); // bare mode would not use the user's subscription

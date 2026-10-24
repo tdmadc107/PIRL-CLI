@@ -5,7 +5,7 @@ applyTo: ".agents/**/*,.skills/**/*,AGENTS.md,CONTEXT.md"
 metadata:
   id: ".agents/instructions/standalone-and-maintenance"
   kind: "instruction"
-  version: "1.0.2"
+  version: "1.0.3"
   status: "active"
 ---
 
@@ -17,7 +17,8 @@ Read this file only in these cases:
 - framework maintenance the user assigns: the whole file;
 - inside a Plan, Implement or Review run, only when a framework improvement is
   applied (`process-auditor`, or the coordinator in `mode: self`), per the
-  router's [Thorough improvement](layered-task-execution.instructions.md#thorough-improvement) section.
+  [Thorough improvement](self-evaluation.instructions.md#thorough-improvement)
+  section of the self-evaluation instructions.
 
 Plan, Implement and Review runs do not read it otherwise; a question that only
 needs an explanation reads it only when the question is about the framework's
@@ -128,6 +129,7 @@ CONTEXT.md                        how responses to the user are presented
     implement.instructions.md                Implement layer contract
     review.instructions.md                   Review layer contract
     layout-verification.instructions.md      layout verification with mocks, read when a diff changes the UI
+    self-evaluation.instructions.md          issue causes, improvements and the record of a layer run, read by process-auditor
     standalone-and-maintenance.instructions.md   standalone tasks, framework maintenance, structure, role catalog
   roles/          expertise of each role: <role-id>.role.md
   evals/
@@ -147,7 +149,8 @@ CONTEXT.md                        how responses to the user are presented
 | --- | --- |
 | `AGENTS.md` | Core rules, flow, choosing the kind of work, delegation, target repository, Git |
 | `CONTEXT.md` | How answers, summaries, reports, proposals and syntheses sent to the user are presented |
-| Router | Boundaries between kinds of work, assignment principles, shared contracts (verification by reasoning, functional tests, shared snapshots and older records, self-evaluation and improvement, cleanup) |
+| Router | Boundaries between kinds of work, assignment principles, shared contracts (verification by reasoning, functional tests, shared snapshots and older records, when a run self-evaluates and how it reports, cleanup) |
+| Self-evaluation instructions | How issues are classified by cause, how improvements are applied, the record and its fields |
 | Standalone and maintenance instructions | Standalone tasks, framework maintenance and its check commands, this structure, the role catalog, the constraints that keep roles separate from skills |
 | Layer instruction | Each role's responsibilities at the layer, the decisions the layer settles, the content its output must hold and its exit conditions; the Implement contract also holds when layout verification with mocks applies |
 | Layout verification instructions | How layout is captured and checked with mocks, and how Review reads the result |

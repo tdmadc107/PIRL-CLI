@@ -31,6 +31,8 @@ export function claudeArgs(request: AgentRunRequest, files: {systemPrompt: strin
 		'--tools',
 		RUN_TOOLS.join(','),
 		'--strict-mcp-config',
+		// The framework's skills are plain files the coordinator reads; the user's own skills and commands are not loaded.
+		'--disable-slash-commands',
 		'--permission-mode',
 		'dontAsk',
 		'--permission-prompts',
