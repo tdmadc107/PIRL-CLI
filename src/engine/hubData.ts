@@ -84,7 +84,18 @@ export function readPlanPackages(hub: string, target: string): PlanPackage[] {
 	return packages.sort((a, b) => b.planSet.slice(-15).localeCompare(a.planSet.slice(-15)));
 }
 
-export type RecordSummary = {recordId: string; layer: string; recordedAt: string; status: string; summary: string; planSet: string | null; fixes: number; pending: number};
+export type RecordSummary = {
+	recordId: string;
+	layer: string;
+	recordedAt: string;
+	status: string;
+	summary: string;
+	planSet: string | null;
+	fixes: number;
+	pending: number;
+	/** The whole record as the tool stored it, for /records' details. */
+	data: Record<string, unknown>;
+};
 
 /** Self-evaluation records whose target_repo is `target`, newest first. Unreadable lines are skipped. */
 export function readRecords(hub: string, target: string | null): RecordSummary[] {
@@ -109,7 +120,8 @@ export function readRecords(hub: string, target: string | null): RecordSummary[]
 						summary: String(data['outcome']?.['summary'] ?? ''),
 						planSet: data['task']?.['plan_set'] ?? null,
 						fixes: fixes.filter((fix: any) => fix?.status === 'applied').length,
-						pending: fixes.filter((fix: any) => fix?.status === 'pending').length,
+						pending: fixes.filter((fix: any) => fix?.status === 'pending_user').length,
+						data,
 					});
 				} catch {}
 			}

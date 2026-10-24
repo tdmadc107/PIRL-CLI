@@ -3,6 +3,7 @@ import {backspace, emptyEditor, insert, layoutEditor, move, setValue} from '../s
 import {computeLayout, heightTier, widthTier} from '../src/ui/layout.js';
 import {createTheme, detectMode, detectUnicode} from '../src/ui/theme.js';
 import {parseQuotaLine} from '../src/engine/claudeQuota.js';
+import {MOUSE_OFF, mouseSequence, parseTerminalInput} from '../src/ui/terminalInput.js';
 import {emptyUsage} from '../src/engine/types.js';
 import {compactTokens, quotaText, usageDetail} from '../src/ui/runView.js';
 import {truncateEnd, truncateMiddle, width, wrapText} from '../src/ui/text.js';
@@ -101,7 +102,14 @@ describe('theme', () => {
 		const theme = createTheme({theme: 'dark', glyphs: 'unicode'}, {NO_COLOR: '1'}, 'linux');
 		expect(theme.fg('accent')).toBeUndefined();
 		expect(theme.role('code-reviewer')).toBeUndefined();
-		expect(theme.glyphs.ok).toBe('✔');
+		expect(theme.glyphs.ok).toBe('✓');
+	});
+
+	test('every glyph is one cell wide: none has an emoji form a terminal could draw two cells wide', () => {
+		const glyphs = createTheme({theme: 'dark', glyphs: 'unicode'}, {}, 'linux').glyphs;
+		for (const value of Object.values(glyphs).flat()) {
+			expect(value, value).not.toMatch(/\p{Extended_Pictographic}/u);
+		}
 	});
 
 	test('settings override detection', () => {
@@ -144,5 +152,30 @@ describe('usage and quota', () => {
 		expect(quotaText({before, after}, '·', '→')).toBe('Hạn mức: 5 giờ 12% → 19% (+7) · Tuần 30% → 31% (+1) · Tuần (Sonnet) 7% → 8% (+1)');
 		expect(quotaText({before: null, after}, '·', '→')).toBe('Hạn mức hiện tại: 5 giờ 19% · Tuần 31% · Tuần (Sonnet) 8%');
 		expect(quotaText({before, after: null}, '·', '→')).toBeNull();
+	});
+});
+
+describe('terminal input', () => {
+	test('replies to the terminal\'s queries never reach the input box', () => {
+		expect(parseTerminalInput('[?0u')).toEqual({text: '', wheel: 0, filtered: true});
+		expect(parseTerminalInput('\x1b[?1u')).toEqual({text: '', wheel: 0, filtered: true});
+		expect(parseTerminalInput('\x1b[?1;2c')).toMatchObject({text: '', filtered: true});
+		expect(parseTerminalInput('xin chào')).toEqual({text: 'xin chào', wheel: 0, filtered: false});
+		expect(parseTerminalInput('[?0uabc')).toMatchObject({text: 'abc', filtered: true});
+	});
+
+	test('mouse reports: the wheel scrolls, clicks are dropped, modifier keys do not matter', () => {
+		expect(parseTerminalInput('\x1b[<64;10;5M')).toEqual({text: '', wheel: 1, filtered: true});
+		expect(parseTerminalInput('[<65;10;5M[<65;10;5M')).toMatchObject({wheel: -2});
+		expect(parseTerminalInput('[<80;3;3M')).toMatchObject({wheel: 1}); // 64 with Ctrl
+		expect(parseTerminalInput('[<0;3;3M[<0;3;3m')).toEqual({text: '', wheel: 0, filtered: true});
+	});
+
+	test('mouse modes: select keeps dragging for the terminal and sends the wheel as arrows; wheel reports it', () => {
+		expect(mouseSequence('select')).toBe(`${MOUSE_OFF}\x1b[?1007h`);
+		expect(mouseSequence('select')).not.toContain('?1000h');
+		expect(mouseSequence('wheel')).toContain('\x1b[?1000h\x1b[?1006h');
+		expect(mouseSequence('off')).toBe(MOUSE_OFF);
+		expect(MOUSE_OFF).toContain('?1007l');
 	});
 });

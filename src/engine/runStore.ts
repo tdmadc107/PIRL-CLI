@@ -1,32 +1,69 @@
 import {createHash} from 'node:crypto';
-import {mkdirSync, readFileSync, renameSync, rmSync, writeFileSync} from 'node:fs';
+import {existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync} from 'node:fs';
 import {join} from 'node:path';
 import type {PersistedRun} from './run.js';
 
 /**
- * The last run of each target repository, kept in ~/.pirl/sessions/ so /resume can continue it after the TUI
- * was closed, the quota ran out or the network dropped. It holds the provider session id, never a credential.
+ * The layer runs of each target repository, kept in ~/.pirl/sessions/<repo>/ so /resume can continue any of them
+ * after the TUI was closed, the quota ran out or the network dropped. One file per run, named by its key; each holds
+ * the provider session id, never a credential. The newest KEEP runs of a repository are kept.
  */
-const fileFor = (home: string, target: string) => join(home, 'sessions', `${createHash('sha1').update(target).digest('hex').slice(0, 16)}.json`);
+const KEEP = 20;
+
+const repoKey = (target: string) => createHash('sha1').update(target).digest('hex').slice(0, 16);
+const dirFor = (home: string, target: string) => join(home, 'sessions', repoKey(target));
+/** Before several runs were kept, a repository's last run was a single file; it becomes one entry of the list. */
+const legacyFile = (home: string, target: string) => join(home, 'sessions', `${repoKey(target)}.json`);
+const safeName = (key: string) => key.replace(/[^\w.-]/g, '_');
 
 export function saveRun(home: string, target: string, run: PersistedRun): void {
-	const file = fileFor(home, target);
-	mkdirSync(join(home, 'sessions'), {recursive: true});
+	const dir = dirFor(home, target);
+	mkdirSync(dir, {recursive: true});
+	const file = join(dir, `${safeName(run.key)}.json`);
 	writeFileSync(`${file}.tmp`, JSON.stringify({target, ...run}, null, 2), 'utf8');
 	renameSync(`${file}.tmp`, file);
+	prune(dir);
 }
 
-export function loadRun(home: string, target: string): PersistedRun | null {
+function prune(dir: string) {
+	const files = readdirSync(dir)
+		.filter(name => name.endsWith('.json'))
+		.map(name => ({name, time: statSync(join(dir, name)).mtimeMs}))
+		.sort((a, b) => b.time - a.time);
+	for (const file of files.slice(KEEP)) rmSync(join(dir, file.name), {force: true});
+}
+
+function migrateLegacy(home: string, target: string) {
+	const legacy = legacyFile(home, target);
+	if (!existsSync(legacy)) return;
 	try {
-		const data = JSON.parse(readFileSync(fileFor(home, target), 'utf8')) as PersistedRun & {target?: string};
-		return data.target === target && data.kind && data.request ? data : null;
-	} catch {
-		return null;
-	}
+		const data = JSON.parse(readFileSync(legacy, 'utf8')) as Partial<PersistedRun>;
+		const dir = dirFor(home, target);
+		mkdirSync(dir, {recursive: true});
+		writeFileSync(join(dir, 'legacy.json'), JSON.stringify({...data, key: 'legacy'}, null, 2), 'utf8');
+	} catch {}
+	rmSync(legacy, {force: true});
 }
 
-export function clearRun(home: string, target: string): void {
-	rmSync(fileFor(home, target), {force: true});
+/** The saved runs of `target`, newest first. */
+export function listRuns(home: string, target: string): PersistedRun[] {
+	migrateLegacy(home, target);
+	const dir = dirFor(home, target);
+	if (!existsSync(dir)) return [];
+	const runs: Array<PersistedRun & {mtime: number}> = [];
+	for (const name of readdirSync(dir).filter(file => file.endsWith('.json'))) {
+		try {
+			const data = JSON.parse(readFileSync(join(dir, name), 'utf8')) as PersistedRun & {target?: string};
+			if (data.target === target && data.kind && data.request) runs.push({...data, key: data.key ?? name.replace(/\.json$/, ''), mtime: statSync(join(dir, name)).mtimeMs});
+		} catch {}
+	}
+	return runs
+		.sort((a, b) => (Date.parse(b.savedAt ?? '') || b.mtime) - (Date.parse(a.savedAt ?? '') || a.mtime))
+		.map(({mtime: _mtime, ...run}) => run);
+}
+
+export function clearRun(home: string, target: string, key: string): void {
+	rmSync(join(dirFor(home, target), `${safeName(key)}.json`), {force: true});
 }
 
 /** A run /resume can continue: it was stopped, failed, or is waiting for answers, and has a provider session. */

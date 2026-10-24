@@ -6,7 +6,7 @@ import {graphemes, padEnd, truncateEnd, width} from '../text.js';
 import type {Theme} from '../theme.js';
 import {Lines} from './Lines.js';
 
-export const PLACEHOLDER = 'Gõ / để xem lệnh, hoặc nhập yêu cầu';
+export const PLACEHOLDER = 'Gõ / để xem lệnh, @ để đính kèm file, hoặc nhập yêu cầu';
 
 /** Lines inside the input box: the prompt, the wrapped text and the cursor as an inverse cell. */
 export function inputLines(editor: EditorState, columns: number, maxLines: number, theme: Theme, focused: boolean, placeholder = PLACEHOLDER): Line[] {
@@ -67,22 +67,27 @@ export function InputBox(props: {editor: EditorState; columns: number; maxLines:
 	);
 }
 
-/** Suggested commands under the input box while a command name is being typed. */
-export function paletteLines(suggestions: CommandSpec[], selected: number, max: number, columns: number, theme: Theme): Line[] {
-	const start = Math.min(Math.max(0, selected - max + 1), Math.max(0, suggestions.length - max));
-	const shown = suggestions.slice(start, start + max);
-	const nameWidth = Math.max(...suggestions.map(spec => width(commandUsage(spec)))) + 2;
-	const showSummary = columns - 4 - nameWidth >= 16;
-	return shown.map((spec, index) => {
+/** One row of the palette under the input box: a command, or a path for an `@` mention. */
+export type PaletteItem = {label: string; summary: string};
+
+export const commandItem = (spec: CommandSpec): PaletteItem => ({label: commandUsage(spec), summary: spec.summary});
+
+/** Suggestions under the input box while a command name or an `@` mention is being typed. */
+export function paletteLines(items: PaletteItem[], selected: number, max: number, columns: number, theme: Theme): Line[] {
+	const start = Math.min(Math.max(0, selected - max + 1), Math.max(0, items.length - max));
+	const shown = items.slice(start, start + max);
+	// A long path keeps its room; the summary shows only where at least 16 columns are left for it.
+	const nameWidth = Math.min(Math.max(...items.map(item => width(item.label))) + 2, Math.max(8, columns - 4 - 16));
+	const showSummary = items.some(item => item.summary) && columns - 4 - nameWidth >= 16;
+	return shown.map((item, index) => {
 		const active = start + index === selected;
 		const pointer = {text: active ? `${theme.glyphs.pointer} ` : '  ', color: 'accent' as const};
-		const usage = commandUsage(spec);
-		if (!showSummary) return [{text: ' '}, pointer, {text: truncateEnd(usage, columns - 4, theme.glyphs.ellipsis), color: active ? 'accent' : undefined, bold: active}];
+		if (!showSummary) return [{text: ' '}, pointer, {text: truncateEnd(item.label, columns - 4, theme.glyphs.ellipsis), color: active ? 'accent' : undefined, bold: active}];
 		return [
 			{text: ' '},
 			pointer,
-			{text: padEnd(usage, nameWidth), color: active ? 'accent' : undefined, bold: active},
-			{text: truncateEnd(spec.summary, columns - 3 - nameWidth - 1, theme.glyphs.ellipsis), dim: !active},
+			{text: padEnd(truncateEnd(item.label, nameWidth - 2, theme.glyphs.ellipsis), nameWidth), color: active ? 'accent' : undefined, bold: active},
+			{text: truncateEnd(item.summary, columns - 3 - nameWidth - 1, theme.glyphs.ellipsis), dim: !active},
 		];
 	});
 }

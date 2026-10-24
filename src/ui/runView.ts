@@ -1,9 +1,9 @@
 import {basename} from 'node:path';
-import {formatElapsed, type LogEntry, type RunState, type RunStatus} from '../engine/run.js';
+import {formatElapsed, type RunState, type RunStatus} from '../engine/run.js';
 import {displayPath} from '../core/paths.js';
-import {LAYER_LABELS, totalTokens, type Question, type Usage} from '../engine/types.js';
+import {LAYER_LABELS, totalTokens, type Question, type QuotaRow, type Usage} from '../engine/types.js';
 import {blank, hanging, type Line, type Span} from './lines.js';
-import {padEnd, truncateEnd} from './text.js';
+import {padEnd, truncateEnd, width} from './text.js';
 import {ROLE_IDS, type RoleId, type Theme} from './theme.js';
 
 /** A decision the TUI is waiting for: a question from the coordinator, or what to do with framework improvements. */
@@ -78,7 +78,7 @@ export function nextStep(run: RunState): string | null {
  * What moves while a run works: the spinner frame and the clock. Kept apart from the run's state so the
  * transcript cache can tell "only the spinner changed" from "the run changed".
  */
-export type Live = {motion: boolean; showLog: boolean};
+export type Live = {motion: boolean};
 
 /** The spinner cell: turning with motion on, a still glyph with motion off. */
 export const spinnerSpan = (theme: Theme, motion: boolean, extra: Partial<Span> = {}): Span =>
@@ -88,20 +88,6 @@ export const spinnerSpan = (theme: Theme, motion: boolean, extra: Partial<Span> 
 export const clockSpan = (since: number): Span => ({text: '00:00', dim: true, live: {kind: 'clock', since}});
 
 export const isActive = (run: RunState) => run.status === 'running' || run.status === 'checking';
-
-/** Lines of the run's log, newest last; each entry is one row, cut to the width so the cost never grows. */
-export function logLines(entries: LogEntry[], columns: number, theme: Theme): Line[] {
-	// Room for the longest role name (solution-architect, 18) plus a space, when the column allows it.
-	const whoWidth = Math.min(19, Math.max(8, Math.floor(columns * 0.4)));
-	return entries.map(entry => {
-		const who = entry.who === 'pirl' ? 'PIRL' : entry.who;
-		const whoSpan: Span = isRole(entry.who) ? {text: '', role: entry.who} : {text: '', dim: entry.who !== 'pirl', color: entry.who === 'pirl' ? 'accent' : undefined};
-		whoSpan.text = padEnd(truncateEnd(who, whoWidth - 1, theme.glyphs.ellipsis), whoWidth);
-		const room = Math.max(1, columns - 6 - whoWidth);
-		const tone = entry.tone === 'error' ? 'danger' : entry.tone;
-		return [{text: `${formatElapsed(entry.at)} `, dim: true}, whoSpan, {text: truncateEnd(entry.text, room, theme.glyphs.ellipsis), color: tone, dim: !tone}];
-	});
-}
 
 export function runLines(run: RunState, columns: number, theme: Theme, interaction: Interaction | null, live?: Live): Line[] {
 	const g = theme.glyphs;
@@ -132,11 +118,6 @@ export function runLines(run: RunState, columns: number, theme: Theme, interacti
 	}
 	if (active && run.activity) {
 		lines.push(...hanging([{text: '  '}, spinnerSpan(theme, motion, {color: 'accent'}), {text: ' '}, {text: 'coordinator  ', dim: true}], run.activity, columns, {dim: true}));
-	}
-	// Without the side panel, the newest log lines show here while the run works.
-	if (active && live?.showLog && run.log.length > 0) {
-		lines.push([{text: `  Nhật ký (${run.logCount} dòng)`, dim: true}]);
-		lines.push(...logLines(run.log.slice(-3), columns - 4, theme).map(line => [{text: '    '}, ...line]));
 	}
 
 	if (run.reply && (run.status !== 'running' || run.kind === 'chat')) {
@@ -276,11 +257,8 @@ export function quotaText(quota: RunState['quota'], sep: string, arrow: string):
 	return rows.length ? `Hạn mức${before ? '' : ' hiện tại'}: ${rows.join(` ${sep} `)}` : null;
 }
 
-/**
- * The side panel's Run section: the run, its roles, then its log filling the rows left (`logRows`), newest last.
- * Only the rows that fit are laid out, so a long log costs no more to draw than a short one.
- */
-export function runPanelLines(run: RunState | null, columns: number, theme: Theme, live?: Live, logRows = 0): Line[] {
+/** The side panel's Run section: the run and its roles. */
+export function runPanelLines(run: RunState | null, columns: number, theme: Theme, live?: Live): Line[] {
 	const g = theme.glyphs;
 	if (!run) return hanging([{text: `${g.pending} `, dim: true}], 'Chưa có run nào. Gõ /pirl-plan <request> để bắt đầu.', columns, {dim: true});
 	const active = isActive(run);
@@ -299,11 +277,36 @@ export function runPanelLines(run: RunState | null, columns: number, theme: Them
 		const name: Span = isRole(role.role) ? {text: role.role, role: role.role} : {text: role.role};
 		lines.push([mark, {text: ' '}, name]);
 	}
-	const rows = logRows - lines.length - 2;
-	if (rows > 0 && run.log.length > 0) {
-		const hidden = run.logCount - Math.min(rows, run.log.length);
-		lines.push(blank, [{text: 'Nhật ký', bold: true}, {text: hidden > 0 ? `  ${hidden} dòng trước` : '', dim: true}]);
-		lines.push(...logLines(run.log.slice(-rows), columns, theme));
+	return lines;
+}
+
+/** When a usage window resets: the time today, otherwise the day and time. */
+export function resetText(iso: string | null, now = new Date()): string | null {
+	if (!iso) return null;
+	const at = new Date(iso);
+	if (Number.isNaN(at.getTime())) return null;
+	const two = (value: number) => String(value).padStart(2, '0');
+	const time = `${two(at.getHours())}:${two(at.getMinutes())}`;
+	return at.toDateString() === now.toDateString() ? time : `${two(at.getDate())}/${two(at.getMonth() + 1)} ${time}`;
+}
+
+/**
+ * The side panel's Hạn mức section: each usage window of the plan as a bar, its percentage and when it resets.
+ * The numbers come from Claude Code: `/usage` when the TUI opens, and the windows each run reports.
+ */
+export function quotaPanelLines(rows: QuotaRow[] | null, columns: number, theme: Theme): Line[] {
+	if (!rows || rows.length === 0) return hanging([], 'Chưa có số liệu. Claude Code báo hạn mức khi chạy run.', columns, {dim: true});
+	const labelWidth = Math.min(14, Math.max(...rows.map(row => width(row.label))) + 2);
+	const barWidth = Math.max(4, Math.min(12, columns - labelWidth - 6));
+	const lines: Line[] = [];
+	for (const row of rows) {
+		const percent = Math.max(0, Math.min(100, Math.round(row.percent)));
+		const filled = Math.round((percent / 100) * barWidth);
+		const tone = percent >= 90 ? 'danger' : percent >= 70 ? 'warning' : 'success';
+		const bar = theme.unicode ? `${'█'.repeat(filled)}${'░'.repeat(barWidth - filled)}` : `${'#'.repeat(filled)}${'-'.repeat(barWidth - filled)}`;
+		lines.push([{text: padEnd(truncateEnd(row.label, labelWidth - 1, theme.glyphs.ellipsis), labelWidth), dim: true}, {text: bar, color: tone}, {text: ` ${percent}%`, color: tone}]);
+		const reset = resetText(row.resetsAt);
+		if (reset) lines.push([{text: ' '.repeat(labelWidth)}, {text: `đặt lại ${reset}`, dim: true}]);
 	}
 	return lines;
 }

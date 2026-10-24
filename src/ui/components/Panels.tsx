@@ -2,7 +2,8 @@ import {Box} from 'ink';
 import {blank, hanging, type Line, type Span} from '../lines.js';
 import {displayPath} from '../../core/paths.js';
 import type {RunState} from '../../engine/run.js';
-import {runPanelLines, type Live} from '../runView.js';
+import type {QuotaRow} from '../../engine/types.js';
+import {quotaPanelLines, runPanelLines, type Live} from '../runView.js';
 import type {SessionInfo} from '../session.js';
 import {padEnd, truncateEnd, truncateMiddle, width} from '../text.js';
 import type {Theme} from '../theme.js';
@@ -50,7 +51,10 @@ export function Frame(props: {
 	);
 }
 
-export function sidePanelLines(info: SessionInfo, provider: ProviderBadge, columns: number, theme: Theme, run: RunState | null = null, live?: Live, rows = 0): Line[] {
+/** What the side panel shows besides the session: the model settings and the plan's usage windows. */
+export type PanelExtras = {model?: string; quota?: QuotaRow[] | null};
+
+export function sidePanelLines(info: SessionInfo, provider: ProviderBadge, columns: number, theme: Theme, run: RunState | null = null, live?: Live, extras: PanelExtras = {}): Line[] {
 	const g = theme.glyphs;
 	const labelWidth = 11;
 	const row = (label: string, value: string, extra: Partial<Span> = {}): Line[] => {
@@ -65,19 +69,19 @@ export function sidePanelLines(info: SessionInfo, provider: ProviderBadge, colum
 			? [...row('Repo', displayPath(target.root)), ...row('Nhánh', target.branch ?? '—')]
 			: row('Repo', target.reason, {color: 'warning'})),
 		...row('Provider', `${provider.label} · ${providerText}`, {color: providerTone[provider.state]}),
+		...(extras.model ? row('Model', extras.model) : []),
 		...row('Framework', info.hub ? `${info.hub.upstreamTag ?? '—'} · ${info.hub.localImprovements} cải tiến` : 'Hub lỗi', info.hub ? {} : {color: 'danger'}),
 		blank,
 		[{text: 'Run', bold: true}],
 	];
-	return [...head, ...runPanelLines(run, columns, theme, live, rows - head.length)];
+	return [...head, ...runPanelLines(run, columns, theme, live), blank, [{text: 'Hạn mức', bold: true}], ...quotaPanelLines(extras.quota ?? null, columns, theme)];
 }
 
-export function SidePanel(props: {info: SessionInfo; provider: ProviderBadge; run: RunState | null; live?: Live; width: number; height: number; theme: Theme}) {
+export function SidePanel(props: {info: SessionInfo; provider: ProviderBadge; run: RunState | null; live?: Live; extras?: PanelExtras; width: number; height: number; theme: Theme}) {
 	return (
 		<Frame
 			title="Phiên làm việc"
-			// Rows inside the frame: the height minus the two borders and the title row.
-			lines={sidePanelLines(props.info, props.provider, props.width - 4, props.theme, props.run, props.live, props.height - 3)}
+			lines={sidePanelLines(props.info, props.provider, props.width - 4, props.theme, props.run, props.live, props.extras)}
 			width={props.width}
 			height={props.height}
 			theme={props.theme}

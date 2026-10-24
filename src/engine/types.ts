@@ -58,7 +58,7 @@ export type RunEvent =
 	  };
 
 /** A subagent the coordinator can delegate to: one per PIRL role. */
-export type AgentDefinition = {description: string; prompt: string; tools: string[]; model?: string};
+export type AgentDefinition = {description: string; prompt: string; tools: string[]; model?: string; effort?: string};
 
 export type Permissions = {allow: string[]; deny: string[]};
 

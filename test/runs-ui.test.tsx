@@ -20,7 +20,7 @@ afterEach(() => {
 async function startWithRuns(scripts: FakeScript[], extra: Partial<Services> = {}, size: [number, number] = [110, 40]) {
 	const {hub, target} = await hubAndTarget();
 	const {runner, calls} = fakeRunner(scripts);
-	let saved: PersistedRun | null = null;
+	const saved = new Map<string, PersistedRun>();
 	const base = appProps({
 		info: sessionInfo({
 			target: {kind: 'git', root: target, name: 'shop', branch: 'main'},
@@ -31,8 +31,8 @@ async function startWithRuns(scripts: FakeScript[], extra: Partial<Services> = {
 		...base.props.services,
 		startRun: options =>
 			new RunController({runner, hub, target, python: PYTHON, maxParallelRoles: 2, recentOutputs: options.recentOutputs}, options.id, options.kind, options.request, options.resume),
-		saveRun: run => void (saved = run),
-		lastRun: () => saved,
+		saveRun: run => void saved.set(run.key, run),
+		runs: () => [...saved.values()].reverse(),
 		plans: () => readPlanPackages(hub, target),
 		records: () => readRecords(hub, target),
 		...extra,
@@ -73,11 +73,11 @@ describe('layer runs in the TUI', () => {
 		await terminal.press(KEYS.enter);
 		const frame = await until(terminal, 'Commit cải tiến này vào Hub?');
 		expect(frame).toContain('Plan · chờ quyết định về cải tiến');
-		expect(frame).toContain('✔ code-analyst  Trace cancelOrder');
+		expect(frame).toContain('✓ code-analyst  Trace cancelOrder');
 		expect(frame).toContain('Kết quả');
 		expect(frame).toContain('• Plan có 1 task.');
-		expect(frame).toMatch(/✔ Validator: order-email_\d{8}-\d{6}/);
-		expect(frame).toContain('✔ Record tự đánh giá: 1 record mới');
+		expect(frame).toMatch(/✓ Validator: order-email_\d{8}-\d{6}/);
+		expect(frame).toContain('✓ Record tự đánh giá: 1 record mới');
 		expect(frame).toContain('.agents/roles/code-analyst.role.md');
 		expect(frame).toContain('❯ 1. Commit vào Hub (khuyến nghị)');
 		await terminal.press(KEYS.enter);
@@ -126,6 +126,10 @@ describe('layer runs in the TUI', () => {
 		await terminal.press(KEYS.escape);
 		await until(terminal, 'Đã dừng. Gõ /resume để chạy tiếp.');
 		await terminal.type('/resume');
+		await terminal.press(KEYS.enter);
+		await until(terminal, 'Chọn run muốn chạy tiếp');
+		expect(terminal.frame()).toMatch(/Plan đã dừng \d{2}\/\d{2} \d{2}:\d{2}/);
+		expect(terminal.frame()).toContain('Email huỷ đơn');
 		await terminal.press(KEYS.enter);
 		await until(terminal, 'Đã chạy tiếp.');
 		expect(calls[1]!.prompt).toBe('Tiếp tục run bị dừng từ chỗ đã dừng.');
@@ -212,11 +216,47 @@ describe('layer runs in the TUI', () => {
 		const plans = terminal.frame();
 		expect(plans).toMatch(/order-email_\d{8}-\d{6}/);
 		expect(plans).toContain('T01 [planned]');
+		// Enter opens the chosen Plan: its frontmatter and its sections; Esc goes back to the list.
+		await terminal.press(KEYS.enter);
+		const detail = await until(terminal, 'task_id: T01');
+		expect(detail).toContain('target_repo:');
+		expect(detail).toContain('What to do');
+		await terminal.press(KEYS.escape);
+		await until(terminal, 'T01 [planned]');
 		await terminal.press(KEYS.escape);
 		await terminal.type('/records');
 		await terminal.press(KEYS.enter);
 		expect(terminal.frame()).toContain('plan · ready');
 		expect(terminal.frame()).toContain('Plan cho email huỷ đơn');
+		await terminal.press(KEYS.enter);
+		const record = await until(terminal, 'Vấn đề (0)');
+		expect(record).toContain('Kết quả: ready');
+		expect(record).toContain('Cải tiến (0)');
+		expect(record).toMatch(/code-analyst agent PASS/);
+	});
+
+	test('/resume lists the runs that can continue and resumes the one chosen', async () => {
+		const stopped = (sessionId: string): FakeScript => (_call, emit) => {
+			emit({type: 'session', sessionId});
+			return new Promise(() => {});
+		};
+		const {terminal, calls} = await startWithRuns([stopped('s-a'), stopped('s-b'), () => [result('Chạy tiếp A.', 's-a')]]);
+		for (const request of ['Việc A', 'Việc B']) {
+			await terminal.type(`/pirl-plan ${request}`);
+			await terminal.press(KEYS.enter);
+			for (const end = Date.now() + 30_000; calls.length < (request === 'Việc A' ? 1 : 2) && Date.now() < end; ) await tick(40);
+			await tick(100);
+			await terminal.press(KEYS.escape);
+			await until(terminal, request === 'Việc A' ? 'Plan · đã dừng' : /đã dừng[\s\S]*đã dừng/);
+		}
+		await terminal.type('/resume');
+		await terminal.press(KEYS.enter);
+		const picker = await until(terminal, 'Chọn run muốn chạy tiếp');
+		expect(picker.indexOf('Việc B')).toBeLessThan(picker.indexOf('Việc A')); // newest first
+		await terminal.press(KEYS.down);
+		await terminal.press(KEYS.enter);
+		await until(terminal, 'Chạy tiếp A.');
+		expect(calls[2]!.resumeSessionId).toBe('s-a');
 	});
 });
 
@@ -244,7 +284,7 @@ describe('spinner and log', () => {
 		const {terminal} = await startWithRuns([busy], {}, [100, 30]);
 		await terminal.type('/settings');
 		await terminal.press(KEYS.enter);
-		for (let i = 0; i < 7; i++) await terminal.press(KEYS.down);
+		for (let i = 0; i < 8; i++) await terminal.press(KEYS.down);
 		await terminal.press(KEYS.right);
 		await until(terminal, 'Hiệu ứng chuyển động  ‹ Tắt ›');
 		await terminal.press(KEYS.escape);
@@ -255,19 +295,26 @@ describe('spinner and log', () => {
 		expect(terminal.frame()).toContain('▸ Plan · đang chạy');
 	});
 
-	test('wide windows show the log under Run in the side panel; narrower ones in the run block', async () => {
-		const wide = await startWithRuns([busy], {}, [160, 40]);
+	test('the side panel shows the plan\'s usage windows where the log was; narrow windows put them in the status line', async () => {
+		const rows = [
+			{kind: 'five_hour', label: '5 giờ', percent: 42, resetsAt: null},
+			{kind: 'seven_day', label: 'Tuần', percent: 91, resetsAt: null},
+		];
+		const wide = await startWithRuns([busy], {quota: async () => rows}, [160, 40]);
+		const frame = await until(wide.terminal, 'Hạn mức');
+		expect(frame).toMatch(/5 giờ\s+█+░+ 42%/);
+		expect(frame).toMatch(/Tuần\s+█+░* 91%/);
+		expect(frame).toContain('Model      sonnet · effort medium');
 		await wide.terminal.type('/pirl-plan Email');
 		await wide.terminal.press(KEYS.enter);
-		const frame = await until(wide.terminal, /00:0\d code-analyst\s+Đọc src\/orders\/cancel\.ts/);
-		expect(frame).toContain('Nhật ký');
-		expect(frame).toMatch(/00:0\d coordinator\s+Chạy python3/);
-		expect(frame).not.toContain('Nhật ký (');
+		const running = await until(wide.terminal, /code-analyst/);
+		expect(running).not.toContain('Nhật ký');
 
-		const narrow = await startWithRuns([busy], {}, [100, 30]);
-		await narrow.terminal.type('/pirl-plan Email');
-		await narrow.terminal.press(KEYS.enter);
-		expect(await until(narrow.terminal, /code-analyst\s+Đọc src\/orders\/cancel\.ts/)).toMatch(/Nhật ký \(\d+ dòng\)/);
+		const narrow = await startWithRuns([busy], {quota: async () => rows}, [100, 30]);
+		expect(await until(narrow.terminal, '5 giờ 42% · Tuần 91%')).not.toContain('Hạn mức');
+
+		const none = await startWithRuns([busy], {}, [160, 40]);
+		expect(await until(none.terminal, 'Hạn mức')).toContain('Chưa có số liệu.');
 	});
 });
 

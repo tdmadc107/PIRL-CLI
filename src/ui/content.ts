@@ -3,17 +3,16 @@ import type {Tone} from '../commands/dispatch.js';
 import {
 	COLOR_SCHEME_IDS,
 	EFFORT_IDS,
+	MOUSE_IDS,
 	MODEL_IDS,
 	PARALLEL_LIMITS,
 	ROLE_MODEL_IDS,
 	type Config,
 	type EffortSetting,
+	type MouseSetting,
 	type ModelSetting,
 	type RoleModelSetting,
 } from '../core/config.js';
-import {basename} from 'node:path';
-import {displayPath} from '../core/paths.js';
-import type {PlanPackage, RecordSummary} from '../engine/hubData.js';
 import type {RunState} from '../engine/run.js';
 import type {Check, CheckState} from '../doctor/doctor.js';
 import {PROVIDERS} from '../providers/index.js';
@@ -64,7 +63,7 @@ export function messageLines(message: Message, columns: number, theme: Theme, co
 					{text: 'PIRL', color: 'accent', bold: true},
 					{text: ` ${g.sep} Plan ${g.sep} Implement ${g.sep} Review`, dim: true},
 				],
-				...hanging([], 'Gõ / để xem lệnh, hoặc nhập yêu cầu.', columns),
+				...hanging([], 'Gõ / để xem lệnh, hoặc nhập yêu cầu. Gõ @ để đính kèm file hoặc thư mục.', columns),
 				blank,
 				...definitionList(commandItems(COMMANDS.filter(spec => spec.group === 'Layer' || spec.name === 'help')), columns),
 			];
@@ -100,7 +99,9 @@ export function helpLines(columns: number, theme: Theme): Line[] {
 		{term: 'Shift+Enter', description: 'Xuống dòng trong ô nhập (cũng được: \\ rồi Enter, Ctrl+J, Alt+Enter)'},
 		{term: 'Ctrl+V', description: 'Dán từ clipboard (chuột phải hoặc phím dán của terminal cũng được)'},
 		{term: 'Tab', description: 'Hoàn thành tên lệnh đang chọn'},
-		{term: theme.glyphs.upDown, description: 'Chọn lệnh gợi ý, hoặc xem lại nội dung đã gửi'},
+		{term: theme.glyphs.upDown, description: 'Chọn lệnh gợi ý hoặc đáp án; ngoài ra cuộn khung chat (chuột "Bôi đen tự do") hoặc xem lại nội dung đã gửi'},
+		{term: 'Ctrl+P / Ctrl+N', description: 'Xem lại nội dung đã gửi'},
+		{term: '@', description: 'Đính kèm file hoặc thư mục: Tab/Enter chọn, Enter lần nữa trên thư mục đang mở để đính kèm cả thư mục, Esc ẩn danh sách'},
 		{term: 'PgUp / PgDn', description: 'Cuộn khung chat'},
 		{term: 'Esc', description: 'Xoá ô nhập, đóng bảng đang mở, hoặc dừng run đang chạy'},
 		{term: 'Ctrl+C', description: 'Dừng run đang chạy; khi không có run thì thoát'},
@@ -149,7 +150,7 @@ export function doctorLines(doctor: DoctorState, columns: number, theme: Theme):
 }
 
 export type SettingsRow = {
-	key: 'provider' | 'model' | 'roleModel' | 'effort' | 'theme' | 'colors' | 'glyphs' | 'motion' | 'maxParallelRoles';
+	key: 'provider' | 'model' | 'roleModel' | 'effort' | 'theme' | 'colors' | 'glyphs' | 'motion' | 'mouse' | 'maxParallelRoles';
 	label: string;
 	value: string;
 	note?: string;
@@ -157,6 +158,13 @@ export type SettingsRow = {
 
 const MODEL_LABELS: Record<ModelSetting, string> = {sonnet: 'Sonnet (khuyến nghị)', opus: 'Opus', fable: 'Fable', haiku: 'Haiku', default: 'Theo Claude Code'};
 const ROLE_MODEL_LABELS: Record<RoleModelSetting, string> = {inherit: 'Giống coordinator', sonnet: 'Sonnet', opus: 'Opus', fable: 'Fable', haiku: 'Haiku'};
+const MOUSE_LABELS: Record<MouseSetting, string> = {select: 'Bôi đen tự do', wheel: 'Con lăn của PIRL', off: 'Tắt'};
+const MOUSE_NOTES: Record<MouseSetting, string> = {
+	select:
+		'Kéo chuột bôi đen như bình thường. Con lăn cuộn hội thoại vì terminal gửi nó thành phím ↑/↓, nên ↑/↓ cuộn hội thoại và Ctrl+P/Ctrl+N gọi lại lệnh đã gõ. Cần terminal hỗ trợ: Windows Terminal, VS Code, iTerm2, Terminal của macOS, GNOME, kitty, WezTerm',
+	wheel: 'PIRL nhận con lăn trực tiếp, chạy trên mọi terminal có chuột. Bôi đen chữ phải giữ Shift khi kéo (iTerm2: Option); ↑/↓ gọi lại lệnh đã gõ',
+	off: 'PIRL không dùng chuột. Cuộn bằng PageUp/PageDown; ↑/↓ gọi lại lệnh đã gõ',
+};
 const EFFORT_LABELS: Record<EffortSetting, string> = {default: 'Theo Claude Code', low: 'Thấp', medium: 'Vừa', high: 'Cao', xhigh: 'Rất cao', max: 'Tối đa'};
 
 export function settingsRows(config: Config): SettingsRow[] {
@@ -180,11 +188,17 @@ export function settingsRows(config: Config): SettingsRow[] {
 			key: 'effort',
 			label: 'Mức suy luận',
 			value: EFFORT_LABELS[config.effort],
-			note: 'Phần suy luận tính như token ra, loại token đắt nhất: mức thấp hơn rẻ hơn nhưng phân tích kém kỹ hơn',
+			note: 'Áp dụng cho coordinator và mọi role. Phần suy luận tính như token ra, loại token đắt nhất: mức thấp hơn rẻ hơn nhưng phân tích kém kỹ hơn. Claude Code chuyển mức này thành một con số nội bộ, khác nhau theo model và phiên bản (Sonnet: low 4, medium 5, high 10, xhigh 30, max). Con số đó không phải thang điểm, nên hỏi model "đang ở mức nào" không cho biết mức. "Theo Claude Code" hiện là medium',
 		},
 		{key: 'theme', label: 'Giao diện', value: {auto: 'Tự nhận theo terminal', dark: 'Nền tối', light: 'Nền sáng'}[config.theme]},
 		{key: 'colors', label: 'Bảng màu', value: COLOR_SCHEMES[config.colors].label, note: 'Đổi màu nhấn, màu lời nhập và màu viền; màu báo thành công, cảnh báo, lỗi giữ nguyên'},
 		{key: 'glyphs', label: 'Ký hiệu', value: {auto: 'Tự nhận theo terminal', unicode: 'Unicode', ascii: 'ASCII'}[config.glyphs]},
+		{
+			key: 'mouse',
+			label: 'Chuột',
+			value: MOUSE_LABELS[config.mouse],
+			note: MOUSE_NOTES[config.mouse],
+		},
 		{key: 'motion', label: 'Hiệu ứng chuyển động', value: config.motion ? 'Bật' : 'Tắt', note: 'Spinner khi run đang chạy; tắt nếu terminal chậm hoặc bạn không thích chuyển động'},
 		{
 			key: 'maxParallelRoles',
@@ -216,6 +230,8 @@ export function cycleSetting(config: Config, key: SettingsRow['key'], step: 1 | 
 			return {...config, glyphs: cycle(['auto', 'unicode', 'ascii'] as const, config.glyphs)};
 		case 'motion':
 			return {...config, motion: !config.motion};
+		case 'mouse':
+			return {...config, mouse: cycle(MOUSE_IDS, config.mouse)};
 		case 'maxParallelRoles': {
 			const next = config.maxParallelRoles + step;
 			return {...config, maxParallelRoles: Math.min(PARALLEL_LIMITS.max, Math.max(PARALLEL_LIMITS.min, next))};
@@ -249,37 +265,3 @@ export function settingsLines(config: Config, selected: number, columns: number,
 
 // ---------- /plans and /records ----------
 
-export function plansLines(packages: PlanPackage[] | null, hub: string | null, columns: number, theme: Theme): Line[] {
-	const g = theme.glyphs;
-	if (!packages) return hanging([{text: `${g.fail} `, color: 'danger'}], 'Không đọc được Hub.', columns);
-	const lines: Line[] = hanging([], `Đọc trong Hub${hub ? ` (${displayPath(hub)})` : ''}: các Plan package có target_repo là repo hiện tại.`, columns, {dim: true});
-	if (packages.length === 0) {
-		lines.push(blank, ...hanging([{text: `${g.pending} `, dim: true}], 'Chưa có Plan nào cho repo này. Gõ /pirl-plan <request> để tạo.', columns));
-		return lines;
-	}
-	for (const item of packages) {
-		lines.push(blank, [{text: item.planSet, bold: true, color: 'accent'}]);
-		for (const task of item.tasks) {
-			const tone = task.status === 'implemented' ? 'success' : task.status === 'failed' || task.status === 'blocked' ? 'danger' : 'warning';
-			lines.push(...hanging([{text: '  '}, {text: `${task.taskId} `, bold: true}, {text: `[${task.status}] `, color: tone}], task.title, columns));
-			for (const report of item.reports.filter(report => report.taskId === task.taskId)) {
-				const verdictTone = report.verdict === 'PASS' ? 'success' : report.verdict === 'FAIL' ? 'danger' : 'warning';
-				lines.push(...hanging([{text: '    '}, {text: `Review vòng ${report.round}: `, dim: true}, {text: report.verdict, color: verdictTone}, {text: '  '}], basename(report.file), columns, {dim: true}));
-			}
-		}
-	}
-	return lines;
-}
-
-export function recordsLines(records: RecordSummary[] | null, columns: number, theme: Theme): Line[] {
-	const g = theme.glyphs;
-	if (!records) return hanging([{text: `${g.fail} `, color: 'danger'}], 'Không đọc được Hub.', columns);
-	const lines: Line[] = hanging([], 'Record tự đánh giá của các run trên repo này, mới nhất trước (đọc trong Hub, .agents/evals/records/).', columns, {dim: true});
-	if (records.length === 0) return [...lines, blank, ...hanging([{text: `${g.pending} `, dim: true}], 'Chưa có record nào.', columns)];
-	for (const record of records) {
-		const fixes = record.fixes > 0 || record.pending > 0 ? ` ${g.sep} ${record.fixes} cải tiến đã áp dụng${record.pending ? `, ${record.pending} chờ duyệt` : ''}` : '';
-		lines.push(blank, [{text: record.recordId, bold: true, color: 'accent'}, {text: `  ${record.layer} ${g.sep} ${record.status}${fixes}`, dim: true}]);
-		lines.push(...hanging([{text: '  '}], record.summary, columns));
-	}
-	return lines;
-}

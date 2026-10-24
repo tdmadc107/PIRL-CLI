@@ -1,32 +1,36 @@
 import {Box, useApp, useInput, usePaste, useWindowSize, type Key} from 'ink';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {dispatch, type Effect, type OverlayKind} from '../commands/dispatch.js';
-import {parseInput, suggestCommands} from '../commands/registry.js';
+import {parseInput, suggestCommands, type CommandSpec} from '../commands/registry.js';
 import type {Config} from '../core/config.js';
 import type {DoctorReport} from '../doctor/doctor.js';
-import type {RunController, RunState} from '../engine/run.js';
+import {findMentions, mentionText, suggestPaths, type AttachedContext, type PathEntry} from '../engine/attachments.js';
+import type {PersistedRun, RunController, RunState} from '../engine/run.js';
 import {resumable} from '../engine/runStore.js';
-import {LAYER_LABELS, totalTokens, type RunKind} from '../engine/types.js';
+import {LAYER_LABELS, totalTokens, type QuotaRow, type RunKind} from '../engine/types.js';
 import {getProvider} from '../providers/index.js';
 import {
 	cycleSetting,
 	doctorLines,
 	helpLines,
-	plansLines,
-	recordsLines,
 	settingsLines,
 	settingsRows,
 	transcriptLines,
 } from './content.js';
 import {Header, type ProviderBadge} from './components/Header.js';
-import {InputBox, inputHeight, paletteLines} from './components/Input.js';
+import {commandItem, InputBox, inputHeight, paletteLines, type PaletteItem} from './components/Input.js';
 import {bottomWindow, Lines} from './components/Lines.js';
 import {Frame, SidePanel, statusLine, TooSmall} from './components/Panels.js';
+import {displayPath} from '../core/paths.js';
+import {planEntries, recordEntries, resumeEntries} from './browse.js';
 import {useFrameworkConsole} from './frameworkConsole.js';
-import {backspace, emptyEditor, insert, move, setValue, type EditorState} from './inputEditor.js';
+import {blank, hanging} from './lines.js';
+import {useListOverlay, type ListEntry} from './listOverlay.js';
+import {backspace, emptyEditor, insert, mentionAt, move, replaceMention, setValue, type EditorState} from './inputEditor.js';
 import {computeLayout} from './layout.js';
 import type {Line} from './lines.js';
 import {clockSpan, compactTokens, costText, IMPROVEMENT_CHOICES, isActive, spinnerSpan, STATUS_LABELS, type Interaction, type Live} from './runView.js';
+import {parseTerminalInput} from './terminalInput.js';
 import {SPINNER_MS, setTickInterval} from './ticker.js';
 import type {DoctorState, Message, NewMessage, Services, SessionInfo, StartupNote} from './session.js';
 import {createTheme} from './theme.js';
@@ -49,6 +53,7 @@ const OVERLAY_TITLES: Record<OverlayKind, string> = {
 	framework: 'Framework',
 	plans: 'Plan của repo này',
 	records: 'Record tự cải tiến',
+	resume: 'Chạy tiếp run',
 };
 
 /** One line after a clean start: the provider is signed in, plus the Python and Git versions found. */
@@ -60,6 +65,15 @@ function readySummary(report: DoctorReport): string {
 }
 
 const ACTIVE: RunState['status'][] = ['running', 'checking'];
+
+/** The run's model settings in one line: "sonnet · effort high", with the roles' model when it differs. */
+export function modelText(config: Config): string {
+	const model = config.model === 'default' ? 'theo Claude Code' : config.model;
+	const roles = config.roleModel === 'inherit' ? '' : ` · role ${config.roleModel}`;
+	// Claude Code's default effort is medium.
+	const effort = config.effort === 'default' ? 'medium' : config.effort;
+	return `${model}${roles} · effort ${effort}`;
+}
 /** Longest wait before a run's new state is drawn. */
 const FLUSH_MS = 100;
 /** Shift+Enter as xterm's modifyOtherKeys reports it, which Ink does not parse: ESC [27;<mod>;13~ */
@@ -91,6 +105,9 @@ export function App(props: AppProps) {
 	const [history, setHistory] = useState<string[]>([]);
 	const [historyIndex, setHistoryIndex] = useState<number | null>(null);
 	const [paletteIndex, setPaletteIndex] = useState(0);
+	// Paths offered for `@` mentions, read when a mention starts; the mention whose list Esc hid, by its position.
+	const [pathIndex, setPathIndex] = useState<PathEntry[] | null>(null);
+	const [hiddenMention, setHiddenMention] = useState<number | null>(null);
 	const [scroll, setScroll] = useState(0);
 	const [overlay, setOverlay] = useState<OverlayKind | null>(null);
 	const [overlayTop, setOverlayTop] = useState(0);
@@ -100,6 +117,11 @@ export function App(props: AppProps) {
 	const [hub, setHub] = useState(props.info.hub);
 	const info = useMemo(() => ({...props.info, hub}), [props.info, hub]);
 	const refreshHub = () => void props.services.framework?.status().then(setHub, () => {});
+	// The plan's usage windows: read once at start, then as each run reports them.
+	const [quota, setQuota] = useState<QuotaRow[] | null>(null);
+	useEffect(() => {
+		props.services.quota?.().then(rows => rows && setQuota(current => current ?? rows), () => {});
+	}, []);
 
 	// Runs: their state for drawing, their controllers for acting, and the answers being collected.
 	const [runs, setRuns] = useState<Record<number, RunState>>({});
@@ -202,7 +224,9 @@ export function App(props: AppProps) {
 	// The spinner and the clock are cells that redraw themselves from the shared ticker (src/ui/ticker.ts);
 	// a tick never re-renders the App. With motion off only the clock moves, once a second.
 	useEffect(() => setTickInterval(config.motion ? SPINNER_MS : 1000), [config.motion]);
-	const live: Live = {motion: config.motion, showLog: layout.kind === 'ok' && layout.sidePanel === 0};
+	useEffect(() => props.services.setMouse?.(config.mouse), [config.mouse]);
+	const live: Live = {motion: config.motion};
+
 
 	// Each message is laid out once per change of what it shows: a finished run or a note is not laid out again
 	// when the spinner moves or another run streams events. Only the working run's block is redone.
@@ -215,7 +239,7 @@ export function App(props: AppProps) {
 			const run = message.kind === 'run' ? runs[message.runId] : undefined;
 			const ownInteraction = run && interaction?.runId === run.id ? interaction : null;
 			const key: unknown[] = [chatWidth, theme, run, ownInteraction?.kind, ownInteraction?.selected, ownInteraction?.kind === 'question' ? ownInteraction.index : null];
-			if (run && isActive(run)) key.push(live.motion, live.showLog);
+			if (run && isActive(run)) key.push(live.motion);
 			const cached = lineCache.current.get(message.id);
 			let messageLines = cached && cached.key.length === key.length && cached.key.every((value, index) => value === key[index]) ? cached.lines : null;
 			if (!messageLines) {
@@ -229,9 +253,8 @@ export function App(props: AppProps) {
 		return lines;
 	})();
 
-	const overlayLines = (frameworkView: {lines: Line[]}): Line[] => {
+	const overlayLines = (frameworkView: {lines: Line[]}, listView: {lines: Line[]}): Line[] => {
 		const inner = bodyWidth - 4;
-		const target = props.info.target.kind === 'git' ? props.info.target.root : null;
 		switch (overlay) {
 			case 'help':
 				return helpLines(inner, theme);
@@ -242,9 +265,9 @@ export function App(props: AppProps) {
 			case 'settings':
 				return settingsLines(config, settingsIndex, inner, theme);
 			case 'plans':
-				return plansLines(target && props.services.plans ? props.services.plans() : null, hub?.path ?? null, inner, theme);
 			case 'records':
-				return recordsLines(props.services.records ? props.services.records() : null, inner, theme);
+			case 'resume':
+				return listView.lines;
 			default:
 				return [];
 		}
@@ -283,6 +306,7 @@ export function App(props: AppProps) {
 			} else if (!flushTimer.current) {
 				flushTimer.current = setTimeout(flushRuns, FLUSH_MS);
 			}
+			if (state.quota.after) setQuota(state.quota.after);
 			if (state.kind === 'chat') {
 				if (state.sessionId) chatSession.current = state.sessionId;
 				if (state.suggestion && state.status !== 'running') setEditor(setValue(state.suggestion));
@@ -321,7 +345,40 @@ export function App(props: AppProps) {
 			.flatMap(run => [run.outputs.planSet, run.outputs.planFile, run.outputs.report].filter((path): path is string => !!path))
 			.slice(-6);
 
-	const startRun = (kind: RunKind, request: string): string | null => {
+	/** Starts a run for a submitted request, with the files and folders its `@` mentions name. */
+	const launching = useRef(false);
+	const launch = async (kind: RunKind, request: string) => {
+		const blocker = launching.current ? 'Đang chuẩn bị run trước; thử lại sau giây lát.' : runBlocker(kind);
+		if (blocker) {
+			addMessages([{kind: 'note', tone: 'error', text: blocker}]);
+			return;
+		}
+		let attached: AttachedContext | null = null;
+		if (findMentions(request).length > 0 && props.services.attach) {
+			launching.current = true;
+			try {
+				attached = await props.services.attach(request);
+			} catch (error) {
+				addMessages([{kind: 'note', tone: 'error', text: `Không đọc được file đính kèm: ${error instanceof Error ? error.message : String(error)}`}]);
+				return;
+			} finally {
+				launching.current = false;
+			}
+			if (attached.summary.length > 0) {
+				addMessages([
+					{
+						kind: 'note',
+						tone: attached.summary.some(item => item.tone === 'warning') ? 'warning' : 'info',
+						text: `Đính kèm ${attached.summary.map(item => `${item.display} (${item.detail})`).join(' · ')}`,
+					},
+				]);
+			}
+		}
+		const failed = startRun(kind, request, attached);
+		if (failed) addMessages([{kind: 'note', tone: 'error', text: failed}]);
+	};
+
+	const startRun = (kind: RunKind, request: string, attached: AttachedContext | null = null): string | null => {
 		const blocker = runBlocker(kind);
 		if (blocker) return blocker;
 		const controller = props.services.startRun!({
@@ -333,14 +390,16 @@ export function App(props: AppProps) {
 			// Chat messages continue one provider session, so the coordinator keeps the conversation's context.
 			resume: kind === 'chat' && chatSession.current ? {sessionId: chatSession.current, prompt: request} : undefined,
 			recentOutputs: kind === 'chat' ? recentOutputs() : undefined,
+			attachments: attached?.text ? {text: attached.text, dirs: attached.dirs} : undefined,
 		});
 		watch(controller);
 		return null;
 	};
 
-	const resumeRun = (): NewMessage => {
-		const last = props.services.lastRun?.() ?? null;
-		if (!resumable(last)) return {kind: 'note', tone: 'info', text: 'Không có run nào đang dở.'};
+	/** The runs /resume offers: stopped, failed or waiting ones that have a provider session. */
+	const resumableRuns = () => (props.services.runs?.() ?? []).filter(run => resumable(run));
+
+	const resumeRun = (last: PersistedRun): NewMessage => {
 		const blocker = runBlocker(last.kind);
 		if (blocker) return {kind: 'note', tone: 'error', text: blocker};
 		const controller = props.services.startRun!({
@@ -349,7 +408,15 @@ export function App(props: AppProps) {
 			request: last.request,
 			config,
 			python: report?.python ?? null,
-			resume: {sessionId: last.sessionId!, status: last.status, questions: last.questions, before: last.before, providerTotals: last.providerTotals},
+			resume: {
+				sessionId: last.sessionId!,
+				status: last.status,
+				questions: last.questions,
+				before: last.before,
+				providerTotals: last.providerTotals,
+				key: last.key,
+				startedAt: last.startedAt,
+			},
 		});
 		watch(controller);
 		return {kind: 'note', tone: 'info', text: `Chạy tiếp ${LAYER_LABELS[last.kind]}: ${last.request}`};
@@ -375,8 +442,67 @@ export function App(props: AppProps) {
 		else addMessages([{kind: 'note', tone: 'warning', text: 'Không đọc được clipboard. Dùng phím dán của terminal (chuột phải, Ctrl+Shift+V).'}]);
 	};
 
+	const list = useListOverlay();
+	// What /plans, /records and /resume list: read once when the panel opens, not on every frame.
+	const listContent = useMemo((): {entries: ListEntry[]; header: Line[]} | null => {
+		const target = props.info.target.kind === 'git' ? props.info.target.root : null;
+		const width = Math.max(20, bodyWidth - 4);
+		const intro = (text: string) => hanging([], text, width, {dim: true});
+		const unreadable = () => hanging([{text: `${theme.glyphs.fail} `, color: 'danger'}], 'Không đọc được Hub.', width);
+		switch (overlay) {
+			case 'plans': {
+				if (!target || !props.services.plans) return {entries: [], header: unreadable()};
+				const packages = props.services.plans();
+				const header = intro(`Đọc trong Hub${hub ? ` (${displayPath(hub.path)})` : ''}: các Plan package có target_repo là repo hiện tại. Enter để xem một Plan hoặc report.`);
+				if (packages.length === 0) header.push(blank, ...hanging([{text: `${theme.glyphs.pending} `, dim: true}], 'Chưa có Plan nào cho repo này. Gõ /pirl-plan <request> để tạo.', width));
+				return {entries: planEntries(packages, theme), header};
+			}
+			case 'records': {
+				const records = props.services.records?.() ?? null;
+				if (!records) return {entries: [], header: unreadable()};
+				const header = intro('Record tự đánh giá của các run trên repo này, mới nhất trước (đọc trong Hub, .agents/evals/records/). Enter để xem chi tiết.');
+				if (records.length === 0) header.push(blank, ...hanging([{text: `${theme.glyphs.pending} `, dim: true}], 'Chưa có record nào.', width));
+				return {entries: recordEntries(records, theme), header};
+			}
+			case 'resume':
+				return {
+					entries: resumeEntries(resumableRuns(), theme, run => {
+						setOverlay(null);
+						addMessages([{kind: 'user', text: `/resume ${LAYER_LABELS[run.kind]}: ${run.request.split('\n')[0]!.slice(0, 80)}`}, resumeRun(run)]);
+					}),
+					header: intro('Chọn run muốn chạy tiếp, mới nhất trước. Run chạy tiếp đúng session của provider mà nó đã dừng.'),
+				};
+			default:
+				return null;
+		}
+		// Read again when the panel opens or the window width changes.
+	}, [overlay, bodyWidth, theme]);
+
+	// ---------- palette ----------
+	/** What the palette offers for the text: paths while an `@` mention is typed, else commands while a command name is. */
+	const paletteFor = (state: EditorState): {items: PaletteItem[]; commands: CommandSpec[]; paths: PathEntry[]; mention: {start: number; query: string} | null} => {
+		const mention = mentionAt(state);
+		if (mention) {
+			const paths = pathIndex && hiddenMention !== mention.start ? suggestPaths(pathIndex, mention.query) : [];
+			const typed = mention.query.replace(/\\/g, '/').toLowerCase();
+			const items = paths.map(entry => ({
+				label: mentionText(entry),
+				summary: !entry.folder ? '' : typed === `${entry.path.toLowerCase()}/` ? 'Enter: đính kèm cả thư mục' : 'thư mục',
+			}));
+			return {items, commands: [], paths, mention};
+		}
+		const commands = suggestCommands(state.value);
+		return {items: commands.map(commandItem), commands, paths: [], mention: null};
+	};
+	const mentionStart = overlay || interaction ? null : (mentionAt(editor)?.start ?? null);
+	useEffect(() => {
+		if (mentionStart === null) setHiddenMention(null);
+		else props.services.paths?.().then(setPathIndex, () => {});
+	}, [mentionStart]);
+
 	// ---------- heights ----------
-	const suggestions = overlay || interaction ? [] : suggestCommands(editor.value);
+	const palette = overlay || interaction ? null : paletteFor(editor);
+	const suggestions = palette?.items ?? [];
 	useEffect(() => setPaletteIndex(0), [editor.value]);
 	const headerHeight = layout.kind === 'ok' && layout.header !== 'hidden' ? 1 : 0;
 	const inputLinesShown = layout.kind === 'ok' ? inputHeight(editor, columns - 4, layout.inputMaxLines, theme) : 1;
@@ -387,7 +513,8 @@ export function App(props: AppProps) {
 	const bodyHeight = Math.max(1, room - paletteShown);
 	const overlayPage = Math.max(1, bodyHeight - 4);
 	const frameworkView = overlay === 'framework' ? framework.view(bodyWidth - 4, bodyHeight - 3, theme) : {lines: [], top: 0};
-	const overlayContent = overlay ? overlayLines(frameworkView) : [];
+	const listView = listContent ? list.view(listContent.entries, listContent.header, bodyWidth - 4, bodyHeight - 3, theme) : {lines: [], top: 0};
+	const overlayContent = overlay ? overlayLines(frameworkView, listView) : [];
 	// The first line of the last page: scrolling further down stops there, so one PgUp always moves back.
 	const overlayMaxTop = Math.max(0, overlayContent.length - Math.max(1, bodyHeight - 3 - 1));
 
@@ -406,18 +533,25 @@ export function App(props: AppProps) {
 				setOverlayTop(0);
 				setSettingsIndex(0);
 				if (effect.overlay === 'framework') framework.open();
+				list.reset();
 			}
 			if (effect.type === 'doctor') startDoctor(false);
 			if (effect.type === 'exit') exit();
 			if (effect.type === 'copy') afterwards = () => void copyLatest();
-			if (effect.type === 'resume') afterwards = () => addMessages([resumeRun()]);
+			if (effect.type === 'resume') {
+				afterwards = () => {
+					if (resumableRuns().length === 0) addMessages([{kind: 'note', tone: 'info', text: 'Không có run nào đang dở.'}]);
+					else if (activeRunId !== null) addMessages([{kind: 'note', tone: 'error', text: runBlocker('plan') ?? ''}]);
+					else {
+						list.reset();
+						setOverlay('resume');
+					}
+				};
+			}
 			if (effect.type === 'run') {
 				const kind = effect.kind;
 				const request = effect.request;
-				afterwards = () => {
-					const blocker = startRun(kind, request);
-					if (blocker) addMessages([{kind: 'note', tone: 'error', text: blocker}]);
-				};
+				afterwards = () => void launch(kind, request);
 			}
 		}
 		addMessages(added);
@@ -478,8 +612,23 @@ export function App(props: AppProps) {
 		}
 	};
 
+	/**
+	 * Takes the chosen suggestion. A file is written as `@path ` and the list closes; a folder is opened as
+	 * `@folder/` to choose inside it, and choosing it again (it is listed first) attaches the whole folder.
+	 */
 	const complete = (index: number) => {
-		const spec = suggestCommands(editorRef.current.value)[index];
+		const state = editorRef.current;
+		const offered = paletteFor(state);
+		if (offered.mention) {
+			const entry = offered.paths[index];
+			if (!entry) return;
+			const typed = offered.mention.query.replace(/\\/g, '/').toLowerCase();
+			const open = entry.folder && typed !== `${entry.path.toLowerCase()}/`;
+			const text = open ? (/\s/.test(entry.path) ? `@"${entry.path}/` : `@${entry.path}/`) : `${mentionText(entry)} `;
+			setEditor(replaceMention(state, offered.mention.start, text));
+			return;
+		}
+		const spec = offered.commands[index];
 		if (spec) setEditor(setValue(`/${spec.name}${spec.takesRequest ? ' ' : ''}`));
 	};
 
@@ -500,6 +649,10 @@ export function App(props: AppProps) {
 		}
 		if (overlay === 'framework') {
 			if (!framework.handleKey(input, key, overlayPage)) setOverlay(null);
+			return;
+		}
+		if (overlay && listContent) {
+			if (!list.handleKey(input, key, overlayPage, listContent.entries)) setOverlay(null);
 			return;
 		}
 		if (overlay) {
@@ -532,24 +685,33 @@ export function App(props: AppProps) {
 			return;
 		}
 
-		const suggestions = interaction ? [] : suggestCommands(editor.value);
+		const offered = interaction ? null : paletteFor(editor);
+		const suggestions = offered?.items ?? [];
 		const paletteOpen = suggestions.length > 0;
-		if (key.upArrow || key.downArrow) {
-			const step = key.upArrow ? -1 : 1;
-			if (interaction && editor.value === '') {
+		const recall = key.ctrl && (input === 'p' || input === 'n');
+		if (key.upArrow || key.downArrow || recall) {
+			const up = key.upArrow || input === 'p';
+			const step = up ? -1 : 1;
+			if (!recall && interaction && editor.value === '') {
 				moveChoice(step);
 				return;
 			}
-			if (paletteOpen) {
+			if (!recall && paletteOpen) {
 				setPaletteIndex(index => (index + step + suggestions.length) % suggestions.length);
 				return;
 			}
+			// With the mouse left to the terminal its wheel arrives as ↑/↓, so they scroll the chat and
+			// Ctrl+P/Ctrl+N recall what was typed.
+			if (!recall && config.mouse === 'select') {
+				scrollChat(up ? 1 : -1);
+				return;
+			}
 			if (editor.value.includes('\n')) return;
-			if (key.upArrow && history.length > 0) {
+			if (up && history.length > 0) {
 				const index = historyIndex === null ? history.length - 1 : Math.max(0, historyIndex - 1);
 				setHistoryIndex(index);
 				setEditor(setValue(history[index]!));
-			} else if (key.downArrow && historyIndex !== null) {
+			} else if (!up && historyIndex !== null) {
 				const index = historyIndex + 1;
 				setHistoryIndex(index >= history.length ? null : index);
 				setEditor(index >= history.length ? emptyEditor : setValue(history[index]!));
@@ -570,8 +732,8 @@ export function App(props: AppProps) {
 				return;
 			}
 			if (paletteOpen) {
-				const spec = suggestions[paletteIndex]!;
-				if (spec.takesRequest) complete(paletteIndex);
+				const spec = offered!.commands[paletteIndex];
+				if (!spec || spec.takesRequest) complete(paletteIndex);
 				else submit(`/${spec.name}`);
 				return;
 			}
@@ -579,6 +741,10 @@ export function App(props: AppProps) {
 			return;
 		}
 		if (key.escape) {
+			if (paletteOpen && offered!.mention) {
+				setHiddenMention(offered!.mention.start);
+				return;
+			}
 			if (editor.value === '' && activeRun && ACTIVE.includes(activeRun.status)) {
 				stopActive();
 				return;
@@ -587,12 +753,8 @@ export function App(props: AppProps) {
 			setHistoryIndex(null);
 			return;
 		}
-		if (key.pageUp) {
-			setScroll(current => Math.min(current + Math.max(1, bodyHeight - 2), Math.max(0, transcript.length - bodyHeight + 1)));
-			return;
-		}
-		if (key.pageDown) {
-			setScroll(current => Math.max(0, current - Math.max(1, bodyHeight - 2)));
+		if (key.pageUp || key.pageDown) {
+			scrollChat((key.pageUp ? 1 : -1) * Math.max(1, bodyHeight - 2));
 			return;
 		}
 		if (key.backspace || key.delete) setEditor(backspace(editor));
@@ -604,7 +766,25 @@ export function App(props: AppProps) {
 		else if (input && !key.ctrl && !key.meta) setEditor(insert(editor, input));
 	};
 
-	useInput((input, key) => {
+	/** Mouse wheel: three lines per notch in the chat or the open panel. */
+	const WHEEL_LINES = 3;
+	/** Scrolls the chat by `lines`: positive toward older lines. */
+	const scrollChat = (lines: number) => setScroll(current => Math.max(0, Math.min(current + lines, Math.max(0, transcript.length - bodyHeight + 1))));
+	const scrollByWheel = (notches: number) => {
+		const lines = notches * WHEEL_LINES;
+		if (overlay === 'framework') framework.wheel(lines);
+		else if (overlay && listContent) list.wheel(lines, listContent.entries);
+		else if (overlay === 'settings') return;
+		else if (overlay) setOverlayTop(top => Math.max(0, Math.min(overlayMaxTop, Math.min(top, overlayMaxTop) - lines)));
+		else scrollChat(lines);
+	};
+
+	useInput((raw, key) => {
+		// Terminal replies and mouse reports are not typed text (src/ui/terminalInput.ts).
+		const parsed = parseTerminalInput(raw);
+		if (parsed.wheel !== 0) scrollByWheel(parsed.wheel);
+		if (parsed.filtered && parsed.text === '') return;
+		const input = parsed.text;
 		// Typed text and Enter can reach the TUI in one chunk (fast typing, an input method, SSH). Ink passes such a
 		// chunk on as text, which would turn Enter into a new line; split it so each Enter acts as the key.
 		if (input.length > 1 && input.includes('\r') && !key.ctrl && !key.meta) {
@@ -638,13 +818,17 @@ export function App(props: AppProps) {
 				? [`${g.upDown} chọn`, `${g.leftRight} đổi`, 'Esc đóng']
 				: overlay === 'framework'
 					? framework.hints(theme)
+					: listContent
+						? list.hints(theme, overlay === 'resume' ? 'chạy tiếp' : 'xem')
 					: [`${g.upDown} PgUp/PgDn cuộn`, 'Esc đóng']
 			: interaction
 				? [`${g.upDown} chọn`, 'Enter xác nhận']
 				: running
 					? ['Esc dừng run', 'PgUp/PgDn cuộn']
 					: suggestions.length > 0
-						? [`${g.upDown} chọn`, 'Tab hoàn thành', 'Enter chạy']
+						? palette?.mention
+							? [`${g.upDown} chọn`, 'Tab/Enter chọn', 'Esc ẩn']
+							: [`${g.upDown} chọn`, 'Tab hoàn thành', 'Enter chạy']
 						: ['Enter gửi', 'Shift+Enter xuống dòng', '/help']
 	).join(` ${g.sep} `);
 	const totals = Object.values(runs).reduce(
@@ -656,7 +840,9 @@ export function App(props: AppProps) {
 		{calls: 0, tokens: 0, cost: 0 as number | null},
 	);
 	const cost = totals.tokens > 0 ? costText(totals.cost) : null;
-	const usage = [`${totals.calls} lượt gọi`, totals.tokens > 0 && `${compactTokens(totals.tokens)} token`, cost].filter(Boolean).join(` ${g.sep} `);
+	// Without the side panel, the usage windows go to the status line.
+	const quotaShort = layout.kind === 'ok' && layout.sidePanel === 0 && quota ? quota.map(row => `${row.label} ${Math.round(row.percent)}%`).join(` ${g.sep} `) : null;
+	const usage = [`${totals.calls} lượt gọi`, totals.tokens > 0 && `${compactTokens(totals.tokens)} token`, cost, quotaShort].filter(Boolean).join(` ${g.sep} `);
 	const runText = activeRun ? `${LAYER_LABELS[activeRun.kind]}: ${STATUS_LABELS[activeRun.status]}` : doctor.state === 'running' ? 'đang kiểm tra môi trường' : 'không có run';
 	const runWorking = activeRun !== null && isActive(activeRun);
 	const status = statusLine(
@@ -677,7 +863,7 @@ export function App(props: AppProps) {
 						lines={overlayContent}
 						width={bodyWidth}
 						height={bodyHeight}
-						top={overlay === 'framework' ? frameworkView.top : overlayTop}
+						top={overlay === 'framework' ? frameworkView.top : listContent ? listView.top : overlayTop}
 						theme={theme}
 						active
 					/>
@@ -686,7 +872,9 @@ export function App(props: AppProps) {
 						<Lines lines={chatLines} theme={theme} />
 					</Box>
 				)}
-				{layout.sidePanel > 0 && <SidePanel info={info} provider={provider} run={panelRun} live={live} width={layout.sidePanel} height={bodyHeight} theme={theme} />}
+				{layout.sidePanel > 0 && (
+					<SidePanel info={info} provider={provider} run={panelRun} live={live} extras={{model: modelText(config), quota}} width={layout.sidePanel} height={bodyHeight} theme={theme} />
+				)}
 			</Box>
 			<InputBox editor={editor} columns={columns} maxLines={layout.inputMaxLines} theme={theme} focused={!overlay} placeholder={interaction ? (interaction.kind === 'question' ? 'Nhập câu trả lời, hoặc Enter để chọn mục đang trỏ' : 'Enter để chọn mục đang trỏ, hoặc gõ 1–3') : undefined} />
 			{paletteShown > 0 && <Lines lines={paletteLines(suggestions, paletteIndex, paletteShown, columns, theme)} theme={theme} />}

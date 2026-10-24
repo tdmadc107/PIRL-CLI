@@ -66,6 +66,11 @@ export type RunState = {
 export type RunSnapshot = {hubChanges: string[]; records: number; planSets: string[]; targetChanges: string[]};
 
 export type PersistedRun = {
+	/** Names the run's file in ~/.pirl/sessions/; a resumed run keeps it, so it updates the same entry. */
+	key: string;
+	/** When the run first started and when it was saved last (ISO). */
+	startedAt?: string;
+	savedAt?: string;
 	kind: RunKind;
 	request: string;
 	sessionId: string | null;
@@ -92,6 +97,8 @@ export type RunDeps = {
 	model?: string;
 	roleModel?: string;
 	effort?: string;
+	/** Files and folders the user attached with `@` (src/engine/attachments.ts): sent with the request. */
+	attachments?: {text: string; dirs: string[]};
 	/** Reads the plan's usage meters (src/engine/claudeQuota.ts); the run shows no quota when left out. */
 	quota?: () => Promise<QuotaRow[] | null>;
 	/** Directory for the run's full log file (~/.pirl/logs); no file when left out. */
@@ -125,6 +132,8 @@ export class RunController {
 	private stopped = false;
 	/** The usage before the current provider call, and the provider session's totals reported so far. */
 	private callBase: Usage | null = null;
+	private readonly key: string;
+	private readonly firstStartedAt: string;
 	private providerTotals: Record<string, ModelTotals> = {};
 	private deniedIds = new Set<string>();
 	private logStream: WriteStream | null = null;
@@ -135,11 +144,22 @@ export class RunController {
 		id: number,
 		kind: RunKind,
 		request: string,
-		resume?: {sessionId: string; status?: RunStatus; questions?: Question[]; before?: RunSnapshot; prompt?: string; providerTotals?: Record<string, ModelTotals>},
+		resume?: {
+			sessionId: string;
+			status?: RunStatus;
+			questions?: Question[];
+			before?: RunSnapshot;
+			prompt?: string;
+			providerTotals?: Record<string, ModelTotals>;
+			key?: string;
+			startedAt?: string;
+		},
 	) {
 		this.exec = deps.exec ?? defaultExec;
 		this.now = deps.now ?? Date.now;
 		const startedAt = this.now();
+		this.key = resume?.key ?? `${logStamp(new Date(startedAt))}-${kind}-${id}`;
+		this.firstStartedAt = resume?.startedAt ?? new Date(startedAt).toISOString();
 		const logFile = deps.logDir ? join(deps.logDir, `${logStamp(new Date(startedAt))}-${kind}-${id}.log`) : null;
 		this.state = {
 			id,
@@ -169,6 +189,8 @@ export class RunController {
 		this.resumedBefore = resume?.before;
 		this.providerTotals = resume?.providerTotals ?? {};
 		this.firstPrompt = resume ? resume.prompt ?? 'Tiếp tục run bị dừng từ chỗ đã dừng.' : request;
+		// Attachments go with the user's own words: a new request or a chat message, not a "continue".
+		if (deps.attachments?.text && (!resume || resume.prompt)) this.firstPrompt = `${this.firstPrompt}\n\n${deps.attachments.text}`;
 	}
 
 	/** What the first call sends: the request, a chat message into an existing session, or "continue". */
@@ -177,6 +199,9 @@ export class RunController {
 	/** What /resume needs to continue this run after PIRL CLI was closed. */
 	persisted(): PersistedRun {
 		return {
+			key: this.key,
+			startedAt: this.firstStartedAt,
+			savedAt: new Date(this.now()).toISOString(),
 			kind: this.state.kind,
 			request: this.state.request,
 			sessionId: this.state.sessionId,
@@ -288,7 +313,7 @@ export class RunController {
 		const deps = this.deps;
 		const request = {
 			cwd: deps.hub,
-			addDirs: deps.target && deps.target !== deps.hub ? [deps.target] : [],
+			addDirs: [...(deps.target && deps.target !== deps.hub ? [deps.target] : []), ...(deps.attachments?.dirs ?? [])],
 			prompt,
 			systemPrompt: hostInstructions({
 				kind: this.state.kind,
@@ -298,7 +323,7 @@ export class RunController {
 				maxParallelRoles: deps.maxParallelRoles,
 				recentOutputs: deps.recentOutputs,
 			}),
-			agents: deps.agents ?? roleAgents(deps.hub, undefined, deps.roleModel, deps.target && deps.target !== deps.hub ? deps.target : null),
+			agents: deps.agents ?? roleAgents(deps.hub, undefined, deps.roleModel, deps.target && deps.target !== deps.hub ? deps.target : null, deps.effort),
 			permissions: permissionsFor(this.state.kind, {hub: deps.hub, target: deps.target}, deps.python),
 			resumeSessionId: this.state.sessionId ?? undefined,
 			model: deps.model,

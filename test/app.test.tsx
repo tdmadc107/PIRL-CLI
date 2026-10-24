@@ -1,4 +1,5 @@
 import {afterEach, describe, expect, test} from 'vitest';
+import {DEFAULT_CONFIG} from '../src/core/config.js';
 import {App} from '../src/ui/App.js';
 import {width} from '../src/ui/text.js';
 import {appProps, READY_REPORT, sessionInfo} from './helpers/fixtures.js';
@@ -139,14 +140,41 @@ describe('input and command palette', () => {
 		expect(terminal.frame()).toContain('› thêm');
 	});
 
-	test('↑ recalls what was sent; Esc clears the input', async () => {
+	const sent = (frame: string) => frame.split('› /resume').length - 1;
+
+	test('Ctrl+P recalls what was sent; Esc clears the input', async () => {
 		const {terminal} = await start(100, 30);
 		await terminal.type('/resume');
 		await terminal.press(KEYS.enter);
-		await terminal.press(KEYS.up);
-		expect(terminal.frame()).toContain('› /resume');
+		expect(sent(terminal.frame())).toBe(1);
+		await terminal.press('\x10');
+		expect(sent(terminal.frame())).toBe(2);
+		await terminal.press('\x0e');
+		expect(sent(terminal.frame())).toBe(1);
+		await terminal.press('\x10');
 		await terminal.press(KEYS.escape);
-		expect(terminal.frame()).toContain('Gõ / để xem lệnh, hoặc nhập yêu cầu');
+		expect(terminal.frame()).toContain('Gõ / để xem lệnh, @ để đính kèm file, hoặc nhập yêu cầu');
+	});
+
+	test('with the mouse left to the terminal, ↑/↓ (and so its wheel) scroll the chat', async () => {
+		const {terminal} = await start(80, 16);
+		for (let i = 0; i < 6; i++) {
+			await terminal.type('/khong-co');
+			await terminal.press(KEYS.enter);
+		}
+		for (let i = 0; i < 40; i++) await terminal.press(KEYS.up);
+		expect(terminal.frame()).toContain('PIRL · Plan · Implement · Review');
+		expect(terminal.frame()).toContain('Gõ / để xem lệnh');
+		for (let i = 0; i < 40; i++) await terminal.press(KEYS.down);
+		expect(terminal.frame()).not.toContain('dòng mới hơn');
+	});
+
+	test('with the wheel taken by PIRL, ↑ recalls what was sent', async () => {
+		const {terminal} = await start(100, 30, {initialConfig: {...DEFAULT_CONFIG, mouse: 'wheel'}});
+		await terminal.type('/resume');
+		await terminal.press(KEYS.enter);
+		await terminal.press(KEYS.up);
+		expect(sent(terminal.frame())).toBe(2);
 	});
 
 	test('a trailing backslash and Enter add a line instead of sending', async () => {
@@ -173,19 +201,30 @@ describe('input and command palette', () => {
 	test('PgUp shows older lines and marks the newer ones below', async () => {
 		const {terminal} = await start(80, 16);
 		for (let i = 0; i < 6; i++) {
-			await terminal.type('/resume');
+			await terminal.type('/khong-co');
 			await terminal.press(KEYS.enter);
 		}
 		expect(terminal.frame()).not.toContain('PIRL · Plan · Implement · Review');
-		await terminal.press(KEYS.pageUp);
-		await terminal.press(KEYS.pageUp);
-		await terminal.press(KEYS.pageUp);
+		for (let i = 0; i < 5; i++) await terminal.press(KEYS.pageUp);
 		expect(terminal.frame()).toContain('PIRL · Plan · Implement · Review');
 		expect(terminal.frame()).toMatch(/↓ \d+ dòng mới hơn \(PgDn\)/);
-		await terminal.press(KEYS.pageDown);
-		await terminal.press(KEYS.pageDown);
-		await terminal.press(KEYS.pageDown);
+		for (let i = 0; i < 5; i++) await terminal.press(KEYS.pageDown);
 		expect(terminal.frame()).not.toContain('dòng mới hơn');
+	});
+
+	test('the mouse wheel scrolls the chat; terminal replies never reach the input', async () => {
+		const {terminal} = await start(80, 16, {initialConfig: {...DEFAULT_CONFIG, mouse: 'wheel'}});
+		for (let i = 0; i < 6; i++) {
+			await terminal.type('/khong-co');
+			await terminal.press(KEYS.enter);
+		}
+		for (let i = 0; i < 14; i++) await terminal.press('\x1b[<64;5;5M');
+		expect(terminal.frame()).toContain('PIRL · Plan · Implement · Review');
+		for (let i = 0; i < 14; i++) await terminal.press('\x1b[<65;5;5M');
+		expect(terminal.frame()).not.toContain('dòng mới hơn');
+		await terminal.press('\x1b[?0u');
+		expect(terminal.frame()).not.toContain('[?0u');
+		expect(terminal.frame()).toContain('Gõ / để xem lệnh');
 	});
 });
 
@@ -204,7 +243,7 @@ describe('startup check and panels', () => {
 		};
 		const {terminal} = await start(130, 30, {}, report);
 		expect(terminal.frame()).toContain('Cần chú ý: Claude Code (2.1.309 · chưa đăng nhập).');
-		expect(terminal.lines()[0]).toContain('✖ Claude Code');
+		expect(terminal.lines()[0]).toContain('✗ Claude Code');
 		expect(terminal.frame()).toContain('Claude Code · chưa sẵn sàng');
 		await terminal.type('/doctor');
 		await terminal.press(KEYS.enter);
@@ -244,7 +283,7 @@ describe('startup check and panels', () => {
 		expect(terminal.frame()).toContain('< ASCII >');
 		await terminal.press(KEYS.escape);
 		expect(terminal.frame()).toContain('+---');
-		expect(terminal.frame()).not.toMatch(/[╭│✔]/);
+		expect(terminal.frame()).not.toMatch(/[╭│✓]/);
 	});
 
 	test('the provider cannot be switched to one without an adapter', async () => {
@@ -286,7 +325,7 @@ describe('startup check and panels', () => {
 		const {terminal} = await start(100, 30, {env: {NO_COLOR: '1'}});
 		const raw = terminal.stdout.frames.at(-1)!;
 		expect(raw).not.toMatch(/\u001B\[(3|4)[0-9;]*m/);
-		expect(terminal.frame()).toContain('✔ Sẵn sàng');
+		expect(terminal.frame()).toContain('✓ Sẵn sàng');
 	});
 
 	test('/exit closes the TUI', async () => {

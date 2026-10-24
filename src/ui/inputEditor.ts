@@ -30,6 +30,22 @@ export function move(state: EditorState, to: 'left' | 'right' | 'home' | 'end'):
 
 export const setValue = (value: string): EditorState => ({value, cursor: split(value).length});
 
+/** The `@` mention being typed: the word ending at the cursor, when it starts with `@` after a space or at the start. */
+export function mentionAt(state: EditorState): {start: number; query: string} | null {
+	const before = split(state.value).slice(0, state.cursor).join('');
+	const match = /(^|\s)@("[^"]*|[^\s"]*)$/.exec(before);
+	if (!match) return null;
+	return {start: state.cursor - split(match[2]!).length - 1, query: match[2]!.replace(/^"/, '')};
+}
+
+/** Replaces the mention being typed (from its `@` to the cursor) with `text`. */
+export function replaceMention(state: EditorState, start: number, text: string): EditorState {
+	const parts = split(state.value);
+	const added = split(text);
+	parts.splice(start, state.cursor - start, ...added);
+	return {value: parts.join(''), cursor: start + added.length};
+}
+
 /** Where the cursor sits after the text is wrapped to the box: visual lines plus the cursor's line and column. */
 export type EditorLayout = {lines: string[]; cursorLine: number; cursorColumn: number};
 

@@ -48,7 +48,13 @@ function toolRules(target: string | null): string[] {
  * `model` is the roles' model alias; they run on the coordinator's model when it is left out. `target` is the run's
  * target repository, named in the roles' command rules.
  */
-export function roleAgents(hub: string, roles: CatalogRole[] = readRoleCatalog(hub), model?: string, target: string | null = null): Record<string, AgentDefinition> {
+export function roleAgents(
+	hub: string,
+	roles: CatalogRole[] = readRoleCatalog(hub),
+	model?: string,
+	target: string | null = null,
+	effort?: string,
+): Record<string, AgentDefinition> {
 	return Object.fromEntries(
 		roles.map(role => [
 			role.id,
@@ -65,6 +71,8 @@ export function roleAgents(hub: string, roles: CatalogRole[] = readRoleCatalog(h
 				].join('\n'),
 				tools: roleTools(role),
 				...(model ? {model} : {}),
+				// Set on every role, not left to inheritance, so the roles reason at the level the user chose.
+				...(effort ? {effort} : {}),
 			},
 		]),
 	);

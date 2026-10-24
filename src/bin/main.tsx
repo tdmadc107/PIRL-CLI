@@ -7,15 +7,17 @@ import {configFile, displayPath, hubDir, packageInfo, packageRoot, pirlHome} fro
 import {detectTargetRepo} from '../core/targetRepo.js';
 import {runDoctor} from '../doctor/doctor.js';
 import {readClaudeQuota} from '../engine/claudeQuota.js';
+import {attachmentContext, pathIndex, resolveMentions, type PathEntry} from '../engine/attachments.js';
 import {createClaudeRunner} from '../engine/claudeRunner.js';
 import {readPlanPackages, readRecords} from '../engine/hubData.js';
 import {RunController} from '../engine/run.js';
-import {loadRun, saveRun} from '../engine/runStore.js';
+import {listRuns, saveRun} from '../engine/runStore.js';
 import {loadBundledFramework, type BundledFramework} from '../hub/framework.js';
 import {frameworkServices} from '../hub/services.js';
 import {ensureHub, type HubStatus} from '../hub/hub.js';
 import {getProvider} from '../providers/index.js';
 import {App} from '../ui/App.js';
+import {MOUSE_OFF, mouseSequence} from '../ui/terminalInput.js';
 import type {StartupNote} from '../ui/session.js';
 
 /** The run's model settings as the provider's arguments; `default` and `inherit` leave the choice to it. */
@@ -83,6 +85,9 @@ async function main(): Promise<number> {
 	}
 
 	const targetRoot = target.kind === 'git' ? target.root : null;
+	// `@` mentions are read from the target repository, or from the start directory outside one.
+	const attachBase = targetRoot ?? process.cwd();
+	const paths = cachedPaths(() => pathIndex(attachBase));
 	const runner = createClaudeRunner();
 	const instance = render(
 		<App
@@ -94,17 +99,21 @@ async function main(): Promise<number> {
 				saveConfig: next => saveConfig(configFile(home), next),
 				startRun: options =>
 					new RunController(
-						{runner, hub: hub!.path, target: targetRoot, logDir: join(home, 'logs'), quota: () => readClaudeQuota('claude', hub!.path), python: options.python, maxParallelRoles: options.config.maxParallelRoles, recentOutputs: options.recentOutputs, ...runModels(options.config)},
+						{runner, hub: hub!.path, target: targetRoot, logDir: join(home, 'logs'), quota: () => readClaudeQuota('claude', hub!.path), python: options.python, maxParallelRoles: options.config.maxParallelRoles, recentOutputs: options.recentOutputs, attachments: options.attachments, ...runModels(options.config)},
 						options.id,
 						options.kind,
 						options.request,
 						options.resume,
 					),
 				saveRun: run => targetRoot && saveRun(home, targetRoot, run),
-				lastRun: () => (targetRoot ? loadRun(home, targetRoot) : null),
+				runs: () => (targetRoot ? listRuns(home, targetRoot) : []),
 				plans: () => (hub && targetRoot ? readPlanPackages(hub.path, targetRoot) : []),
 				records: () => (hub ? readRecords(hub.path, targetRoot) : []),
 				clipboard: createClipboard({writeTerminal: data => process.stdout.write(data)}),
+				quota: () => (hub ? readClaudeQuota('claude', hub.path) : Promise.resolve(null)),
+				paths: () => paths.get(),
+				attach: text => attachmentContext(resolveMentions(text, attachBase, process.cwd()), [attachBase, ...(hub ? [hub.path] : [])]),
+				setMouse: mode => process.stdout.write(mouseSequence(mode)),
 				framework: hub && bundle ? frameworkServices(hub.path, bundle, runner, config => runModels(config).model) : undefined,
 			}}
 		/>,
@@ -113,7 +122,10 @@ async function main(): Promise<number> {
 		// Incremental rendering rewrites only the rows that changed: a spinner tick sends a few bytes, not a screen.
 		{alternateScreen: true, exitOnCtrlC: false, kittyKeyboard: {mode: 'auto'}, incrementalRendering: true},
 	);
+	// The terminal keeps reporting the mouse after the TUI ends unless it is told to stop, even on a crash.
+	process.once('exit', () => process.stdout.write(MOUSE_OFF));
 	await instance.waitUntilExit();
+	process.stdout.write(MOUSE_OFF);
 	return 0;
 }
 
@@ -124,3 +136,14 @@ main().then(
 		process.exit(1);
 	},
 );
+
+/** The path index for `@` completion, read again when older than a few seconds so new files show up. */
+function cachedPaths(read: () => Promise<PathEntry[]>, maxAgeMs = 10_000) {
+	let cached: {at: number; value: Promise<PathEntry[]>} | null = null;
+	return {
+		get(): Promise<PathEntry[]> {
+			if (!cached || Date.now() - cached.at > maxAgeMs) cached = {at: Date.now(), value: read().catch(() => [])};
+			return cached.value;
+		},
+	};
+}

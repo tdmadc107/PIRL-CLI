@@ -1,4 +1,5 @@
-import {appendFileSync, readFileSync, writeFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
+import {appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {afterEach, describe, expect, test} from 'vitest';
 import {readRoleCatalog, roleAgents} from '../src/engine/agents.js';
@@ -8,7 +9,7 @@ import {allowedPaths, outsideAllowed, readFrontmatter, readPlanPackages, readRec
 import {permissionsFor, ruleRoot} from '../src/engine/permissions.js';
 import {answersMessage, hostInstructions, parseOutputs, parseQuestions, parseSuggestion, stripBlocks} from '../src/engine/protocol.js';
 import {formatElapsed, LOG_LIMIT, RunController} from '../src/engine/run.js';
-import {loadRun, resumable, saveRun} from '../src/engine/runStore.js';
+import {listRuns, resumable, saveRun} from '../src/engine/runStore.js';
 import type {RunEvent} from '../src/engine/types.js';
 import {cleanupTemp, fakeRunner, git, hubAndTarget, outputsBlock, PYTHON, result, tempDir, usage, writePlan, writeRecord} from './helpers/hub.js';
 
@@ -216,6 +217,8 @@ describe('role agents', () => {
 		// Without a role model the roles run on the coordinator's; with one, every role gets it.
 		expect(Object.values(agents).some(agent => 'model' in agent)).toBe(false);
 		expect(Object.values(roleAgents(hub, catalog, 'haiku')).every(agent => agent.model === 'haiku')).toBe(true);
+		expect(Object.values(roleAgents(hub, catalog, undefined, null, 'high')).every(agent => agent.effort === 'high')).toBe(true);
+		expect(Object.values(agents).some(agent => 'effort' in agent)).toBe(false);
 		// Subagents do not see the host instructions: each role gets the run's command rules, with the target's path.
 		const withTarget = roleAgents(hub, catalog, undefined, '/work/shop');
 		expect(withTarget['code-analyst']!.prompt).toContain('git -C /work/shop <command>');
@@ -252,14 +255,29 @@ describe('Hub data for /plans and /records', () => {
 });
 
 describe('run store', () => {
-	test('saves the last run per target repository for /resume', () => {
+	const before = {hubChanges: [], records: 0, planSets: [], targetChanges: []};
+
+	test('keeps every run of a target repository, newest first; a resumed run updates its own entry', () => {
 		const home = tempDir();
-		const run = {kind: 'plan' as const, request: 'Thêm email', sessionId: 's-1', status: 'stopped' as const, questions: [], before: {hubChanges: [], records: 0, planSets: [], targetChanges: []}};
-		saveRun(home, '/w/a', run);
-		expect(loadRun(home, '/w/a')).toMatchObject(run);
-		expect(loadRun(home, '/w/b')).toBeNull();
-		expect(resumable(loadRun(home, '/w/a'))).toBe(true);
-		expect(resumable({...run, status: 'done'})).toBe(false);
+		const first = {key: 'k1', savedAt: '2026-10-24T08:00:00Z', kind: 'plan' as const, request: 'Thêm email', sessionId: 's-1', status: 'stopped' as const, questions: [], before};
+		const second = {...first, key: 'k2', savedAt: '2026-10-24T09:00:00Z', kind: 'implement' as const, request: 'T01', sessionId: 's-2', status: 'failed' as const};
+		saveRun(home, '/w/a', first);
+		saveRun(home, '/w/a', second);
+		expect(listRuns(home, '/w/a').map(run => run.key)).toEqual(['k2', 'k1']);
+		expect(listRuns(home, '/w/b')).toEqual([]);
+		saveRun(home, '/w/a', {...first, savedAt: '2026-10-24T10:00:00Z', status: 'done'});
+		expect(listRuns(home, '/w/a').map(run => [run.key, run.status])).toEqual([['k1', 'done'], ['k2', 'failed']]);
+		expect(listRuns(home, '/w/a').filter(resumable).map(run => run.key)).toEqual(['k2']);
+	});
+
+	test('the single file of earlier versions becomes one entry', () => {
+		const home = tempDir();
+		const target = '/w/a';
+		const name = createHash('sha1').update(target).digest('hex').slice(0, 16);
+		mkdirSync(join(home, 'sessions'), {recursive: true});
+		writeFileSync(join(home, 'sessions', `${name}.json`), JSON.stringify({target, kind: 'plan', request: 'Cũ', sessionId: 's-0', status: 'stopped', questions: [], before}));
+		expect(listRuns(home, target)).toEqual([expect.objectContaining({key: 'legacy', request: 'Cũ'})]);
+		expect(existsSync(join(home, 'sessions', `${name}.json`))).toBe(false);
 	});
 });
 
