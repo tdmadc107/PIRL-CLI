@@ -102,7 +102,14 @@ describe('theme', () => {
 		const theme = createTheme({theme: 'dark', glyphs: 'unicode'}, {NO_COLOR: '1'}, 'linux');
 		expect(theme.fg('accent')).toBeUndefined();
 		expect(theme.role('code-reviewer')).toBeUndefined();
-		expect(theme.glyphs.ok).toBe('✔');
+		expect(theme.glyphs.ok).toBe('✓');
+	});
+
+	test('every glyph is one cell wide: none has an emoji form a terminal could draw two cells wide', () => {
+		const glyphs = createTheme({theme: 'dark', glyphs: 'unicode'}, {}, 'linux').glyphs;
+		for (const value of Object.values(glyphs).flat()) {
+			expect(value, value).not.toMatch(/\p{Extended_Pictographic}/u);
+		}
 	});
 
 	test('settings override detection', () => {

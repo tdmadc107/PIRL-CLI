@@ -243,7 +243,7 @@ describe('startup check and panels', () => {
 		};
 		const {terminal} = await start(130, 30, {}, report);
 		expect(terminal.frame()).toContain('Cần chú ý: Claude Code (2.1.309 · chưa đăng nhập).');
-		expect(terminal.lines()[0]).toContain('✖ Claude Code');
+		expect(terminal.lines()[0]).toContain('✗ Claude Code');
 		expect(terminal.frame()).toContain('Claude Code · chưa sẵn sàng');
 		await terminal.type('/doctor');
 		await terminal.press(KEYS.enter);
@@ -283,7 +283,7 @@ describe('startup check and panels', () => {
 		expect(terminal.frame()).toContain('< ASCII >');
 		await terminal.press(KEYS.escape);
 		expect(terminal.frame()).toContain('+---');
-		expect(terminal.frame()).not.toMatch(/[╭│✔]/);
+		expect(terminal.frame()).not.toMatch(/[╭│✓]/);
 	});
 
 	test('the provider cannot be switched to one without an adapter', async () => {
@@ -325,7 +325,7 @@ describe('startup check and panels', () => {
 		const {terminal} = await start(100, 30, {env: {NO_COLOR: '1'}});
 		const raw = terminal.stdout.frames.at(-1)!;
 		expect(raw).not.toMatch(/\u001B\[(3|4)[0-9;]*m/);
-		expect(terminal.frame()).toContain('✔ Sẵn sàng');
+		expect(terminal.frame()).toContain('✓ Sẵn sàng');
 	});
 
 	test('/exit closes the TUI', async () => {

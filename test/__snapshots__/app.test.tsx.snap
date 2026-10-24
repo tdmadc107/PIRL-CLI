@@ -1,7 +1,7 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
 exports[`snapshots > palette open at 100x24 1`] = `
-"PIRL · shop-web (main) · ✔ Claude Code · fw-1.0.0 (+2 cải tiến)
+"PIRL · shop-web (main) · ✓ Claude Code · fw-1.0.0 (+2 cải tiến)
 
 
  PIRL · Plan · Implement · Review
@@ -12,7 +12,7 @@ exports[`snapshots > palette open at 100x24 1`] = `
    /pirl-review <request>     Review kết quả implement của một task
    /help                      Danh sách lệnh và phím tắt
 
- ✔ Sẵn sàng: Claude Code đã đăng nhập · Python 3.12.4 · Git 2.43.0.
+ ✓ Sẵn sàng: Claude Code đã đăng nhập · Python 3.12.4 · Git 2.43.0.
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ › /                                                                                              │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
@@ -28,7 +28,7 @@ exports[`snapshots > palette open at 100x24 1`] = `
 `;
 
 exports[`snapshots > welcome screen at 60x16 1`] = `
-"PIRL · shop-web · ✔ Claude Code
+"PIRL · shop-web · ✓ Claude Code
  ↑ 3 dòng cũ hơn (PgUp)
 
    /pirl-plan <request>       Tạo hoặc điều chỉnh Plan
@@ -38,7 +38,7 @@ exports[`snapshots > welcome screen at 60x16 1`] = `
                               một task
    /help                      Danh sách lệnh và phím tắt
 
- ✔ Sẵn sàng: Claude Code đã đăng nhập · Python 3.12.4 · Git
+ ✓ Sẵn sàng: Claude Code đã đăng nhập · Python 3.12.4 · Git
    2.43.0.
 ╭──────────────────────────────────────────────────────────╮
 │ ›  Gõ / để xem lệnh, @ để đính kèm file, hoặc nhập yêu … │
@@ -47,7 +47,7 @@ exports[`snapshots > welcome screen at 60x16 1`] = `
 `;
 
 exports[`snapshots > welcome screen at 100x24 1`] = `
-"PIRL · shop-web (main) · ✔ Claude Code · fw-1.0.0 (+2 cải tiến)
+"PIRL · shop-web (main) · ✓ Claude Code · fw-1.0.0 (+2 cải tiến)
 
 
 
@@ -66,7 +66,7 @@ exports[`snapshots > welcome screen at 100x24 1`] = `
    /pirl-review <request>     Review kết quả implement của một task
    /help                      Danh sách lệnh và phím tắt
 
- ✔ Sẵn sàng: Claude Code đã đăng nhập · Python 3.12.4 · Git 2.43.0.
+ ✓ Sẵn sàng: Claude Code đã đăng nhập · Python 3.12.4 · Git 2.43.0.
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ ›  Gõ / để xem lệnh, @ để đính kèm file, hoặc nhập yêu cầu                                       │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
@@ -74,7 +74,7 @@ exports[`snapshots > welcome screen at 100x24 1`] = `
 `;
 
 exports[`snapshots > welcome screen at 140x30 1`] = `
-"PIRL · shop-web (main) · ✔ Claude Code · fw-1.0.0 (+2 cải tiến)
+"PIRL · shop-web (main) · ✓ Claude Code · fw-1.0.0 (+2 cải tiến)
                                                                                               ╭────────────────────────────────────────────╮
                                                                                               │ Phiên làm việc                             │
                                                                                               │ Repo       /work/projects/shop-web         │
@@ -99,7 +99,7 @@ exports[`snapshots > welcome screen at 140x30 1`] = `
    /pirl-review <request>     Review kết quả implement của một task                           │                                            │
    /help                      Danh sách lệnh và phím tắt                                      │                                            │
                                                                                               │                                            │
- ✔ Sẵn sàng: Claude Code đã đăng nhập · Python 3.12.4 · Git 2.43.0.                           ╰────────────────────────────────────────────╯
+ ✓ Sẵn sàng: Claude Code đã đăng nhập · Python 3.12.4 · Git 2.43.0.                           ╰────────────────────────────────────────────╯
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ ›  Gõ / để xem lệnh, @ để đính kèm file, hoặc nhập yêu cầu                                                                               │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯

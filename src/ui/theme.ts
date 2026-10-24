@@ -100,11 +100,15 @@ export type Glyphs = {
 	spinner: readonly string[];
 };
 
+/**
+ * Every glyph is one cell wide in every terminal: none has an emoji form. ✔ ✖ ℹ do, and a terminal that draws
+ * them from an emoji font makes them two cells wide and colored, over the space after them.
+ */
 const UNICODE_GLYPHS: Glyphs = {
-	ok: '✔',
+	ok: '✓',
 	warn: '▲',
-	fail: '✖',
-	info: 'ℹ',
+	fail: '✗',
+	info: '●',
 	running: '▸',
 	pending: '○',
 	prompt: '›',

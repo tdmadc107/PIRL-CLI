@@ -73,11 +73,11 @@ describe('layer runs in the TUI', () => {
 		await terminal.press(KEYS.enter);
 		const frame = await until(terminal, 'Commit cải tiến này vào Hub?');
 		expect(frame).toContain('Plan · chờ quyết định về cải tiến');
-		expect(frame).toContain('✔ code-analyst  Trace cancelOrder');
+		expect(frame).toContain('✓ code-analyst  Trace cancelOrder');
 		expect(frame).toContain('Kết quả');
 		expect(frame).toContain('• Plan có 1 task.');
-		expect(frame).toMatch(/✔ Validator: order-email_\d{8}-\d{6}/);
-		expect(frame).toContain('✔ Record tự đánh giá: 1 record mới');
+		expect(frame).toMatch(/✓ Validator: order-email_\d{8}-\d{6}/);
+		expect(frame).toContain('✓ Record tự đánh giá: 1 record mới');
 		expect(frame).toContain('.agents/roles/code-analyst.role.md');
 		expect(frame).toContain('❯ 1. Commit vào Hub (khuyến nghị)');
 		await terminal.press(KEYS.enter);
