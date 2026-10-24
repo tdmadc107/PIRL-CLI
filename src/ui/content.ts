@@ -149,7 +149,7 @@ export function doctorLines(doctor: DoctorState, columns: number, theme: Theme):
 }
 
 export type SettingsRow = {
-	key: 'provider' | 'model' | 'roleModel' | 'effort' | 'theme' | 'colors' | 'glyphs' | 'motion' | 'maxParallelRoles';
+	key: 'provider' | 'model' | 'roleModel' | 'effort' | 'theme' | 'colors' | 'glyphs' | 'motion' | 'mouse' | 'maxParallelRoles';
 	label: string;
 	value: string;
 	note?: string;
@@ -180,11 +180,17 @@ export function settingsRows(config: Config): SettingsRow[] {
 			key: 'effort',
 			label: 'Mức suy luận',
 			value: EFFORT_LABELS[config.effort],
-			note: 'Phần suy luận tính như token ra, loại token đắt nhất: mức thấp hơn rẻ hơn nhưng phân tích kém kỹ hơn',
+			note: 'Áp dụng cho coordinator và mọi role. Phần suy luận tính như token ra, loại token đắt nhất: mức thấp hơn rẻ hơn nhưng phân tích kém kỹ hơn. Claude Code ghi mức này cho model dưới dạng số: low 10, medium 20, high 40, xhigh 80, max; "Theo Claude Code" hiện là medium (20)',
 		},
 		{key: 'theme', label: 'Giao diện', value: {auto: 'Tự nhận theo terminal', dark: 'Nền tối', light: 'Nền sáng'}[config.theme]},
 		{key: 'colors', label: 'Bảng màu', value: COLOR_SCHEMES[config.colors].label, note: 'Đổi màu nhấn, màu lời nhập và màu viền; màu báo thành công, cảnh báo, lỗi giữ nguyên'},
 		{key: 'glyphs', label: 'Ký hiệu', value: {auto: 'Tự nhận theo terminal', unicode: 'Unicode', ascii: 'ASCII'}[config.glyphs]},
+		{
+			key: 'mouse',
+			label: 'Cuộn bằng chuột',
+			value: config.mouse ? 'Bật' : 'Tắt',
+			note: 'Con lăn chuột cuộn hội thoại và các bảng. Khi bật, giữ Shift trong lúc kéo chuột để bôi đen chữ; tắt nếu bạn muốn bôi đen không cần Shift',
+		},
 		{key: 'motion', label: 'Hiệu ứng chuyển động', value: config.motion ? 'Bật' : 'Tắt', note: 'Spinner khi run đang chạy; tắt nếu terminal chậm hoặc bạn không thích chuyển động'},
 		{
 			key: 'maxParallelRoles',
@@ -216,6 +222,8 @@ export function cycleSetting(config: Config, key: SettingsRow['key'], step: 1 | 
 			return {...config, glyphs: cycle(['auto', 'unicode', 'ascii'] as const, config.glyphs)};
 		case 'motion':
 			return {...config, motion: !config.motion};
+		case 'mouse':
+			return {...config, mouse: !config.mouse};
 		case 'maxParallelRoles': {
 			const next = config.maxParallelRoles + step;
 			return {...config, maxParallelRoles: Math.min(PARALLEL_LIMITS.max, Math.max(PARALLEL_LIMITS.min, next))};

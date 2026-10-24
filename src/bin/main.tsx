@@ -16,6 +16,7 @@ import {frameworkServices} from '../hub/services.js';
 import {ensureHub, type HubStatus} from '../hub/hub.js';
 import {getProvider} from '../providers/index.js';
 import {App} from '../ui/App.js';
+import {MOUSE_OFF, MOUSE_ON} from '../ui/terminalInput.js';
 import type {StartupNote} from '../ui/session.js';
 
 /** The run's model settings as the provider's arguments; `default` and `inherit` leave the choice to it. */
@@ -105,6 +106,8 @@ async function main(): Promise<number> {
 				plans: () => (hub && targetRoot ? readPlanPackages(hub.path, targetRoot) : []),
 				records: () => (hub ? readRecords(hub.path, targetRoot) : []),
 				clipboard: createClipboard({writeTerminal: data => process.stdout.write(data)}),
+				quota: () => (hub ? readClaudeQuota('claude', hub.path) : Promise.resolve(null)),
+				setMouse: on => process.stdout.write(on ? MOUSE_ON : MOUSE_OFF),
 				framework: hub && bundle ? frameworkServices(hub.path, bundle, runner, config => runModels(config).model) : undefined,
 			}}
 		/>,
@@ -113,7 +116,10 @@ async function main(): Promise<number> {
 		// Incremental rendering rewrites only the rows that changed: a spinner tick sends a few bytes, not a screen.
 		{alternateScreen: true, exitOnCtrlC: false, kittyKeyboard: {mode: 'auto'}, incrementalRendering: true},
 	);
+	// The terminal keeps reporting the mouse after the TUI ends unless it is told to stop, even on a crash.
+	process.once('exit', () => process.stdout.write(MOUSE_OFF));
 	await instance.waitUntilExit();
+	process.stdout.write(MOUSE_OFF);
 	return 0;
 }
 

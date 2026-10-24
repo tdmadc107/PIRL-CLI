@@ -5,7 +5,7 @@ import type {TargetRepo} from '../core/targetRepo.js';
 import type {DoctorReport} from '../doctor/doctor.js';
 import type {PlanPackage, RecordSummary} from '../engine/hubData.js';
 import type {PersistedRun, RunController} from '../engine/run.js';
-import type {Question, RunKind} from '../engine/types.js';
+import type {Question, QuotaRow, RunKind} from '../engine/types.js';
 import type {MergeProposal} from '../engine/agentMerge.js';
 import type {HubStatus} from '../hub/hub.js';
 import type {Conflict, Draft, FinishResult, HistoryEntry, LastUpdate, LocalChange} from '../hub/update.js';
@@ -72,6 +72,10 @@ export type Services = {
 	records?(): RecordSummary[];
 	clipboard?: Clipboard;
 	framework?: FrameworkServices;
+	/** The plan's usage windows from the provider (`/usage`, no model request); null when it does not report them. */
+	quota?(): Promise<QuotaRow[] | null>;
+	/** Turns the terminal's mouse reporting on or off, for wheel scrolling. */
+	setMouse?(on: boolean): void;
 };
 
 export type StartupNote = {tone: Tone; text: string; hint?: string};

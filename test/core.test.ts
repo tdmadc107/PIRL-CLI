@@ -44,6 +44,7 @@ describe('config', () => {
 			colors: 'forest',
 			glyphs: 'ascii',
 			motion: true,
+			mouse: true,
 			maxParallelRoles: DEFAULT_CONFIG.maxParallelRoles,
 			model: 'sonnet',
 			roleModel: 'haiku',

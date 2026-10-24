@@ -24,6 +24,8 @@ export type Config = {
 	glyphs: GlyphSetting;
 	/** Spinner while a run works; off leaves a still glyph and updates the clock once a second. */
 	motion: boolean;
+	/** The mouse wheel scrolls the chat; the terminal then selects text with Shift held while dragging. */
+	mouse: boolean;
 	/** How many independent roles of one layer run may call the provider at the same time. */
 	maxParallelRoles: number;
 	/** Model of the coordinator, the main conversation of a run. */
@@ -40,6 +42,7 @@ export const DEFAULT_CONFIG: Config = {
 	colors: 'pirl',
 	glyphs: 'auto',
 	motion: true,
+	mouse: true,
 	maxParallelRoles: 2,
 	model: 'sonnet',
 	roleModel: 'inherit',
@@ -61,6 +64,7 @@ export function normalizeConfig(raw: unknown): Config {
 		colors: oneOf(data['colors'], COLOR_SCHEME_IDS, DEFAULT_CONFIG.colors),
 		glyphs: oneOf(data['glyphs'], ['auto', 'unicode', 'ascii'] as const, DEFAULT_CONFIG.glyphs),
 		motion: typeof data['motion'] === 'boolean' ? data['motion'] : DEFAULT_CONFIG.motion,
+		mouse: typeof data['mouse'] === 'boolean' ? data['mouse'] : DEFAULT_CONFIG.mouse,
 		maxParallelRoles:
 			typeof parallel === 'number' && Number.isInteger(parallel) && parallel >= PARALLEL_LIMITS.min && parallel <= PARALLEL_LIMITS.max
 				? parallel

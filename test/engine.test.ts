@@ -216,6 +216,8 @@ describe('role agents', () => {
 		// Without a role model the roles run on the coordinator's; with one, every role gets it.
 		expect(Object.values(agents).some(agent => 'model' in agent)).toBe(false);
 		expect(Object.values(roleAgents(hub, catalog, 'haiku')).every(agent => agent.model === 'haiku')).toBe(true);
+		expect(Object.values(roleAgents(hub, catalog, undefined, null, 'high')).every(agent => agent.effort === 'high')).toBe(true);
+		expect(Object.values(agents).some(agent => 'effort' in agent)).toBe(false);
 		// Subagents do not see the host instructions: each role gets the run's command rules, with the target's path.
 		const withTarget = roleAgents(hub, catalog, undefined, '/work/shop');
 		expect(withTarget['code-analyst']!.prompt).toContain('git -C /work/shop <command>');

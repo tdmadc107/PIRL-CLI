@@ -80,16 +80,16 @@ exports[`snapshots > welcome screen at 140x30 1`] = `
                                                                                               │ Repo       /work/projects/shop-web         │
                                                                                               │ Nhánh      main                            │
                                                                                               │ Provider   Claude Code · sẵn sàng          │
+                                                                                              │ Model      sonnet · effort medium          │
                                                                                               │ Framework  fw-1.0.0 · 2 cải tiến           │
                                                                                               │                                            │
                                                                                               │ Run                                        │
                                                                                               │ ○ Chưa có run nào. Gõ /pirl-plan <request> │
                                                                                               │   để bắt đầu.                              │
                                                                                               │                                            │
-                                                                                              │                                            │
-                                                                                              │                                            │
-                                                                                              │                                            │
-                                                                                              │                                            │
+                                                                                              │ Hạn mức                                    │
+                                                                                              │ Chưa có số liệu. Claude Code báo hạn mức   │
+                                                                                              │ khi chạy run.                              │
                                                                                               │                                            │
  PIRL · Plan · Implement · Review                                                             │                                            │
  Gõ / để xem lệnh, hoặc nhập yêu cầu.                                                         │                                            │

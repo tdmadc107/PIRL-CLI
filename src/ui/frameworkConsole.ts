@@ -503,6 +503,12 @@ export function useFrameworkConsole(props: FrameworkConsoleProps) {
 		}
 	};
 
+	/** Mouse wheel: scrolls the screens that scroll; on a list the arrow keys choose instead. */
+	const wheel = (lines: number) => {
+		if ('selected' in screenRef.current) return;
+		setScroll(top => Math.max(0, Math.min(maxTopRef.current, top - lines)));
+	};
+
 	const hints = (theme: Theme): string[] => {
 		const g = theme.glyphs;
 		switch (screen.name) {
@@ -519,7 +525,7 @@ export function useFrameworkConsole(props: FrameworkConsoleProps) {
 		}
 	};
 
-	return {open, view, handleKey, hints};
+	return {open, view, handleKey, hints, wheel};
 }
 
 function optionCount(screen: Screen): number {

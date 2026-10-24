@@ -244,7 +244,7 @@ describe('spinner and log', () => {
 		const {terminal} = await startWithRuns([busy], {}, [100, 30]);
 		await terminal.type('/settings');
 		await terminal.press(KEYS.enter);
-		for (let i = 0; i < 7; i++) await terminal.press(KEYS.down);
+		for (let i = 0; i < 8; i++) await terminal.press(KEYS.down);
 		await terminal.press(KEYS.right);
 		await until(terminal, 'Hiệu ứng chuyển động  ‹ Tắt ›');
 		await terminal.press(KEYS.escape);
@@ -255,19 +255,26 @@ describe('spinner and log', () => {
 		expect(terminal.frame()).toContain('▸ Plan · đang chạy');
 	});
 
-	test('wide windows show the log under Run in the side panel; narrower ones in the run block', async () => {
-		const wide = await startWithRuns([busy], {}, [160, 40]);
+	test('the side panel shows the plan\'s usage windows where the log was; narrow windows put them in the status line', async () => {
+		const rows = [
+			{kind: 'five_hour', label: '5 giờ', percent: 42, resetsAt: null},
+			{kind: 'seven_day', label: 'Tuần', percent: 91, resetsAt: null},
+		];
+		const wide = await startWithRuns([busy], {quota: async () => rows}, [160, 40]);
+		const frame = await until(wide.terminal, 'Hạn mức');
+		expect(frame).toMatch(/5 giờ\s+█+░+ 42%/);
+		expect(frame).toMatch(/Tuần\s+█+░* 91%/);
+		expect(frame).toContain('Model      sonnet · effort medium');
 		await wide.terminal.type('/pirl-plan Email');
 		await wide.terminal.press(KEYS.enter);
-		const frame = await until(wide.terminal, /00:0\d code-analyst\s+Đọc src\/orders\/cancel\.ts/);
-		expect(frame).toContain('Nhật ký');
-		expect(frame).toMatch(/00:0\d coordinator\s+Chạy python3/);
-		expect(frame).not.toContain('Nhật ký (');
+		const running = await until(wide.terminal, /code-analyst/);
+		expect(running).not.toContain('Nhật ký');
 
-		const narrow = await startWithRuns([busy], {}, [100, 30]);
-		await narrow.terminal.type('/pirl-plan Email');
-		await narrow.terminal.press(KEYS.enter);
-		expect(await until(narrow.terminal, /code-analyst\s+Đọc src\/orders\/cancel\.ts/)).toMatch(/Nhật ký \(\d+ dòng\)/);
+		const narrow = await startWithRuns([busy], {quota: async () => rows}, [100, 30]);
+		expect(await until(narrow.terminal, '5 giờ 42% · Tuần 91%')).not.toContain('Hạn mức');
+
+		const none = await startWithRuns([busy], {}, [160, 40]);
+		expect(await until(none.terminal, 'Hạn mức')).toContain('Chưa có số liệu.');
 	});
 });
 

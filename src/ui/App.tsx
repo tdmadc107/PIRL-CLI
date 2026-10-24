@@ -6,7 +6,7 @@ import type {Config} from '../core/config.js';
 import type {DoctorReport} from '../doctor/doctor.js';
 import type {RunController, RunState} from '../engine/run.js';
 import {resumable} from '../engine/runStore.js';
-import {LAYER_LABELS, totalTokens, type RunKind} from '../engine/types.js';
+import {LAYER_LABELS, totalTokens, type QuotaRow, type RunKind} from '../engine/types.js';
 import {getProvider} from '../providers/index.js';
 import {
 	cycleSetting,
@@ -27,6 +27,7 @@ import {backspace, emptyEditor, insert, move, setValue, type EditorState} from '
 import {computeLayout} from './layout.js';
 import type {Line} from './lines.js';
 import {clockSpan, compactTokens, costText, IMPROVEMENT_CHOICES, isActive, spinnerSpan, STATUS_LABELS, type Interaction, type Live} from './runView.js';
+import {parseTerminalInput} from './terminalInput.js';
 import {SPINNER_MS, setTickInterval} from './ticker.js';
 import type {DoctorState, Message, NewMessage, Services, SessionInfo, StartupNote} from './session.js';
 import {createTheme} from './theme.js';
@@ -60,6 +61,15 @@ function readySummary(report: DoctorReport): string {
 }
 
 const ACTIVE: RunState['status'][] = ['running', 'checking'];
+
+/** The run's model settings in one line: "sonnet · effort high", with the roles' model when it differs. */
+export function modelText(config: Config): string {
+	const model = config.model === 'default' ? 'theo Claude Code' : config.model;
+	const roles = config.roleModel === 'inherit' ? '' : ` · role ${config.roleModel}`;
+	// Claude Code's default effort is medium.
+	const effort = config.effort === 'default' ? 'medium' : config.effort;
+	return `${model}${roles} · effort ${effort}`;
+}
 /** Longest wait before a run's new state is drawn. */
 const FLUSH_MS = 100;
 /** Shift+Enter as xterm's modifyOtherKeys reports it, which Ink does not parse: ESC [27;<mod>;13~ */
@@ -100,6 +110,11 @@ export function App(props: AppProps) {
 	const [hub, setHub] = useState(props.info.hub);
 	const info = useMemo(() => ({...props.info, hub}), [props.info, hub]);
 	const refreshHub = () => void props.services.framework?.status().then(setHub, () => {});
+	// The plan's usage windows: read once at start, then as each run reports them.
+	const [quota, setQuota] = useState<QuotaRow[] | null>(null);
+	useEffect(() => {
+		props.services.quota?.().then(rows => rows && setQuota(current => current ?? rows), () => {});
+	}, []);
 
 	// Runs: their state for drawing, their controllers for acting, and the answers being collected.
 	const [runs, setRuns] = useState<Record<number, RunState>>({});
@@ -202,7 +217,8 @@ export function App(props: AppProps) {
 	// The spinner and the clock are cells that redraw themselves from the shared ticker (src/ui/ticker.ts);
 	// a tick never re-renders the App. With motion off only the clock moves, once a second.
 	useEffect(() => setTickInterval(config.motion ? SPINNER_MS : 1000), [config.motion]);
-	const live: Live = {motion: config.motion, showLog: layout.kind === 'ok' && layout.sidePanel === 0};
+	useEffect(() => props.services.setMouse?.(config.mouse), [config.mouse]);
+	const live: Live = {motion: config.motion};
 
 	// Each message is laid out once per change of what it shows: a finished run or a note is not laid out again
 	// when the spinner moves or another run streams events. Only the working run's block is redone.
@@ -215,7 +231,7 @@ export function App(props: AppProps) {
 			const run = message.kind === 'run' ? runs[message.runId] : undefined;
 			const ownInteraction = run && interaction?.runId === run.id ? interaction : null;
 			const key: unknown[] = [chatWidth, theme, run, ownInteraction?.kind, ownInteraction?.selected, ownInteraction?.kind === 'question' ? ownInteraction.index : null];
-			if (run && isActive(run)) key.push(live.motion, live.showLog);
+			if (run && isActive(run)) key.push(live.motion);
 			const cached = lineCache.current.get(message.id);
 			let messageLines = cached && cached.key.length === key.length && cached.key.every((value, index) => value === key[index]) ? cached.lines : null;
 			if (!messageLines) {
@@ -283,6 +299,7 @@ export function App(props: AppProps) {
 			} else if (!flushTimer.current) {
 				flushTimer.current = setTimeout(flushRuns, FLUSH_MS);
 			}
+			if (state.quota.after) setQuota(state.quota.after);
 			if (state.kind === 'chat') {
 				if (state.sessionId) chatSession.current = state.sessionId;
 				if (state.suggestion && state.status !== 'running') setEditor(setValue(state.suggestion));
@@ -604,7 +621,22 @@ export function App(props: AppProps) {
 		else if (input && !key.ctrl && !key.meta) setEditor(insert(editor, input));
 	};
 
-	useInput((input, key) => {
+	/** Mouse wheel: three lines per notch in the chat or the open panel. */
+	const WHEEL_LINES = 3;
+	const scrollByWheel = (notches: number) => {
+		const lines = notches * WHEEL_LINES;
+		if (overlay === 'framework') framework.wheel(lines);
+		else if (overlay === 'settings') return;
+		else if (overlay) setOverlayTop(top => Math.max(0, Math.min(overlayMaxTop, Math.min(top, overlayMaxTop) - lines)));
+		else setScroll(current => Math.max(0, Math.min(current + lines, Math.max(0, transcript.length - bodyHeight + 1))));
+	};
+
+	useInput((raw, key) => {
+		// Terminal replies and mouse reports are not typed text (src/ui/terminalInput.ts).
+		const parsed = parseTerminalInput(raw);
+		if (parsed.wheel !== 0) scrollByWheel(parsed.wheel);
+		if (parsed.filtered && parsed.text === '') return;
+		const input = parsed.text;
 		// Typed text and Enter can reach the TUI in one chunk (fast typing, an input method, SSH). Ink passes such a
 		// chunk on as text, which would turn Enter into a new line; split it so each Enter acts as the key.
 		if (input.length > 1 && input.includes('\r') && !key.ctrl && !key.meta) {
@@ -656,7 +688,9 @@ export function App(props: AppProps) {
 		{calls: 0, tokens: 0, cost: 0 as number | null},
 	);
 	const cost = totals.tokens > 0 ? costText(totals.cost) : null;
-	const usage = [`${totals.calls} lượt gọi`, totals.tokens > 0 && `${compactTokens(totals.tokens)} token`, cost].filter(Boolean).join(` ${g.sep} `);
+	// Without the side panel, the usage windows go to the status line.
+	const quotaShort = layout.kind === 'ok' && layout.sidePanel === 0 && quota ? quota.map(row => `${row.label} ${Math.round(row.percent)}%`).join(` ${g.sep} `) : null;
+	const usage = [`${totals.calls} lượt gọi`, totals.tokens > 0 && `${compactTokens(totals.tokens)} token`, cost, quotaShort].filter(Boolean).join(` ${g.sep} `);
 	const runText = activeRun ? `${LAYER_LABELS[activeRun.kind]}: ${STATUS_LABELS[activeRun.status]}` : doctor.state === 'running' ? 'đang kiểm tra môi trường' : 'không có run';
 	const runWorking = activeRun !== null && isActive(activeRun);
 	const status = statusLine(
@@ -686,7 +720,9 @@ export function App(props: AppProps) {
 						<Lines lines={chatLines} theme={theme} />
 					</Box>
 				)}
-				{layout.sidePanel > 0 && <SidePanel info={info} provider={provider} run={panelRun} live={live} width={layout.sidePanel} height={bodyHeight} theme={theme} />}
+				{layout.sidePanel > 0 && (
+					<SidePanel info={info} provider={provider} run={panelRun} live={live} extras={{model: modelText(config), quota}} width={layout.sidePanel} height={bodyHeight} theme={theme} />
+				)}
 			</Box>
 			<InputBox editor={editor} columns={columns} maxLines={layout.inputMaxLines} theme={theme} focused={!overlay} placeholder={interaction ? (interaction.kind === 'question' ? 'Nhập câu trả lời, hoặc Enter để chọn mục đang trỏ' : 'Enter để chọn mục đang trỏ, hoặc gõ 1–3') : undefined} />
 			{paletteShown > 0 && <Lines lines={paletteLines(suggestions, paletteIndex, paletteShown, columns, theme)} theme={theme} />}

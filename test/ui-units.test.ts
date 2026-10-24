@@ -3,6 +3,7 @@ import {backspace, emptyEditor, insert, layoutEditor, move, setValue} from '../s
 import {computeLayout, heightTier, widthTier} from '../src/ui/layout.js';
 import {createTheme, detectMode, detectUnicode} from '../src/ui/theme.js';
 import {parseQuotaLine} from '../src/engine/claudeQuota.js';
+import {parseTerminalInput} from '../src/ui/terminalInput.js';
 import {emptyUsage} from '../src/engine/types.js';
 import {compactTokens, quotaText, usageDetail} from '../src/ui/runView.js';
 import {truncateEnd, truncateMiddle, width, wrapText} from '../src/ui/text.js';
@@ -144,5 +145,22 @@ describe('usage and quota', () => {
 		expect(quotaText({before, after}, '·', '→')).toBe('Hạn mức: 5 giờ 12% → 19% (+7) · Tuần 30% → 31% (+1) · Tuần (Sonnet) 7% → 8% (+1)');
 		expect(quotaText({before: null, after}, '·', '→')).toBe('Hạn mức hiện tại: 5 giờ 19% · Tuần 31% · Tuần (Sonnet) 8%');
 		expect(quotaText({before, after: null}, '·', '→')).toBeNull();
+	});
+});
+
+describe('terminal input', () => {
+	test('replies to the terminal\'s queries never reach the input box', () => {
+		expect(parseTerminalInput('[?0u')).toEqual({text: '', wheel: 0, filtered: true});
+		expect(parseTerminalInput('\x1b[?1u')).toEqual({text: '', wheel: 0, filtered: true});
+		expect(parseTerminalInput('\x1b[?1;2c')).toMatchObject({text: '', filtered: true});
+		expect(parseTerminalInput('xin chào')).toEqual({text: 'xin chào', wheel: 0, filtered: false});
+		expect(parseTerminalInput('[?0uabc')).toMatchObject({text: 'abc', filtered: true});
+	});
+
+	test('mouse reports: the wheel scrolls, clicks are dropped, modifier keys do not matter', () => {
+		expect(parseTerminalInput('\x1b[<64;10;5M')).toEqual({text: '', wheel: 1, filtered: true});
+		expect(parseTerminalInput('[<65;10;5M[<65;10;5M')).toMatchObject({wheel: -2});
+		expect(parseTerminalInput('[<80;3;3M')).toMatchObject({wheel: 1}); // 64 with Ctrl
+		expect(parseTerminalInput('[<0;3;3M[<0;3;3m')).toEqual({text: '', wheel: 0, filtered: true});
 	});
 });

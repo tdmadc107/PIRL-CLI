@@ -173,19 +173,30 @@ describe('input and command palette', () => {
 	test('PgUp shows older lines and marks the newer ones below', async () => {
 		const {terminal} = await start(80, 16);
 		for (let i = 0; i < 6; i++) {
-			await terminal.type('/resume');
+			await terminal.type('/khong-co');
 			await terminal.press(KEYS.enter);
 		}
 		expect(terminal.frame()).not.toContain('PIRL · Plan · Implement · Review');
-		await terminal.press(KEYS.pageUp);
-		await terminal.press(KEYS.pageUp);
-		await terminal.press(KEYS.pageUp);
+		for (let i = 0; i < 5; i++) await terminal.press(KEYS.pageUp);
 		expect(terminal.frame()).toContain('PIRL · Plan · Implement · Review');
 		expect(terminal.frame()).toMatch(/↓ \d+ dòng mới hơn \(PgDn\)/);
-		await terminal.press(KEYS.pageDown);
-		await terminal.press(KEYS.pageDown);
-		await terminal.press(KEYS.pageDown);
+		for (let i = 0; i < 5; i++) await terminal.press(KEYS.pageDown);
 		expect(terminal.frame()).not.toContain('dòng mới hơn');
+	});
+
+	test('the mouse wheel scrolls the chat; terminal replies never reach the input', async () => {
+		const {terminal} = await start(80, 16);
+		for (let i = 0; i < 6; i++) {
+			await terminal.type('/khong-co');
+			await terminal.press(KEYS.enter);
+		}
+		for (let i = 0; i < 14; i++) await terminal.press('\x1b[<64;5;5M');
+		expect(terminal.frame()).toContain('PIRL · Plan · Implement · Review');
+		for (let i = 0; i < 14; i++) await terminal.press('\x1b[<65;5;5M');
+		expect(terminal.frame()).not.toContain('dòng mới hơn');
+		await terminal.press('\x1b[?0u');
+		expect(terminal.frame()).not.toContain('[?0u');
+		expect(terminal.frame()).toContain('Gõ / để xem lệnh');
 	});
 });
 
