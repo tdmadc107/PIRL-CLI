@@ -28,13 +28,22 @@ Giai đoạn 0 (khung TUI) đã xong. Bảng dưới cho biết mỗi lệnh dù
 
 ## Cài từ mã nguồn
 
+PIRL CLI chưa phát hành lên npm. Mã nguồn hiện nằm trên nhánh `develop`.
+
 ```bash
-git clone https://github.com/tdmadc107/PIRL-CLI.git
+git clone -b develop https://github.com/tdmadc107/PIRL-CLI.git
 cd PIRL-CLI
 npm install
-npm run build
-npm link        # đưa lệnh `pirl` vào PATH
+npm pack                              # build và đóng gói thành pirl-cli-<version>.tgz
+npm install -g ./pirl-cli-0.1.0.tgz   # cài lệnh `pirl` cho toàn máy
+pirl --version
 ```
+
+Cập nhật: `git pull`, rồi chạy lại `npm pack` và `npm install -g` với file `.tgz` mới.
+Gỡ: `npm uninstall -g pirl-cli` (Hub và cài đặt ở `~/.pirl` vẫn giữ lại; xoá tay nếu không cần).
+
+Trên PowerShell, nếu gõ `pirl` báo "running scripts is disabled on this system", chạy
+`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` một lần, hoặc gõ `pirl.cmd` thay cho `pirl`.
 
 ## Sử dụng
 

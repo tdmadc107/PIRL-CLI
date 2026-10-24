@@ -3,3 +3,5 @@ dist/
 # Copied from pirl-framework/ by scripts/bundle-framework.mjs before build, dev and test.
 bundled-framework/
 *.tsbuildinfo
+# Output of `npm pack`.
+*.tgz
