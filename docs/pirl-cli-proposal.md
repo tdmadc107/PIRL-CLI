@@ -1,6 +1,6 @@
 # Đề xuất: biến PIRL framework thành PIRL CLI
 
-Trạng thái: giai đoạn 0 (khung TUI) đã triển khai, xem mục 14. Cập nhật: 2026-10-23 (lần 5).
+Trạng thái: giai đoạn 0, 1, 2 (pilot Claude Code) đã triển khai, xem mục 14. Cập nhật: 2026-10-24 (lần 6).
 
 ## 1. Kết luận
 
@@ -582,10 +582,43 @@ bắt được đúng lỗi đó.
 | `.gitignore` của framework trong gói npm | Không đề cập | Lưu với tên `gitignore.pirl-bundled`, Hub đổi lại tên khi tạo | npm luôn bỏ file `.gitignore` khỏi gói; thiếu nó thì Hub sẽ commit nhầm Plan và record |
 | Cài đặt phụ thuộc | Không đề cập | `.npmrc` đặt `legacy-peer-deps=true` | Lỗi của npm (`edgesOut`) khi giải peer dependency của Vitest |
 
-### 14.3. Bước tiếp theo
+### 14.3. Giai đoạn 1 và 2: đã xong (pilot Claude Code)
 
-Giai đoạn 1: adapter Claude Code chạy role, và `/pirl-plan` chạy đủ vòng của
-layer Plan (mục 12).
+| Hạng mục | Kết quả |
+| --- | --- |
+| Layer | `/pirl-plan`, `/pirl-implement`, `/pirl-review` chạy coordinator bằng `claude -p` của người dùng; nhập không có `/` là chat với coordinator (câu hỏi, standalone task, bảo trì framework), các tin nhắn chat nối tiếp một session |
+| Role | Mỗi role trong role catalog là một subagent khai báo qua `--agents`; công cụ theo loại việc (role chỉ đọc: Read, Grep, Glob; role kiểm chứng thêm Bash; role thực hiện và process-auditor thêm Edit, Write) |
+| Quyền | `--permission-mode dontAsk` và `--permission-prompts none`: lệnh ngoài danh sách cho phép bị từ chối, không có prompt. Plan và Review không sửa được target repo; Implement sửa được và chạy được các test runner phổ biến. Mọi run: không commit, push, đổi nhánh, xoá file; không tool hẹn giờ hay việc nền |
+| Câu hỏi giữa chừng | Coordinator trả khối `pirl-questions`; TUI hỏi từng câu (↑↓, gõ số, hoặc tự nhập); CLI gửi câu trả lời vào đúng session bằng `--resume` |
+| Kiểm tra sau run | CLI tự chạy validator (Plan package, Plan file, report), đếm record mới và chạy `layer_record.py check`; sai thì gửi coordinator sửa (tối đa 2 lần). Sau Implement: file thay đổi phải nằm trong Allowed paths |
+| Tự cải tiến | File framework do run sửa được liệt kê; người dùng chọn commit (kèm trailer `Pirl-Record`, `Pirl-Source`), giữ chưa commit, hoặc bỏ (chỉ bỏ file do run này sửa) |
+| `/resume` | Run dở (Esc, Ctrl+C, lỗi, đóng TUI, đang chờ trả lời) lưu ở `~/.pirl/sessions/`; `/resume` chạy tiếp đúng session |
+| `/plans`, `/records` | Đọc trong Hub, lọc theo `target_repo` là repo đang mở |
+| Nhập liệu | Sửa lỗi gõ tiếng Việt bằng bộ gõ; Shift+Enter, Alt+Enter, Ctrl+J, `\`+Enter xuống dòng; Ctrl+V dán; `/copy` |
+| Giao diện | Run block trong khung chat; bảng "Phiên làm việc" hiện role đang chạy; 6 bảng màu trong `/settings` |
+| Kiểm chứng | 130 test Vitest pass (engine với Hub thật và provider giả lập, luồng run trong TUI, phím, clipboard). Đối chiếu tham số với Claude Code 2.1.309 thật. Chạy thật một lượt chat và một lượt `/pirl-plan` qua adapter: hai role chạy bằng subagent, Plan qua validator, record được ghi, trả lời bằng tiếng Việt |
+
+Kết quả lượt `/pirl-plan` thật trên repo demo một file: khoảng 6 phút, 585 nghìn token đầu vào (phần
+lớn đọc từ cache) và 6 nghìn token đầu ra. Hai lần chạy đầu lộ ra 4 lỗi tích hợp, đã sửa: coordinator ghi
+file tạm ra `/tmp` và dùng heredoc (bị chặn); xin người dùng cấp quyền; trả lời bằng tiếng Anh; gọi
+`ScheduleWakeup` làm `claude -p` không kết thúc.
+
+Chưa chạy thật: `/pirl-implement`, `/pirl-review` (cùng cơ chế với Plan, đã có test với provider giả lập);
+Windows, macOS.
+
+### 14.4. Khác với đề xuất (giai đoạn 1–2)
+
+| Điểm | Đề xuất | Thực hiện | Lý do |
+| --- | --- | --- | --- |
+| Ai chạy role | CLI gọi mỗi role là một tiến trình riêng | Coordinator (một `claude -p`) giao role cho subagent Claude Code, mỗi role một subagent với bộ công cụ riêng | Framework đã định nghĩa coordinator giao việc và gộp kết quả; subagent là agent độc lập thật; ít lượt gọi hơn. CLI vẫn tự làm các bước cố định (mục 7.3). Provider khác có thể dùng cách gọi từng role ở giai đoạn 4 |
+| Quyền theo đường dẫn từng role | Từng role có quyền riêng (mục 7.2) | Quyền đường dẫn theo run (layer); từng role chỉ khác nhau ở bộ công cụ | Claude Code không cho đặt luật đường dẫn riêng cho từng subagent; luật của session áp dụng cho mọi subagent |
+| Câu hỏi khi đang có run | Hỏi được trong lúc run chạy | Một run tại một thời điểm; chat chờ run xong | Hai session ghi cùng Hub dễ đè nhau |
+| Lệnh | 12 lệnh | 13 lệnh: thêm `/copy` | Người dùng yêu cầu copy |
+| Ctrl+C | Thoát | Dừng run đang chạy; không có run thì thoát | Tránh mất run vì bấm nhầm |
+
+### 14.5. Bước tiếp theo
+
+Giai đoạn 3: `/framework` cập nhật framework trên bản nháp, giải quyết xung đột, hoàn tác (mục 9).
 
 ## Nguồn tham khảo
 
