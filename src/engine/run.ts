@@ -293,7 +293,7 @@ export class RunController {
 				maxParallelRoles: deps.maxParallelRoles,
 				recentOutputs: deps.recentOutputs,
 			}),
-			agents: deps.agents ?? roleAgents(deps.hub, undefined, deps.roleModel),
+			agents: deps.agents ?? roleAgents(deps.hub, undefined, deps.roleModel, deps.target && deps.target !== deps.hub ? deps.target : null),
 			permissions: permissionsFor(this.state.kind, {hub: deps.hub, target: deps.target}, deps.python),
 			resumeSessionId: this.state.sessionId ?? undefined,
 			model: deps.model,

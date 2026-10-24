@@ -31,8 +31,24 @@ export function roleTools(role: CatalogRole): string[] {
 	return read;
 }
 
-/** `model` is the roles' model alias; they run on the coordinator's model when it is left out. */
-export function roleAgents(hub: string, roles: CatalogRole[] = readRoleCatalog(hub), model?: string): Record<string, AgentDefinition> {
+/**
+ * How a role uses its tools under the run's permission rules (src/engine/permissions.ts). Subagents do not see the
+ * coordinator's host instructions, and a refused command costs a turn, so each role gets these rules itself.
+ */
+function toolRules(target: string | null): string[] {
+	return [
+		'Read files with the Read, Grep and Glob tools, never with `cat`, `ls`, `grep`, `find` or `head` in Bash: the run refuses those.',
+		'Bash runs one command per call, without pipes or `;`. It is allowed only for: read-only Git (`log`, `show`, `diff`, `status`, `ls-files`, `rev-parse`, `blame`), the framework\'s Python tools run from the Hub root, and the test command the target repository documents.',
+		...(target ? [`In the target repository, run Git as \`git -C ${target} <command>\` and tests as \`cd ${target} && <test command>\`.`] : []),
+		'Temporary files go under `.tmp/pirl-run/` in the Hub; `/tmp` and every path outside the Hub and the target repository are refused.',
+	];
+}
+
+/**
+ * `model` is the roles' model alias; they run on the coordinator's model when it is left out. `target` is the run's
+ * target repository, named in the roles' command rules.
+ */
+export function roleAgents(hub: string, roles: CatalogRole[] = readRoleCatalog(hub), model?: string, target: string | null = null): Record<string, AgentDefinition> {
 	return Object.fromEntries(
 		roles.map(role => [
 			role.id,
@@ -45,6 +61,7 @@ export function roleAgents(hub: string, roles: CatalogRole[] = readRoleCatalog(h
 					'Support every conclusion with its source: file path and symbol, command and result, or the rule that applies.',
 					'Do not read drafts or conclusions of other roles of this run unless your assignment hands them to you.',
 					'Report every reviewer outside your role that you consulted. Never commit, push or change files your assignment does not cover.',
+					...toolRules(target),
 				].join('\n'),
 				tools: roleTools(role),
 				...(model ? {model} : {}),
