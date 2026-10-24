@@ -282,7 +282,7 @@ describe('RunController', () => {
 		expect(run.state.checks.validator).toMatchObject({state: 'pass'});
 		expect(run.state.checks.record).toMatchObject({state: 'pass'});
 		expect(run.state.status).toBe('improvements');
-		expect(run.state.improvements).toEqual({files: ['.agents/roles/code-analyst.role.md'], state: 'pending'});
+		expect(run.state.improvements).toEqual({files: ['.agents/roles/code-analyst.role.md'], state: 'pending', tests: {state: 'pass'}});
 		expect(seen).toContain('checking');
 		await run.resolveImprovements('commit');
 		expect(run.state.status).toBe('done');
@@ -291,6 +291,29 @@ describe('RunController', () => {
 		expect(log).toMatch(/Pirl-Record: plan-/);
 		expect(git(hub, 'status', '--porcelain')).toBe('');
 	});
+
+	test('an improvement that breaks the framework\'s tests cannot be committed', async () => {
+		const {hub, target} = await hubAndTarget();
+		const {runner} = fakeRunner([
+			() => {
+				const {planSet} = writePlan(hub, target);
+				const recordId = writeRecord(hub, target, planSet);
+				// A link to a file that does not exist fails the framework's link test.
+				appendFileSync(join(hub, '.agents/roles/code-analyst.role.md'), '\n- See [the missing guide](missing-guide.md).\n');
+				return [result('Plan đã sẵn sàng.' + outputsBlock({plan_set: planSet, plan_file: null, report: null, record_id: recordId}))];
+			},
+		]);
+		const run = new RunController(deps(hub, target, runner), 1, 'plan', 'Email huỷ đơn');
+		await run.start();
+		expect(run.state.improvements?.tests?.state).toBe('fail');
+		await run.resolveImprovements('commit');
+		expect(run.state.status).toBe('improvements');
+		expect(run.state.improvements?.error).toContain('không commit một framework hỏng');
+		expect(git(hub, 'log', '-1', '--format=%s')).not.toContain('Framework improvement');
+		await run.resolveImprovements('discard');
+		expect(run.state.status).toBe('done');
+		expect(git(hub, 'status', '--porcelain')).toBe('');
+	}, 60_000);
 
 	test('questions pause the run; answers resume the same session', async () => {
 		const {hub, target} = await hubAndTarget();

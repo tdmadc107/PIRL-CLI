@@ -263,7 +263,8 @@ describe('startup check and panels', () => {
 		const frame = terminal.frame();
 		expect(frame).toContain('Bản gốc đang dùng');
 		expect(frame).toContain('2 commit');
-		expect(frame).toContain('CLI không tự ghi gì vào Hub');
+		expect(frame).toContain('Xem cải tiến cục bộ (khác bản gốc)');
+		expect(frame).not.toContain('Cập nhật lên');
 	});
 
 	test('a long panel scrolls and says how much is hidden', async () => {

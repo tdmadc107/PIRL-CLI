@@ -78,7 +78,7 @@ export function writeRecord(hub: string, target: string, planSet: string, layer:
 	return py(hub, '.agents/evals/layer_record.py', 'append', '--input', file)['record_id'];
 }
 
-export type FakeCall = {prompt: string; resumeSessionId?: string; allow: string[]; deny: string[]; addDirs: string[]};
+export type FakeCall = {prompt: string; cwd: string; model?: string; resumeSessionId?: string; allow: string[]; deny: string[]; addDirs: string[]};
 
 /**
  * A provider stand-in: each call runs the next script, which may change files like the real coordinator would,
@@ -92,6 +92,8 @@ export function fakeRunner(scripts: FakeScript[]) {
 		start(request, onEvent) {
 			const call: FakeCall = {
 				prompt: request.prompt,
+				cwd: request.cwd,
+				model: request.model,
 				resumeSessionId: request.resumeSessionId,
 				allow: request.permissions.allow,
 				deny: request.permissions.deny,

@@ -6,7 +6,9 @@ import type {DoctorReport} from '../doctor/doctor.js';
 import type {PlanPackage, RecordSummary} from '../engine/hubData.js';
 import type {PersistedRun, RunController} from '../engine/run.js';
 import type {Question, RunKind} from '../engine/types.js';
+import type {MergeProposal} from '../engine/agentMerge.js';
 import type {HubStatus} from '../hub/hub.js';
+import type {Conflict, Draft, FinishResult, HistoryEntry, LastUpdate, LocalChange} from '../hub/update.js';
 
 export type Message =
 	| {id: number; kind: 'welcome'}
@@ -38,6 +40,27 @@ export type StartRunOptions = {
 	recentOutputs?: string[];
 };
 
+/** What `/framework` does to the Hub (src/hub/update.ts); tests pass fakes. */
+export type FrameworkServices = {
+	status(): Promise<HubStatus>;
+	changes(): Promise<LocalChange[]>;
+	diff(path: string): Promise<string>;
+	textDiff(from: string | null, to: string | null): Promise<string>;
+	history(): Promise<HistoryEntry[]>;
+	restore(path: string): Promise<void>;
+	lastUpdate(): Promise<LastUpdate | null>;
+	undo(tag: string): Promise<void>;
+	commitUncommitted(files: string[]): Promise<void>;
+	discardUncommitted(files: string[]): Promise<void>;
+	startUpdate(): Promise<Draft>;
+	resolve(draft: Draft, path: string, choice: 'mine' | 'theirs' | {content: string | null}): Promise<void>;
+	/** The draft's copy of a file, for a conflict the user edits by hand; null when the file is gone. */
+	readDraft(draft: Draft, path: string): string | null;
+	proposeMerge(draft: Draft, conflict: Conflict, config: Config): Promise<MergeProposal>;
+	finishUpdate(draft: Draft, python: {command: string; args: string[]} | null): Promise<FinishResult>;
+	abortUpdate(): Promise<void>;
+};
+
 /** Side effects the TUI needs from outside; tests pass fakes. */
 export type Services = {
 	runDoctor(config: Config): Promise<DoctorReport>;
@@ -48,6 +71,7 @@ export type Services = {
 	plans?(): PlanPackage[];
 	records?(): RecordSummary[];
 	clipboard?: Clipboard;
+	framework?: FrameworkServices;
 };
 
 export type StartupNote = {tone: Tone; text: string; hint?: string};

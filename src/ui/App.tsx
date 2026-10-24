@@ -11,7 +11,6 @@ import {getProvider} from '../providers/index.js';
 import {
 	cycleSetting,
 	doctorLines,
-	frameworkLines,
 	helpLines,
 	plansLines,
 	recordsLines,
@@ -23,6 +22,7 @@ import {Header, type ProviderBadge} from './components/Header.js';
 import {InputBox, inputHeight, paletteLines} from './components/Input.js';
 import {bottomWindow, Lines} from './components/Lines.js';
 import {Frame, SidePanel, statusLine, TooSmall} from './components/Panels.js';
+import {useFrameworkConsole} from './frameworkConsole.js';
 import {backspace, emptyEditor, insert, move, setValue, type EditorState} from './inputEditor.js';
 import {computeLayout} from './layout.js';
 import type {Line} from './lines.js';
@@ -96,6 +96,10 @@ export function App(props: AppProps) {
 	const [overlayTop, setOverlayTop] = useState(0);
 	const [settingsIndex, setSettingsIndex] = useState(0);
 	const [doctor, setDoctor] = useState<DoctorState>({state: 'idle'});
+	// The Hub changes under the session (committed improvements, /framework): its status is kept fresh here.
+	const [hub, setHub] = useState(props.info.hub);
+	const info = useMemo(() => ({...props.info, hub}), [props.info, hub]);
+	const refreshHub = () => void props.services.framework?.status().then(setHub, () => {});
 
 	// Runs: their state for drawing, their controllers for acting, and the answers being collected.
 	const [runs, setRuns] = useState<Record<number, RunState>>({});
@@ -150,6 +154,15 @@ export function App(props: AppProps) {
 	useEffect(() => () => controllers.current.forEach(controller => controller.stop()), []);
 
 	const report = doctor.state === 'done' ? doctor.report : doctor.state === 'running' ? doctor.previous : undefined;
+	const framework = useFrameworkConsole({
+		services: props.services.framework,
+		hub,
+		hubError: props.info.hubError,
+		config,
+		python: report?.python ?? null,
+		runActive: activeRunId !== null,
+		onHubChanged: setHub,
+	});
 	const providerState = report?.checks.find(check => check.id === 'provider')?.state;
 	const provider: ProviderBadge = {label: getProvider(config.provider).label, state: providerState ?? 'checking'};
 
@@ -165,7 +178,7 @@ export function App(props: AppProps) {
 			return {kind: 'question' as const, key: `q-${activeRun.id}-${index}`, index, question, count: question.options.length, initial: question.recommended ?? 0};
 		}
 		if (activeRun.status === 'improvements' && activeRun.improvements?.state === 'pending') {
-			return {kind: 'improvements' as const, key: `i-${activeRun.id}`, count: IMPROVEMENT_CHOICES.length, initial: 0};
+			return {kind: 'improvements' as const, key: `i-${activeRun.id}`, count: IMPROVEMENT_CHOICES.length, initial: activeRun.improvements?.tests?.state === 'fail' ? 2 : 0};
 		}
 		return null;
 	})();
@@ -216,7 +229,7 @@ export function App(props: AppProps) {
 		return lines;
 	})();
 
-	const overlayLines = (): Line[] => {
+	const overlayLines = (frameworkView: {lines: Line[]}): Line[] => {
 		const inner = bodyWidth - 4;
 		const target = props.info.target.kind === 'git' ? props.info.target.root : null;
 		switch (overlay) {
@@ -225,11 +238,11 @@ export function App(props: AppProps) {
 			case 'doctor':
 				return doctorLines(doctor, inner, theme);
 			case 'framework':
-				return frameworkLines(props.info, inner, theme);
+				return frameworkView.lines;
 			case 'settings':
 				return settingsLines(config, settingsIndex, inner, theme);
 			case 'plans':
-				return plansLines(target && props.services.plans ? props.services.plans() : null, props.info.hub?.path ?? null, inner, theme);
+				return plansLines(target && props.services.plans ? props.services.plans() : null, hub?.path ?? null, inner, theme);
 			case 'records':
 				return recordsLines(props.services.records ? props.services.records() : null, inner, theme);
 			default:
@@ -283,6 +296,7 @@ export function App(props: AppProps) {
 			}
 			if (state.status === 'done' || state.status === 'failed' || state.status === 'stopped') {
 				setActiveRunId(current => (current === id ? null : current));
+				refreshHub();
 			}
 		});
 		addMessages([{kind: 'run', runId: id}]);
@@ -293,7 +307,7 @@ export function App(props: AppProps) {
 	const runBlocker = (kind: RunKind): string | null => {
 		if (!props.services.startRun) return 'Bản này chưa nối với provider.';
 		if (activeRunId !== null) return 'Đang có run chưa xong. Đợi run xong, trả lời câu hỏi của run, hoặc nhấn Esc để dừng.';
-		if (!props.info.hub) return `Không có Hub: ${props.info.hubError ?? 'lỗi không rõ'}.`;
+		if (!hub) return `Không có Hub: ${props.info.hubError ?? 'lỗi không rõ'}.`;
 		if (!report) return 'Đang kiểm tra môi trường; thử lại sau giây lát.';
 		const providerCheck = report?.checks.find(check => check.id === 'provider');
 		if (providerCheck?.state === 'fail') return `${providerCheck.label} chưa sẵn sàng (${providerCheck.detail}). Gõ /doctor để xem cách xử lý.`;
@@ -372,7 +386,8 @@ export function App(props: AppProps) {
 	const paletteShown = layout.kind === 'ok' ? Math.max(0, Math.min(suggestions.length, layout.paletteMax, room - 3)) : 0;
 	const bodyHeight = Math.max(1, room - paletteShown);
 	const overlayPage = Math.max(1, bodyHeight - 4);
-	const overlayContent = overlay ? overlayLines() : [];
+	const frameworkView = overlay === 'framework' ? framework.view(bodyWidth - 4, bodyHeight - 3, theme) : {lines: [], top: 0};
+	const overlayContent = overlay ? overlayLines(frameworkView) : [];
 	// The first line of the last page: scrolling further down stops there, so one PgUp always moves back.
 	const overlayMaxTop = Math.max(0, overlayContent.length - Math.max(1, bodyHeight - 3 - 1));
 
@@ -390,6 +405,7 @@ export function App(props: AppProps) {
 				setOverlay(effect.overlay);
 				setOverlayTop(0);
 				setSettingsIndex(0);
+				if (effect.overlay === 'framework') framework.open();
 			}
 			if (effect.type === 'doctor') startDoctor(false);
 			if (effect.type === 'exit') exit();
@@ -480,6 +496,10 @@ export function App(props: AppProps) {
 		const editor = editorRef.current;
 		if (key.ctrl && input === 'c') {
 			if (!stopActive()) exit();
+			return;
+		}
+		if (overlay === 'framework') {
+			if (!framework.handleKey(input, key, overlayPage)) setOverlay(null);
 			return;
 		}
 		if (overlay) {
@@ -616,7 +636,9 @@ export function App(props: AppProps) {
 		overlay
 			? overlay === 'settings'
 				? [`${g.upDown} chọn`, `${g.leftRight} đổi`, 'Esc đóng']
-				: [`${g.upDown} PgUp/PgDn cuộn`, 'Esc đóng']
+				: overlay === 'framework'
+					? framework.hints(theme)
+					: [`${g.upDown} PgUp/PgDn cuộn`, 'Esc đóng']
 			: interaction
 				? [`${g.upDown} chọn`, 'Enter xác nhận']
 				: running
@@ -646,7 +668,7 @@ export function App(props: AppProps) {
 
 	return (
 		<Box flexDirection="column" width={columns} height={rows}>
-			{layout.header !== 'hidden' && <Header info={props.info} provider={provider} mode={layout.header} columns={columns} theme={theme} />}
+			{layout.header !== 'hidden' && <Header info={info} provider={provider} mode={layout.header} columns={columns} theme={theme} />}
 			<Box flexDirection="row" height={bodyHeight}>
 				{overlay ? (
 					<Frame
@@ -655,7 +677,7 @@ export function App(props: AppProps) {
 						lines={overlayContent}
 						width={bodyWidth}
 						height={bodyHeight}
-						top={overlayTop}
+						top={overlay === 'framework' ? frameworkView.top : overlayTop}
 						theme={theme}
 						active
 					/>
@@ -664,7 +686,7 @@ export function App(props: AppProps) {
 						<Lines lines={chatLines} theme={theme} />
 					</Box>
 				)}
-				{layout.sidePanel > 0 && <SidePanel info={props.info} provider={provider} run={panelRun} live={live} width={layout.sidePanel} height={bodyHeight} theme={theme} />}
+				{layout.sidePanel > 0 && <SidePanel info={info} provider={provider} run={panelRun} live={live} width={layout.sidePanel} height={bodyHeight} theme={theme} />}
 			</Box>
 			<InputBox editor={editor} columns={columns} maxLines={layout.inputMaxLines} theme={theme} focused={!overlay} placeholder={interaction ? (interaction.kind === 'question' ? 'Nhập câu trả lời, hoặc Enter để chọn mục đang trỏ' : 'Enter để chọn mục đang trỏ, hoặc gõ 1–3') : undefined} />
 			{paletteShown > 0 && <Lines lines={paletteLines(suggestions, paletteIndex, paletteShown, columns, theme)} theme={theme} />}

@@ -11,14 +11,15 @@ import {createClaudeRunner} from '../engine/claudeRunner.js';
 import {readPlanPackages, readRecords} from '../engine/hubData.js';
 import {RunController} from '../engine/run.js';
 import {loadRun, saveRun} from '../engine/runStore.js';
-import {loadBundledFramework} from '../hub/framework.js';
+import {loadBundledFramework, type BundledFramework} from '../hub/framework.js';
+import {frameworkServices} from '../hub/services.js';
 import {ensureHub, type HubStatus} from '../hub/hub.js';
 import {getProvider} from '../providers/index.js';
 import {App} from '../ui/App.js';
 import type {StartupNote} from '../ui/session.js';
 
 /** The run's model settings as the provider's arguments; `default` and `inherit` leave the choice to it. */
-const runModels = (config: Config) => ({
+export const runModels = (config: Config) => ({
 	model: config.model === 'default' ? undefined : config.model,
 	roleModel: config.roleModel === 'inherit' ? undefined : config.roleModel,
 	effort: config.effort === 'default' ? undefined : config.effort,
@@ -68,10 +69,12 @@ async function main(): Promise<number> {
 		notes.push({tone: 'warning', text: `${target.reason}: các layer bị khoá.`, hint: 'Mở `pirl` trong thư mục của một git repo để dùng /pirl-plan, /pirl-implement, /pirl-review.'});
 	}
 
+	let bundle: BundledFramework | null = null;
 	let hub: HubStatus | null = null;
 	let hubError: string | null = null;
 	try {
-		const result = await ensureHub(hubDir(home), loadBundledFramework(root));
+		bundle = loadBundledFramework(root);
+		const result = await ensureHub(hubDir(home), bundle);
 		hub = result.status;
 		if (result.created) notes.push({tone: 'success', text: `Đã tạo Hub tại ${displayPath(hub.path)} với framework ${hub.upstreamTag ?? ''}.`});
 	} catch (error) {
@@ -102,6 +105,7 @@ async function main(): Promise<number> {
 				plans: () => (hub && targetRoot ? readPlanPackages(hub.path, targetRoot) : []),
 				records: () => (hub ? readRecords(hub.path, targetRoot) : []),
 				clipboard: createClipboard({writeTerminal: data => process.stdout.write(data)}),
+				framework: hub && bundle ? frameworkServices(hub.path, bundle, runner, config => runModels(config).model) : undefined,
 			}}
 		/>,
 		// Ctrl+C is handled by the TUI: it stops a running run first. The kitty keyboard protocol, where the

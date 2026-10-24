@@ -19,8 +19,8 @@ import type {Check, CheckState} from '../doctor/doctor.js';
 import {PROVIDERS} from '../providers/index.js';
 import {blank, hanging, type Line, type Span} from './lines.js';
 import {runLines, type Interaction, type Live} from './runView.js';
-import type {DoctorState, Message, SessionInfo} from './session.js';
-import {padEnd, truncateMiddle, width} from './text.js';
+import type {DoctorState, Message} from './session.js';
+import {padEnd, width} from './text.js';
 import {COLOR_SCHEMES, type ColorToken, type Theme} from './theme.js';
 
 const TONE: Record<Tone, {glyph: keyof Theme['glyphs']; color: ColorToken}> = {
@@ -36,7 +36,7 @@ const CHECK_TONE: Record<CheckState, Tone> = {ok: 'success', warn: 'warning', fa
  * A two-column list (command and summary) that becomes stacked rows when the window is too narrow
  * to keep the summary readable beside the command.
  */
-function definitionList(items: Array<{term: string; description: string}>, columns: number, indent = 2): Line[] {
+export function definitionList(items: Array<{term: string; description: string}>, columns: number, indent = 2): Line[] {
 	const termWidth = Math.max(...items.map(item => width(item.term))) + 2;
 	const sideBySide = columns - indent - termWidth >= 24;
 	return items.flatMap(item => {
@@ -145,34 +145,6 @@ export function doctorLines(doctor: DoctorState, columns: number, theme: Theme):
 				: [{text: `${failed} mục cần xử lý trước khi chạy layer.`, color: 'danger'}],
 		);
 	}
-	return lines;
-}
-
-export function frameworkLines(info: SessionInfo, columns: number, theme: Theme): Line[] {
-	const hub = info.hub;
-	if (!hub) return hanging([{text: `${theme.glyphs.fail} `, color: 'danger'}], info.hubError ?? 'Chưa có Hub.', columns);
-	const rows = [
-		{term: 'Hub', description: truncateMiddle(displayPath(hub.path), Math.max(12, columns - 22), theme.glyphs.ellipsis)},
-		{term: 'Bản gốc đang dùng', description: hub.upstreamTag ?? 'không rõ'},
-		{term: 'Cải tiến cục bộ', description: `${hub.localImprovements} commit`},
-		{term: 'Chưa commit', description: hub.uncommitted.length === 0 ? 'không có' : `${hub.uncommitted.length} file`},
-		{
-			term: 'Bản đi kèm CLI',
-			description: hub.updateAvailable ? `fw-${hub.bundledVersion}, khác bản gốc đang dùng` : `fw-${hub.bundledVersion}, trùng bản đang dùng`,
-		},
-	];
-	const lines: Line[] = [...definitionList(rows, columns, 0), blank];
-	if (hub.updateAvailable) {
-		lines.push(...hanging([{text: `${theme.glyphs.warn} `, color: 'warning'}], 'Có bản framework mới đi kèm CLI.', columns));
-	}
-	lines.push(
-		...hanging(
-			[],
-			'Cập nhật (merge 3 chiều trên bản nháp), xem khác biệt, khôi phục và hoàn tác có ở giai đoạn 3. CLI không tự ghi gì vào Hub.',
-			columns,
-			{dim: true},
-		),
-	);
 	return lines;
 }
 

@@ -188,10 +188,18 @@ export function runLines(run: RunState, columns: number, theme: Theme, interacti
 		lines.push(...hanging([{text: '  '}, {text: `${improvements.state === 'pending' ? g.warn : g.ok} `, color: improvements.state === 'pending' ? 'warning' : 'success'}], title, columns, {bold: true}));
 		if (improvements.state === 'pending') {
 			for (const file of improvements.files) lines.push(...hanging([{text: '    '}], file, columns, {dim: true}));
+			const tests = improvements.tests;
+			if (tests?.state === 'pass') lines.push(...hanging([{text: '    '}, {text: `${g.ok} `, color: 'success'}], 'Test của framework: PASS', columns));
+			if (tests?.state === 'skipped') lines.push(...hanging([{text: '    '}, {text: `${g.warn} `, color: 'warning'}], `Test của framework: bỏ qua (${tests.detail ?? ''})`, columns));
+			if (tests?.state === 'fail') {
+				lines.push(...hanging([{text: '    '}, {text: `${g.fail} `, color: 'danger'}], 'Test của framework: FAIL. Cải tiến này làm hỏng framework nên không được commit; nên bỏ.', columns, {color: 'danger'}));
+				for (const line of (tests.detail ?? '').split('\n').slice(0, 5)) lines.push(...hanging([{text: '      '}], line, columns, {dim: true}));
+			}
 			if (improvements.error) lines.push(...hanging([{text: '    '}], `Lỗi: ${improvements.error}`, columns, {color: 'danger'}));
 			if (interaction?.kind === 'improvements' && interaction.runId === run.id) {
 				lines.push(...hanging([{text: '    '}], 'Commit cải tiến này vào Hub?', columns));
-				lines.push(...choiceLines(IMPROVEMENT_CHOICES.map(choice => choice.label), interaction.selected, 0, columns, theme));
+				const labels = IMPROVEMENT_CHOICES.map(choice => (choice.id === 'commit' && tests?.state === 'fail' ? `${choice.label} (bị chặn: test lỗi)` : choice.label));
+				lines.push(...choiceLines(labels, interaction.selected, tests?.state === 'fail' ? 2 : 0, columns, theme));
 			}
 		}
 	}

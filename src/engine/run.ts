@@ -44,7 +44,8 @@ export type RunState = {
 	reply: string | null;
 	outputs: RunOutputs;
 	checks: {validator?: CheckResult; record?: CheckResult; paths?: CheckResult};
-	improvements: {files: string[]; state: 'pending' | 'committed' | 'kept' | 'discarded'; error?: string} | null;
+	/** Framework files the run changed; `tests` is the framework's own test suite run on them before any commit. */
+	improvements: {files: string[]; state: 'pending' | 'committed' | 'kept' | 'discarded'; tests?: CheckResult; error?: string} | null;
 	suggestion: string | null;
 	denials: string[];
 	usage: Usage;
@@ -547,13 +548,34 @@ export class RunController {
 			this.update({status: 'done'}, {who: 'pirl', text: 'Xong', tone: 'success'});
 			return;
 		}
-		this.update({status: 'improvements', improvements: {files, state: 'pending'}}, {who: 'pirl', text: `${files.length} file framework thay đổi; chờ bạn quyết định commit`, tone: 'warning'});
+		this.update({status: 'checking', activity: 'Chạy test của framework trên các cải tiến'}, {who: 'pirl', text: `${files.length} file framework thay đổi; chạy test của framework`});
+		const tests = await this.frameworkTests();
+		this.update(
+			{status: 'improvements', improvements: {files, state: 'pending', tests}},
+			tests.state === 'fail'
+				? {who: 'pirl', text: `Test framework: FAIL; cải tiến này không được commit (${tests.detail?.split('\n')[0]?.slice(0, 120) ?? ''})`, tone: 'error'}
+				: {who: 'pirl', text: `Test framework: ${tests.state === 'pass' ? 'PASS' : 'bỏ qua'}; chờ bạn quyết định commit`, tone: 'warning'},
+		);
+	}
+
+	/** The framework's own tests on the Hub as the run left it: a broken framework must never be committed to main. */
+	private async frameworkTests(): Promise<CheckResult> {
+		if (!this.deps.python) return {state: 'skipped', detail: 'Không tìm thấy Python'};
+		const result = await this.python(['-m', 'unittest', 'discover', '-s', '.agents/evals/tests', '-p', 'test_*.py']);
+		if (succeeded(result)) return {state: 'pass'};
+		const output = `${result.stderr}\n${result.stdout}`.trim().split('\n');
+		const failures = output.filter(line => /^(FAIL|ERROR):/.test(line));
+		return {state: 'fail', detail: (failures.length ? failures : output.slice(-5)).join('\n') || result.error || `mã thoát ${result.code}`};
 	}
 
 	/** The user's decision on this run's framework improvements. */
 	async resolveImprovements(choice: 'commit' | 'keep' | 'discard'): Promise<void> {
 		const pending = this.state.improvements;
 		if (!pending || pending.state !== 'pending') return;
+		if (choice === 'commit' && pending.tests?.state === 'fail') {
+			this.update({improvements: {...pending, error: 'Test của framework đang lỗi: không commit một framework hỏng vào Hub. Chọn bỏ cải tiến, hoặc giữ để sửa tay.'}});
+			return;
+		}
 		if (choice === 'keep') {
 			this.update({status: 'done', improvements: {...pending, state: 'kept'}}, {who: 'pirl', text: 'Giữ cải tiến, chưa commit. Xong', tone: 'success'});
 			return;

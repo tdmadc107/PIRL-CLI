@@ -7,27 +7,27 @@ import {frameworkTag, storedPath, type BundledFramework} from './framework.js';
  * The Hub is a local Git repository with no remote:
  * - `upstream` holds the framework versions as shipped (one commit and one `fw-<version>` tag per version);
  * - `main` is `upstream` plus the user's own improvements, and is the branch the layers run on.
- * A CLI update never writes here; only `/framework` brings a newer bundled version in (phase 3).
+ * A CLI update never writes here; only `/framework` brings a newer bundled version in (src/hub/update.ts).
  */
 export const UPSTREAM = 'upstream';
 export const MAIN = 'main';
 
 /** Git settings for every Hub command: content stored byte for byte, and no signing prompt from the user's config. */
-const GIT_FLAGS = ['-c', 'core.autocrlf=false', '-c', 'core.safecrlf=false', '-c', 'commit.gpgsign=false', '-c', 'tag.gpgsign=false'];
+export const GIT_FLAGS = ['-c', 'core.autocrlf=false', '-c', 'core.safecrlf=false', '-c', 'commit.gpgsign=false', '-c', 'tag.gpgsign=false'];
 /** Baseline commits on `upstream` are written by the tool, not by the user. */
-const TOOL_AUTHOR = ['-c', 'user.name=PIRL CLI', '-c', 'user.email=pirl-cli@localhost'];
+export const TOOL_AUTHOR = ['-c', 'user.name=PIRL CLI', '-c', 'user.email=pirl-cli@localhost'];
 
 export class HubError extends Error {}
 
 export type HubStatus = {
 	path: string;
-	/** `fw-<version>` tag on the tip of `upstream`, or null when the tip carries no tag. */
+	/** `fw-<version>` of the original framework merged into `main` last, or null when no tag is found. */
 	upstreamTag: string | null;
 	/** Commits on `main` that are not on `upstream`: the user's local improvements. */
 	localImprovements: number;
 	/** Paths with uncommitted changes in the Hub. */
 	uncommitted: string[];
-	/** The framework bundled with this CLI differs from `upstream`. */
+	/** The framework bundled with this CLI differs from `upstream`, or `upstream` is not merged into `main` yet. */
 	updateAvailable: boolean;
 	bundledVersion: string;
 	/** Branch currently checked out; anything other than `main` is reported by /doctor. */
@@ -36,7 +36,7 @@ export type HubStatus = {
 
 export type EnsureHubResult = {created: boolean; status: HubStatus};
 
-async function git(exec: Exec, cwd: string, args: string[], extra: string[] = []) {
+export async function git(exec: Exec, cwd: string, args: string[], extra: string[] = []) {
 	const result = await exec('git', [...GIT_FLAGS, ...extra, ...args], {cwd, timeoutMs: 60_000});
 	if (!succeeded(result)) {
 		throw new HubError(`git ${args.join(' ')}: ${(result.error ?? result.stderr).trim() || `exit ${result.code}`}`);
@@ -122,17 +122,21 @@ export function sameFiles(a: Record<string, string>, b: Record<string, string>):
 }
 
 export async function hubStatus(path: string, bundle: BundledFramework, exec: Exec = defaultExec): Promise<HubStatus> {
-	const tagResult = await exec('git', ['describe', '--tags', '--exact-match', UPSTREAM], {cwd: path, timeoutMs: 10_000});
+	// The original version in use is the latest one merged into `main`, not the newest one staged on `upstream`.
+	const tagResult = await exec('git', ['describe', '--tags', '--abbrev=0', '--match', 'fw-*', MAIN], {cwd: path, timeoutMs: 10_000});
 	const upstreamFiles = parseLsTree(await git(exec, path, ['ls-tree', '-r', '-z', UPSTREAM]));
-	const ahead = Number((await git(exec, path, ['rev-list', '--count', `${UPSTREAM}..${MAIN}`])).trim());
+	// Update merges are not improvements of the user's.
+	const ahead = Number((await git(exec, path, ['rev-list', '--count', '--no-merges', `${UPSTREAM}..${MAIN}`])).trim());
 	const uncommitted = parsePorcelain(await git(exec, path, ['status', '--porcelain', '-z']));
 	const branchResult = await exec('git', ['symbolic-ref', '--quiet', '--short', 'HEAD'], {cwd: path, timeoutMs: 10_000});
+	// After an undone update, `upstream` already holds the newer version but `main` does not.
+	const merged = succeeded(await exec('git', ['merge-base', '--is-ancestor', UPSTREAM, MAIN], {cwd: path, timeoutMs: 10_000}));
 	return {
 		path,
 		upstreamTag: succeeded(tagResult) ? tagResult.stdout.trim() : null,
 		localImprovements: Number.isFinite(ahead) ? ahead : 0,
 		uncommitted,
-		updateAvailable: !sameFiles(upstreamFiles, bundle.manifest.files),
+		updateAvailable: !sameFiles(upstreamFiles, bundle.manifest.files) || !merged,
 		bundledVersion: bundle.manifest.version,
 		branch: succeeded(branchResult) ? branchResult.stdout.trim() : null,
 	};
