@@ -94,6 +94,8 @@ export type Glyphs = {
 	/** Key names as the status bar and help show them. */
 	upDown: string;
 	leftRight: string;
+	/** Frames of the spinner shown while a run works. */
+	spinner: readonly string[];
 };
 
 const UNICODE_GLYPHS: Glyphs = {
@@ -112,6 +114,7 @@ const UNICODE_GLYPHS: Glyphs = {
 	down: '↓',
 	upDown: '↑↓',
 	leftRight: '←→',
+	spinner: ['⠋', '⠙', '⠸', '⠴', '⠦', '⠇'],
 };
 
 const ASCII_GLYPHS: Glyphs = {
@@ -130,6 +133,7 @@ const ASCII_GLYPHS: Glyphs = {
 	down: 'v',
 	upDown: 'Up/Down',
 	leftRight: 'Left/Right',
+	spinner: ['|', '/', '-', '\\'],
 };
 
 export type BorderStyle = 'round' | 'classic';

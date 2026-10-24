@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+import {join} from 'node:path';
 import {render} from 'ink';
 import {createClipboard} from '../core/clipboard.js';
 import {loadConfig, saveConfig} from '../core/config.js';
@@ -83,7 +83,7 @@ async function main(): Promise<number> {
 				saveConfig: next => saveConfig(configFile(home), next),
 				startRun: options =>
 					new RunController(
-						{runner, hub: hub!.path, target: targetRoot, python: options.python, maxParallelRoles: options.config.maxParallelRoles, recentOutputs: options.recentOutputs},
+						{runner, hub: hub!.path, target: targetRoot, logDir: join(home, 'logs'), python: options.python, maxParallelRoles: options.config.maxParallelRoles, recentOutputs: options.recentOutputs},
 						options.id,
 						options.kind,
 						options.request,
@@ -98,7 +98,8 @@ async function main(): Promise<number> {
 		/>,
 		// Ctrl+C is handled by the TUI: it stops a running run first. The kitty keyboard protocol, where the
 		// terminal supports it (Windows Terminal 1.25+, kitty, WezTerm, Ghostty, iTerm2), tells Shift+Enter from Enter.
-		{alternateScreen: true, exitOnCtrlC: false, kittyKeyboard: {mode: 'auto'}},
+		// Incremental rendering rewrites only the rows that changed: a spinner tick sends a few bytes, not a screen.
+		{alternateScreen: true, exitOnCtrlC: false, kittyKeyboard: {mode: 'auto'}, incrementalRendering: true},
 	);
 	await instance.waitUntilExit();
 	return 0;

@@ -1,5 +1,5 @@
-import {existsSync, readFileSync, rmSync} from 'node:fs';
-import {isAbsolute, join, relative} from 'node:path';
+import {createWriteStream, existsSync, mkdirSync, readFileSync, rmSync, type WriteStream} from 'node:fs';
+import {dirname, isAbsolute, join, relative} from 'node:path';
 import {exec as defaultExec, succeeded, type Exec} from '../core/exec.js';
 import {roleAgents} from './agents.js';
 import {
@@ -14,13 +14,19 @@ import {
 } from './hubData.js';
 import {permissionsFor} from './permissions.js';
 import {answersMessage, hostInstructions, parseOutputs, parseQuestions, parseSuggestion, stripBlocks, type RunOutputs} from './protocol.js';
-import {emptyUsage, type AgentRunner, type LayerKind, type Question, type RunEvent, type RunHandle, type RunKind, type Usage} from './types.js';
+import {emptyUsage, LAYER_LABELS, type AgentRunner, type LayerKind, type Question, type RunEvent, type RunHandle, type RunKind, type Usage} from './types.js';
 
 export type RoleRun = {toolUseId: string; role: string; description: string; state: 'running' | 'done' | 'failed'; activity: string | null};
 
 export type CheckResult = {state: 'pass' | 'fail' | 'skipped'; detail?: string};
 
 export type RunStatus = 'running' | 'waiting' | 'checking' | 'improvements' | 'done' | 'failed' | 'stopped';
+
+/** One line of the run's log; `at` is milliseconds since the run started, `who` a role, `coordinator` or `pirl`. */
+export type LogEntry = {at: number; who: string; text: string; tone?: 'success' | 'warning' | 'error'};
+
+/** Entries kept in memory for the TUI; the log file keeps every entry. Bounded so a long run costs the same to draw. */
+export const LOG_LIMIT = 200;
 
 export type RunState = {
 	id: number;
@@ -42,6 +48,14 @@ export type RunState = {
 	denials: string[];
 	usage: Usage;
 	error: string | null;
+	/** When the run started (epoch ms), for the elapsed time. */
+	startedAt: number;
+	/** The latest LOG_LIMIT entries, oldest first. */
+	log: LogEntry[];
+	/** Entries written since the start, including those no longer kept in `log`. */
+	logCount: number;
+	/** Where the whole log is written, when the run has a log directory. */
+	logFile: string | null;
 };
 
 /** The Hub and target before a run started; changes after it are this run's. */
@@ -68,6 +82,9 @@ export type RunDeps = {
 	recentOutputs?: string[];
 	/** Times the coordinator is sent back to fix a failed validator or a missing record. */
 	maxRepairs?: number;
+	/** Directory for the run's full log file (~/.pirl/logs); no file when left out. */
+	logDir?: string;
+	now?: () => number;
 };
 
 const MAX_REPAIRS = 2;
@@ -87,6 +104,9 @@ export class RunController {
 	private before: RunSnapshot = {hubChanges: [], records: 0, planSets: [], targetChanges: []};
 	private resumedBefore: RunSnapshot | undefined;
 	private stopped = false;
+	private deniedIds = new Set<string>();
+	private logStream: WriteStream | null = null;
+	private now: () => number;
 
 	constructor(
 		readonly deps: RunDeps,
@@ -96,6 +116,9 @@ export class RunController {
 		resume?: {sessionId: string; status?: RunStatus; questions?: Question[]; before?: RunSnapshot; prompt?: string},
 	) {
 		this.exec = deps.exec ?? defaultExec;
+		this.now = deps.now ?? Date.now;
+		const startedAt = this.now();
+		const logFile = deps.logDir ? join(deps.logDir, `${logStamp(new Date(startedAt))}-${kind}-${id}.log`) : null;
 		this.state = {
 			id,
 			kind,
@@ -114,6 +137,10 @@ export class RunController {
 			denials: [],
 			usage: emptyUsage(),
 			error: null,
+			startedAt,
+			log: [],
+			logCount: 0,
+			logFile,
 		};
 		if (resume?.status === 'waiting' && resume.questions?.length) this.state.status = 'waiting';
 		this.resumedBefore = resume?.before;
@@ -140,9 +167,37 @@ export class RunController {
 		return () => this.listeners.delete(listener);
 	}
 
-	private update(patch: Partial<RunState>) {
+	private update(patch: Partial<RunState>, entry?: Omit<LogEntry, 'at'>) {
+		if (entry) {
+			const line: LogEntry = {at: this.now() - this.state.startedAt, ...entry};
+			patch = {...patch, log: [...this.state.log.slice(-(LOG_LIMIT - 1)), line], logCount: this.state.logCount + 1};
+			this.writeLog(line);
+		}
 		this.state = {...this.state, ...patch};
+		if (patch.status && TERMINAL.includes(patch.status)) this.closeLog();
 		for (const listener of this.listeners) listener(this.state);
+	}
+
+	/** Appends to the log file; a log that cannot be written never stops the run. */
+	private writeLog(entry: LogEntry) {
+		if (!this.state.logFile) return;
+		try {
+			if (!this.logStream) {
+				mkdirSync(dirname(this.state.logFile), {recursive: true});
+				this.logStream = createWriteStream(this.state.logFile, {flags: 'a', encoding: 'utf8'});
+				this.logStream.on('error', () => {
+					this.logStream = null;
+				});
+			}
+			this.logStream.write(`${formatElapsed(entry.at)} ${entry.who.padEnd(18)} ${entry.text}\n`);
+		} catch {
+			this.logStream = null;
+		}
+	}
+
+	private closeLog() {
+		this.logStream?.end();
+		this.logStream = null;
 	}
 
 	private get layer(): LayerKind | null {
@@ -166,6 +221,7 @@ export class RunController {
 	}
 
 	async start(): Promise<void> {
+		this.update({}, {who: 'pirl', text: `${this.state.sessionId ? 'Chạy tiếp' : 'Bắt đầu'} ${LAYER_LABELS[this.state.kind]}: ${this.state.request.split('\n')[0]!.slice(0, 120)}`});
 		await this.guard(async () => {
 			await this.snapshot();
 			if (this.state.status === 'waiting') return; // resumed with unanswered questions: wait for the user
@@ -179,7 +235,8 @@ export class RunController {
 			await work();
 		} catch (error) {
 			this.handle = null;
-			this.update({status: 'failed', error: error instanceof Error ? error.message : String(error)});
+			const message = error instanceof Error ? error.message : String(error);
+			this.update({status: 'failed', error: message}, {who: 'pirl', text: `Lỗi: ${message}`, tone: 'error'});
 		}
 	}
 
@@ -194,7 +251,7 @@ export class RunController {
 	stop() {
 		this.stopped = true;
 		this.handle?.stop();
-		if (!this.handle) this.update({status: 'stopped'});
+		if (!this.handle) this.update({status: 'stopped'}, {who: 'pirl', text: 'Đã dừng'});
 	}
 
 	private async send(prompt: string): Promise<void> {
@@ -224,43 +281,62 @@ export class RunController {
 		const exit = await this.handle.done;
 		this.handle = null;
 		if (this.stopped) {
-			this.update({status: 'stopped', roles: this.state.roles.map(role => (role.state === 'running' ? {...role, state: 'failed'} : role))});
+			this.update({status: 'stopped', roles: this.state.roles.map(role => (role.state === 'running' ? {...role, state: 'failed'} : role))}, {who: 'pirl', text: 'Đã dừng theo yêu cầu', tone: 'warning'});
 			return;
 		}
 		const final = result as Extract<RunEvent, {type: 'result'}> | null;
 		if (!final || final.isError) {
 			const detail = final?.text || exit.stderr.trim().split('\n').slice(-3).join(' ') || `mã thoát ${exit.code}`;
-			this.update({status: 'failed', error: detail, reply: final?.text ? stripBlocks(final.text) : this.state.reply});
+			this.update({status: 'failed', error: detail, reply: final?.text ? stripBlocks(final.text) : this.state.reply}, {who: 'pirl', text: `Lỗi: ${detail.slice(0, 200)}`, tone: 'error'});
 			return;
 		}
 		await this.afterReply(final.text);
 	}
 
+	private roleName(toolUseId: string | null): string | null {
+		return toolUseId ? this.state.roles.find(role => role.toolUseId === toolUseId)?.role ?? null : null;
+	}
+
 	private apply(event: RunEvent) {
 		switch (event.type) {
 			case 'session':
-				this.update({sessionId: event.sessionId});
+				if (event.sessionId !== this.state.sessionId) this.update({sessionId: event.sessionId}, {who: 'pirl', text: `Session ${event.sessionId.slice(0, 8)}`});
 				break;
 			case 'role-start':
-				this.update({roles: [...this.state.roles, {toolUseId: event.toolUseId, role: event.role, description: event.description, state: 'running', activity: null}]});
+				this.update(
+					{roles: [...this.state.roles, {toolUseId: event.toolUseId, role: event.role, description: event.description, state: 'running', activity: null}]},
+					{who: event.role, text: `bắt đầu: ${event.description}`},
+				);
 				break;
-			case 'role-end':
-				if (this.state.roles.some(role => role.toolUseId === event.toolUseId)) {
-					this.update({roles: this.state.roles.map(role => (role.toolUseId === event.toolUseId ? {...role, state: event.ok ? 'done' : 'failed'} : role))});
+			case 'role-end': {
+				const role = this.roleName(event.toolUseId);
+				if (role) {
+					this.update(
+						{roles: this.state.roles.map(item => (item.toolUseId === event.toolUseId ? {...item, state: event.ok ? 'done' : 'failed'} : item))},
+						{who: role, text: event.ok ? 'xong' : 'kết thúc với lỗi', tone: event.ok ? 'success' : 'error'},
+					);
 				}
 				break;
-			case 'activity':
-				if (event.agent && this.state.roles.some(role => role.toolUseId === event.agent)) {
-					this.update({roles: this.state.roles.map(role => (role.toolUseId === event.agent ? {...role, activity: event.text} : role))});
+			}
+			case 'activity': {
+				const role = this.roleName(event.agent);
+				if (role) {
+					this.update({roles: this.state.roles.map(item => (item.toolUseId === event.agent ? {...item, activity: event.text} : item))}, {who: role, text: event.text});
 				} else {
-					this.update({activity: event.text});
+					this.update({activity: event.text}, {who: 'coordinator', text: event.text});
 				}
 				break;
-			case 'retry':
-				this.update({activity: `Provider lỗi tạm thời (${event.error}), thử lại lần ${event.attempt}`});
+			}
+			case 'retry': {
+				const text = `Provider lỗi tạm thời (${event.error}), thử lại lần ${event.attempt}`;
+				this.update({activity: text}, {who: 'pirl', text, tone: 'warning'});
 				break;
+			}
 			case 'denied':
-				if (!this.state.denials.includes(event.detail)) this.update({denials: [...this.state.denials, event.detail]});
+				// Claude Code reports a refusal while it happens and again in the result: count it once.
+				if (event.id ? this.deniedIds.has(event.id) : this.state.denials.includes(event.detail)) break;
+				if (event.id) this.deniedIds.add(event.id);
+				this.update({denials: [...this.state.denials, event.detail]}, {who: 'pirl', text: `Chặn (ngoài quyền của run): ${event.detail}`, tone: 'warning'});
 				break;
 			case 'result':
 				this.update({
@@ -292,14 +368,15 @@ export class RunController {
 			roles: this.state.roles.map(role => (role.state === 'running' ? {...role, state: 'done'} : role)),
 		});
 		if (questions.length > 0) {
-			this.update({status: 'waiting', questions, answers: []});
+			this.update({status: 'waiting', questions, answers: []}, {who: 'pirl', text: `Chờ bạn trả lời ${questions.length} câu hỏi`, tone: 'warning'});
 			return;
 		}
 		if (this.layer) {
-			this.update({status: 'checking'});
+			this.update({status: 'checking'}, {who: 'pirl', text: 'Coordinator xong; kiểm tra kết quả'});
 			const repair = await this.checkLayer();
 			if (repair && this.repairs < (this.deps.maxRepairs ?? MAX_REPAIRS)) {
 				this.repairs += 1;
+				this.update({}, {who: 'pirl', text: `Gửi coordinator sửa (lần ${this.repairs})`, tone: 'warning'});
 				await this.send(repair);
 				return;
 			}
@@ -373,6 +450,11 @@ export class RunController {
 						: {state: 'fail', detail: `Ngoài Allowed paths: ${outside.join(', ')}`};
 		}
 
+		const labels: Record<string, string> = {validator: 'Validator', record: 'Record', paths: 'Allowed paths'};
+		for (const [key, check] of Object.entries(checks)) {
+			const verdict = check.state === 'pass' ? 'PASS' : check.state === 'fail' ? 'FAIL' : 'bỏ qua';
+			this.update({}, {who: 'pirl', text: `${labels[key]}: ${verdict}${check.detail ? ` (${check.detail.split('\n')[0]!.slice(0, 120)})` : ''}`, tone: check.state === 'pass' ? 'success' : check.state === 'fail' ? 'error' : undefined});
+		}
 		this.update({checks});
 		return repairs.length > 0 ? repairs.join('\n\n') : null;
 	}
@@ -384,10 +466,10 @@ export class RunController {
 		const now = await changedPaths(this.deps.hub, this.exec);
 		const files = now.filter(path => !this.before.hubChanges.includes(path));
 		if (files.length === 0) {
-			this.update({status: 'done'});
+			this.update({status: 'done'}, {who: 'pirl', text: 'Xong', tone: 'success'});
 			return;
 		}
-		this.update({status: 'improvements', improvements: {files, state: 'pending'}});
+		this.update({status: 'improvements', improvements: {files, state: 'pending'}}, {who: 'pirl', text: `${files.length} file framework thay đổi; chờ bạn quyết định commit`, tone: 'warning'});
 	}
 
 	/** The user's decision on this run's framework improvements. */
@@ -395,7 +477,7 @@ export class RunController {
 		const pending = this.state.improvements;
 		if (!pending || pending.state !== 'pending') return;
 		if (choice === 'keep') {
-			this.update({status: 'done', improvements: {...pending, state: 'kept'}});
+			this.update({status: 'done', improvements: {...pending, state: 'kept'}}, {who: 'pirl', text: 'Giữ cải tiến, chưa commit. Xong', tone: 'success'});
 			return;
 		}
 		const result =
@@ -406,7 +488,10 @@ export class RunController {
 			this.update({improvements: {...pending, error: result.error ?? 'lỗi không rõ'}});
 			return;
 		}
-		this.update({status: 'done', improvements: {files: pending.files, state: choice === 'commit' ? 'committed' : 'discarded'}});
+		this.update(
+			{status: 'done', improvements: {files: pending.files, state: choice === 'commit' ? 'committed' : 'discarded'}},
+			{who: 'pirl', text: `${choice === 'commit' ? 'Đã commit' : 'Đã bỏ'} ${pending.files.length} file cải tiến. Xong`, tone: 'success'},
+		);
 	}
 
 	/** Task ID and title of the Plan file this run produced or worked on, for the run block. */
@@ -417,3 +502,20 @@ export class RunController {
 		return `${fields['task_id'] ?? ''} ${fields['title'] ?? ''}`.trim() || null;
 	}
 }
+
+const TERMINAL: RunStatus[] = ['done', 'failed', 'stopped'];
+
+/** mm:ss since the run started, or h:mm:ss after an hour. */
+export function formatElapsed(ms: number): string {
+	const total = Math.max(0, Math.floor(ms / 1000));
+	const hours = Math.floor(total / 3600);
+	const minutes = Math.floor((total % 3600) / 60);
+	const seconds = total % 60;
+	const two = (value: number) => String(value).padStart(2, '0');
+	return hours > 0 ? `${hours}:${two(minutes)}:${two(seconds)}` : `${two(minutes)}:${two(seconds)}`;
+}
+
+const logStamp = (date: Date) => {
+	const two = (value: number) => String(value).padStart(2, '0');
+	return `${date.getFullYear()}${two(date.getMonth() + 1)}${two(date.getDate())}-${two(date.getHours())}${two(date.getMinutes())}${two(date.getSeconds())}`;
+};

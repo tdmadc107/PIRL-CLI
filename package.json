@@ -20,7 +20,7 @@
   "scripts": {
     "bundle-framework": "node scripts/bundle-framework.mjs",
     "build": "npm run bundle-framework && tsc -p tsconfig.build.json",
-    "dev": "npm run bundle-framework && tsx src/bin/pirl.tsx",
+    "dev": "npm run bundle-framework && tsx src/bin/pirl.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run bundle-framework && vitest run",
     "prepack": "npm run build",

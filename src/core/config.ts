@@ -14,6 +14,8 @@ export type Config = {
 	/** Accent, prompt and border colors (src/ui/theme.ts, COLOR_SCHEMES). */
 	colors: ColorScheme;
 	glyphs: GlyphSetting;
+	/** Spinner while a run works; off leaves a still glyph and updates the clock once a second. */
+	motion: boolean;
 	/** How many independent roles of one layer run may call the provider at the same time. */
 	maxParallelRoles: number;
 };
@@ -23,6 +25,7 @@ export const DEFAULT_CONFIG: Config = {
 	theme: 'auto',
 	colors: 'pirl',
 	glyphs: 'auto',
+	motion: true,
 	maxParallelRoles: 2,
 };
 
@@ -40,6 +43,7 @@ export function normalizeConfig(raw: unknown): Config {
 		theme: oneOf(data['theme'], ['auto', 'dark', 'light'] as const, DEFAULT_CONFIG.theme),
 		colors: oneOf(data['colors'], COLOR_SCHEME_IDS, DEFAULT_CONFIG.colors),
 		glyphs: oneOf(data['glyphs'], ['auto', 'unicode', 'ascii'] as const, DEFAULT_CONFIG.glyphs),
+		motion: typeof data['motion'] === 'boolean' ? data['motion'] : DEFAULT_CONFIG.motion,
 		maxParallelRoles:
 			typeof parallel === 'number' && Number.isInteger(parallel) && parallel >= PARALLEL_LIMITS.min && parallel <= PARALLEL_LIMITS.max
 				? parallel

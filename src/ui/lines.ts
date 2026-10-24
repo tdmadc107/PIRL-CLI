@@ -12,6 +12,11 @@ export type Span = {
 	bold?: boolean;
 	dim?: boolean;
 	inverse?: boolean;
+	/**
+	 * A cell that moves on its own: the spinner, or the time since `since`. `text` holds a placeholder of the
+	 * same width for layout; the component that draws it subscribes to the shared ticker (src/ui/ticker.ts).
+	 */
+	live?: {kind: 'spinner'; frames: readonly string[]} | {kind: 'clock'; since: number};
 };
 export type Line = Span[];
 

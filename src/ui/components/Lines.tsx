@@ -1,14 +1,24 @@
 import {Box, Text} from 'ink';
+import {formatElapsed} from '../../engine/run.js';
 import type {Line, Span} from '../lines.js';
+import {SPINNER_MS, useNow} from '../ticker.js';
 import type {Theme} from '../theme.js';
 
 export function SpanText({span, theme}: {span: Span; theme: Theme}) {
+	if (span.live) return <LiveText span={span} live={span.live} theme={theme} />;
 	const color = span.role ? theme.role(span.role) : span.color ? theme.fg(span.color) : undefined;
 	return (
 		<Text color={color} bold={span.bold} dimColor={span.dim} inverse={span.inverse}>
 			{span.text}
 		</Text>
 	);
+}
+
+/** Redrawn on every tick by itself; the rest of the screen is left alone. */
+function LiveText({span, live, theme}: {span: Span; live: NonNullable<Span['live']>; theme: Theme}) {
+	const now = useNow();
+	const text = live.kind === 'spinner' ? live.frames[Math.floor(now / SPINNER_MS) % live.frames.length]! : formatElapsed(now - live.since);
+	return <SpanText span={{...span, live: undefined, text}} theme={theme} />;
 }
 
 /** Draws lines that were already laid out for this width; each line is exactly one terminal row. */

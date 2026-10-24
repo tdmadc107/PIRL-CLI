@@ -1,4 +1,4 @@
-import {Box, useApp, useInput, usePaste, useWindowSize} from 'ink';
+import {Box, useApp, useInput, usePaste, useWindowSize, type Key} from 'ink';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {dispatch, type Effect, type OverlayKind} from '../commands/dispatch.js';
 import {parseInput, suggestCommands} from '../commands/registry.js';
@@ -26,7 +26,8 @@ import {Frame, SidePanel, statusLine, TooSmall} from './components/Panels.js';
 import {backspace, emptyEditor, insert, move, setValue, type EditorState} from './inputEditor.js';
 import {computeLayout} from './layout.js';
 import type {Line} from './lines.js';
-import {IMPROVEMENT_CHOICES, STATUS_LABELS, type Interaction} from './runView.js';
+import {clockSpan, IMPROVEMENT_CHOICES, isActive, spinnerSpan, STATUS_LABELS, type Interaction, type Live} from './runView.js';
+import {SPINNER_MS, setTickInterval} from './ticker.js';
 import type {DoctorState, Message, NewMessage, Services, SessionInfo, StartupNote} from './session.js';
 import {createTheme} from './theme.js';
 
@@ -59,6 +60,8 @@ function readySummary(report: DoctorReport): string {
 }
 
 const ACTIVE: RunState['status'][] = ['running', 'checking'];
+/** Longest wait before a run's new state is drawn. */
+const FLUSH_MS = 100;
 /** Shift+Enter as xterm's modifyOtherKeys reports it, which Ink does not parse: ESC [27;<mod>;13~ */
 const MODIFIED_ENTER = /^\[27;\d+;13~$/;
 
@@ -183,7 +186,35 @@ export function App(props: AppProps) {
 	const layout = computeLayout(columns, rows);
 	const bodyWidth = layout.kind === 'ok' ? columns - layout.sidePanel : columns;
 	const chatWidth = Math.max(1, bodyWidth - 2);
-	const transcript = useMemo(() => transcriptLines(messages, chatWidth, theme, {runs, interaction}), [messages, chatWidth, theme, runs, interaction]);
+	// The spinner and the clock are cells that redraw themselves from the shared ticker (src/ui/ticker.ts);
+	// a tick never re-renders the App. With motion off only the clock moves, once a second.
+	useEffect(() => setTickInterval(config.motion ? SPINNER_MS : 1000), [config.motion]);
+	const live: Live = {motion: config.motion, showLog: layout.kind === 'ok' && layout.sidePanel === 0};
+
+	// Each message is laid out once per change of what it shows: a finished run or a note is not laid out again
+	// when the spinner moves or another run streams events. Only the working run's block is redone.
+	const lineCache = useRef(new Map<number, {key: unknown[]; lines: Line[]}>());
+	const transcript = (() => {
+		const lines: Line[] = [];
+		const seen = new Set<number>();
+		for (const message of messages) {
+			seen.add(message.id);
+			const run = message.kind === 'run' ? runs[message.runId] : undefined;
+			const ownInteraction = run && interaction?.runId === run.id ? interaction : null;
+			const key: unknown[] = [chatWidth, theme, run, ownInteraction?.kind, ownInteraction?.selected, ownInteraction?.kind === 'question' ? ownInteraction.index : null];
+			if (run && isActive(run)) key.push(live.motion, live.showLog);
+			const cached = lineCache.current.get(message.id);
+			let messageLines = cached && cached.key.length === key.length && cached.key.every((value, index) => value === key[index]) ? cached.lines : null;
+			if (!messageLines) {
+				messageLines = transcriptLines([message], chatWidth, theme, {runs, interaction: ownInteraction, live});
+				lineCache.current.set(message.id, {key, lines: messageLines});
+			}
+			if (lines.length > 0) lines.push([]);
+			lines.push(...messageLines);
+		}
+		for (const id of lineCache.current.keys()) if (!seen.has(id)) lineCache.current.delete(id);
+		return lines;
+	})();
 
 	const overlayLines = (): Line[] => {
 		const inner = bodyWidth - 4;
@@ -208,6 +239,18 @@ export function App(props: AppProps) {
 
 	// ---------- runs ----------
 
+	const pendingRuns = useRef(new Map<number, RunState>());
+	const flushTimer = useRef<NodeJS.Timeout | null>(null);
+	const flushRuns = () => {
+		if (flushTimer.current) clearTimeout(flushTimer.current);
+		flushTimer.current = null;
+		if (pendingRuns.current.size === 0) return;
+		const updates = Object.fromEntries(pendingRuns.current);
+		pendingRuns.current.clear();
+		setRuns(current => ({...current, ...updates}));
+	};
+	useEffect(() => () => void (flushTimer.current && clearTimeout(flushTimer.current)), []);
+
 	const watch = (controller: RunController) => {
 		const id = controller.state.id;
 		controllers.current.set(id, controller);
@@ -216,8 +259,17 @@ export function App(props: AppProps) {
 		setLastRunId(id);
 		setAnswers([]);
 		let savedAs = '';
+		let lastStatus = controller.state.status;
 		controller.subscribe(state => {
-			setRuns(current => ({...current, [id]: state}));
+			// Busy runs report many events per second; drawing each one would keep a CPU core busy for nothing.
+			// The state is handed to React at most every FLUSH_MS, and at once when the status changes.
+			pendingRuns.current.set(id, state);
+			if (state.status !== lastStatus) {
+				lastStatus = state.status;
+				flushRuns();
+			} else if (!flushTimer.current) {
+				flushTimer.current = setTimeout(flushRuns, FLUSH_MS);
+			}
 			if (state.kind === 'chat') {
 				if (state.sessionId) chatSession.current = state.sessionId;
 				if (state.suggestion && state.status !== 'running') setEditor(setValue(state.suggestion));
@@ -415,13 +467,16 @@ export function App(props: AppProps) {
 		if (spec) setEditor(setValue(`/${spec.name}${spec.takesRequest ? ' ' : ''}`));
 	};
 
+	// The run Ctrl+C has already asked to stop; a second Ctrl+C while it is still stopping closes the TUI.
+	const stopRequested = useRef<number | null>(null);
 	const stopActive = () => {
-		if (activeRunId === null) return false;
+		if (activeRunId === null || stopRequested.current === activeRunId) return false;
+		stopRequested.current = activeRunId;
 		controllers.current.get(activeRunId)?.stop();
 		return true;
 	};
 
-	useInput((input, key) => {
+	const handleKey = (input: string, key: Key) => {
 		const editor = editorRef.current;
 		if (key.ctrl && input === 'c') {
 			if (!stopActive()) exit();
@@ -527,6 +582,19 @@ export function App(props: AppProps) {
 		else if (key.end || (key.ctrl && input === 'e')) setEditor(move(editor, 'end'));
 		else if (key.ctrl && input === 'u') setEditor(emptyEditor);
 		else if (input && !key.ctrl && !key.meta) setEditor(insert(editor, input));
+	};
+
+	useInput((input, key) => {
+		// Typed text and Enter can reach the TUI in one chunk (fast typing, an input method, SSH). Ink passes such a
+		// chunk on as text, which would turn Enter into a new line; split it so each Enter acts as the key.
+		if (input.length > 1 && input.includes('\r') && !key.ctrl && !key.meta) {
+			input.split('\r').forEach((part, index) => {
+				if (index > 0) handleKey('\r', {...key, return: true});
+				if (part) handleKey(part, key);
+			});
+			return;
+		}
+		handleKey(input, key);
 	});
 
 	usePaste(text => {
@@ -560,7 +628,13 @@ export function App(props: AppProps) {
 	const totals = Object.values(runs).reduce((sum, run) => ({calls: sum.calls + run.usage.calls, tokens: sum.tokens + run.usage.inputTokens + run.usage.outputTokens}), {calls: 0, tokens: 0});
 	const usage = totals.tokens > 0 ? `${totals.calls} lượt gọi ${g.sep} ${totals.tokens.toLocaleString('vi-VN')} token` : `${totals.calls} lượt gọi`;
 	const runText = activeRun ? `${LAYER_LABELS[activeRun.kind]}: ${STATUS_LABELS[activeRun.status]}` : doctor.state === 'running' ? 'đang kiểm tra môi trường' : 'không có run';
-	const status = statusLine({usage, run: runText, hints}, layout.status, columns, theme);
+	const runWorking = activeRun !== null && isActive(activeRun);
+	const status = statusLine(
+		{usage, run: runText, hints, spinner: runWorking ? spinnerSpan(theme, config.motion, {color: 'accent'}) : undefined, clock: runWorking ? clockSpan(activeRun!.startedAt) : undefined},
+		layout.status,
+		columns,
+		theme,
+	);
 
 	return (
 		<Box flexDirection="column" width={columns} height={rows}>
@@ -582,7 +656,7 @@ export function App(props: AppProps) {
 						<Lines lines={chatLines} theme={theme} />
 					</Box>
 				)}
-				{layout.sidePanel > 0 && <SidePanel info={props.info} provider={provider} run={panelRun} width={layout.sidePanel} height={bodyHeight} theme={theme} />}
+				{layout.sidePanel > 0 && <SidePanel info={props.info} provider={provider} run={panelRun} live={live} width={layout.sidePanel} height={bodyHeight} theme={theme} />}
 			</Box>
 			<InputBox editor={editor} columns={columns} maxLines={layout.inputMaxLines} theme={theme} focused={!overlay} placeholder={interaction ? (interaction.kind === 'question' ? 'Nhập câu trả lời, hoặc Enter để chọn mục đang trỏ' : 'Enter để chọn mục đang trỏ, hoặc gõ 1–3') : undefined} />
 			{paletteShown > 0 && <Lines lines={paletteLines(suggestions, paletteIndex, paletteShown, columns, theme)} theme={theme} />}

@@ -1,8 +1,9 @@
 import {mkdtempSync, rmSync, writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
+import type {ChildProcess} from 'node:child_process';
 import spawn from 'cross-spawn';
-import {parseStreamLine} from './claudeStream.js';
+import {createStreamParser} from './claudeStream.js';
 import type {AgentRunner, AgentRunRequest, RunEvent, RunHandle} from './types.js';
 
 /**
@@ -34,6 +35,12 @@ export function claudeArgs(request: AgentRunRequest, files: {systemPrompt: strin
 	];
 }
 
+/** Provider processes still running; ended when PIRL CLI exits so none keeps working unseen. */
+const running = new Set<ChildProcess>();
+process.once('exit', () => {
+	for (const child of running) child.kill('SIGTERM');
+});
+
 export function createClaudeRunner(command = 'claude'): AgentRunner {
 	return {
 		start(request, onEvent): RunHandle {
@@ -48,6 +55,9 @@ export function createClaudeRunner(command = 'claude'): AgentRunner {
 				stdio: ['pipe', 'pipe', 'pipe'],
 				windowsHide: true,
 			});
+			const parseStreamLine = createStreamParser();
+			running.add(child);
+			child.once('close', () => running.delete(child));
 			let buffer = '';
 			let stderr = '';
 			const emit = (event: RunEvent) => {

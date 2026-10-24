@@ -8,7 +8,7 @@ import type {RunState} from '../engine/run.js';
 import type {Check, CheckState} from '../doctor/doctor.js';
 import {PROVIDERS} from '../providers/index.js';
 import {blank, hanging, type Line, type Span} from './lines.js';
-import {runLines, type Interaction} from './runView.js';
+import {runLines, type Interaction, type Live} from './runView.js';
 import type {DoctorState, Message, SessionInfo} from './session.js';
 import {padEnd, truncateMiddle, width} from './text.js';
 import {COLOR_SCHEMES, type ColorToken, type Theme} from './theme.js';
@@ -43,7 +43,7 @@ function definitionList(items: Array<{term: string; description: string}>, colum
 
 const commandItems = (commands: readonly CommandSpec[]) => commands.map(spec => ({term: commandUsage(spec), description: spec.summary}));
 
-export type TranscriptContext = {runs: Record<number, RunState>; interaction: Interaction | null};
+export type TranscriptContext = {runs: Record<number, RunState>; interaction: Interaction | null; live?: Live};
 
 export function messageLines(message: Message, columns: number, theme: Theme, context: TranscriptContext = {runs: {}, interaction: null}): Line[] {
 	const g = theme.glyphs;
@@ -62,7 +62,7 @@ export function messageLines(message: Message, columns: number, theme: Theme, co
 			return hanging([{text: `${g.prompt} `, color: 'user', bold: true}], message.text, columns, {bold: true});
 		case 'run': {
 			const run = context.runs[message.runId];
-			return run ? runLines(run, columns, theme, context.interaction) : [];
+			return run ? runLines(run, columns, theme, context.interaction, context.live) : [];
 		}
 		case 'note': {
 			const tone = TONE[message.tone];
@@ -166,7 +166,7 @@ export function frameworkLines(info: SessionInfo, columns: number, theme: Theme)
 	return lines;
 }
 
-export type SettingsRow = {key: 'provider' | 'theme' | 'colors' | 'glyphs' | 'maxParallelRoles'; label: string; value: string; note?: string};
+export type SettingsRow = {key: 'provider' | 'theme' | 'colors' | 'glyphs' | 'motion' | 'maxParallelRoles'; label: string; value: string; note?: string};
 
 export function settingsRows(config: Config): SettingsRow[] {
 	const provider = PROVIDERS.find(p => p.id === config.provider);
@@ -176,6 +176,7 @@ export function settingsRows(config: Config): SettingsRow[] {
 		{key: 'theme', label: 'Giao diện', value: {auto: 'Tự nhận theo terminal', dark: 'Nền tối', light: 'Nền sáng'}[config.theme]},
 		{key: 'colors', label: 'Bảng màu', value: COLOR_SCHEMES[config.colors].label, note: 'Đổi màu nhấn, màu lời nhập và màu viền; màu báo thành công, cảnh báo, lỗi giữ nguyên'},
 		{key: 'glyphs', label: 'Ký hiệu', value: {auto: 'Tự nhận theo terminal', unicode: 'Unicode', ascii: 'ASCII'}[config.glyphs]},
+		{key: 'motion', label: 'Hiệu ứng chuyển động', value: config.motion ? 'Bật' : 'Tắt', note: 'Spinner khi run đang chạy; tắt nếu terminal chậm hoặc bạn không thích chuyển động'},
 		{
 			key: 'maxParallelRoles',
 			label: 'Role chạy song song',
@@ -198,6 +199,8 @@ export function cycleSetting(config: Config, key: SettingsRow['key'], step: 1 | 
 			return {...config, colors: cycle(COLOR_SCHEME_IDS, config.colors)};
 		case 'glyphs':
 			return {...config, glyphs: cycle(['auto', 'unicode', 'ascii'] as const, config.glyphs)};
+		case 'motion':
+			return {...config, motion: !config.motion};
 		case 'maxParallelRoles': {
 			const next = config.maxParallelRoles + step;
 			return {...config, maxParallelRoles: Math.min(PARALLEL_LIMITS.max, Math.max(PARALLEL_LIMITS.min, next))};

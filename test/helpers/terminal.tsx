@@ -62,7 +62,7 @@ export const KEYS = {
 
 export const tick = (ms = 30) => new Promise(resolve => setTimeout(resolve, ms));
 
-export function renderTerminal(element: ReactElement, columns: number, rows: number) {
+export function renderTerminal(element: ReactElement, columns: number, rows: number, options: {onRender?: (metrics: {renderTime: number}) => void} = {}) {
 	const stdout = new FakeStdout(columns, rows);
 	const stdin = new FakeStdin();
 	const instance = render(element, {
@@ -72,6 +72,7 @@ export function renderTerminal(element: ReactElement, columns: number, rows: num
 		interactive: true,
 		exitOnCtrlC: false,
 		patchConsole: false,
+		onRender: options.onRender,
 	});
 	return {
 		stdout,

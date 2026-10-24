@@ -154,6 +154,27 @@ describe('layer runs in the TUI', () => {
 		expect(exited).toBe(true);
 	});
 
+	test('a second Ctrl+C closes the TUI even when the provider is slow to stop', async () => {
+		// A provider that ignores the stop request: the run stays "running" after the first Ctrl+C.
+		const {hub, target} = await hubAndTarget();
+		const stuck = {start: () => ({done: new Promise<{code: number | null; stderr: string}>(() => {}), stop: () => {}})};
+		const base = appProps({info: sessionInfo({target: {kind: 'git', root: target, name: 'shop', branch: 'main'}, hub: {path: hub, upstreamTag: 'fw-1.0.0', localImprovements: 0, uncommitted: [], updateAvailable: false, bundledVersion: '1.0.0', branch: 'main'}})});
+		const services: Services = {...base.props.services, startRun: options => new RunController({runner: stuck, hub, target, python: PYTHON, maxParallelRoles: 1}, options.id, options.kind, options.request)};
+		const terminal = renderTerminal(<App {...base.props} services={services} />, 100, 30);
+		open.push(terminal);
+		await tick(60);
+		let exited = false;
+		void terminal.instance.waitUntilExit().then(() => (exited = true));
+		await terminal.type('/pirl-plan A');
+		await terminal.press(KEYS.enter);
+		await until(terminal, 'Plan · đang chạy');
+		await terminal.press('\u0003');
+		expect(exited).toBe(false);
+		await terminal.press('\u0003');
+		await tick();
+		expect(exited).toBe(true);
+	});
+
 	test('chat: the reply is shown, a layer request comes back as a prefilled command, the session continues', async () => {
 		const {terminal, calls} = await startWithRuns([
 			() => [{type: 'session', sessionId: 'chat-1'}, result('PIRL gồm ba layer.', 'chat-1')],
@@ -184,6 +205,57 @@ describe('layer runs in the TUI', () => {
 		await terminal.press(KEYS.enter);
 		expect(terminal.frame()).toContain('plan · ready');
 		expect(terminal.frame()).toContain('Plan cho email huỷ đơn');
+	});
+});
+
+describe('spinner and log', () => {
+	const busy: FakeScript = (_call, emit) => {
+		emit({type: 'session', sessionId: 's-1'});
+		emit({type: 'role-start', toolUseId: 'tu-1', role: 'code-analyst', description: 'Trace cancelOrder'});
+		emit({type: 'activity', agent: 'tu-1', text: 'Đọc src/orders/cancel.ts'});
+		emit({type: 'activity', agent: null, text: 'Chạy python3 -B .agents/evals/layer_record.py start'});
+		return new Promise(() => {});
+	};
+	const spinnerGlyph = (frame: string) => /([⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]) Plan · đang chạy/.exec(frame)?.[1];
+
+	test('the spinner turns and the clock runs while a run works', async () => {
+		const {terminal} = await startWithRuns([busy], {}, [100, 30]);
+		await terminal.type('/pirl-plan Email');
+		await terminal.press(KEYS.enter);
+		const first = spinnerGlyph(await until(terminal, /[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] Plan · đang chạy · 00:0\d/));
+		await tick(250);
+		expect(spinnerGlyph(terminal.frame())).not.toBe(first);
+		expect(terminal.frame()).toMatch(/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] Plan: đang chạy · 00:0\d/); // status bar
+	});
+
+	test('with motion off in /settings the glyph stays still', async () => {
+		const {terminal} = await startWithRuns([busy], {}, [100, 30]);
+		await terminal.type('/settings');
+		await terminal.press(KEYS.enter);
+		for (let i = 0; i < 4; i++) await terminal.press(KEYS.down);
+		await terminal.press(KEYS.right);
+		await until(terminal, 'Hiệu ứng chuyển động  ‹ Tắt ›');
+		await terminal.press(KEYS.escape);
+		await terminal.type('/pirl-plan Email');
+		await terminal.press(KEYS.enter);
+		await until(terminal, '▸ Plan · đang chạy');
+		await tick(250);
+		expect(terminal.frame()).toContain('▸ Plan · đang chạy');
+	});
+
+	test('wide windows show the log under Run in the side panel; narrower ones in the run block', async () => {
+		const wide = await startWithRuns([busy], {}, [160, 40]);
+		await wide.terminal.type('/pirl-plan Email');
+		await wide.terminal.press(KEYS.enter);
+		const frame = await until(wide.terminal, /00:0\d code-analyst\s+Đọc src\/orders\/cancel\.ts/);
+		expect(frame).toContain('Nhật ký');
+		expect(frame).toMatch(/00:0\d coordinator\s+Chạy python3/);
+		expect(frame).not.toContain('Nhật ký (');
+
+		const narrow = await startWithRuns([busy], {}, [100, 30]);
+		await narrow.terminal.type('/pirl-plan Email');
+		await narrow.terminal.press(KEYS.enter);
+		expect(await until(narrow.terminal, /code-analyst\s+Đọc src\/orders\/cancel\.ts/)).toMatch(/Nhật ký \(\d+ dòng\)/);
 	});
 });
 

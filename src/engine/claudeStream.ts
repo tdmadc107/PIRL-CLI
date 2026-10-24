@@ -38,7 +38,19 @@ export function describeTool(name: string, input: Record<string, unknown> = {}):
 	}
 }
 
-export function parseStreamLine(line: string): RunEvent[] {
+/**
+ * A parser for one run's stream. It remembers each tool call by id, so a denial, which Claude Code reports
+ * with the tool's name only, can say which command was refused.
+ */
+export function createStreamParser(): (line: string) => RunEvent[] {
+	const calls = new Map<string, string>();
+	return line => parseLine(line, calls);
+}
+
+/** One line on its own, without the calls seen before it. */
+export const parseStreamLine = (line: string) => parseLine(line, new Map());
+
+function parseLine(line: string, calls: Map<string, string>): RunEvent[] {
 	let data: Record<string, unknown>;
 	try {
 		data = JSON.parse(line) as Record<string, unknown>;
@@ -50,14 +62,21 @@ export function parseStreamLine(line: string): RunEvent[] {
 		const subtype = data['subtype'];
 		if (subtype === 'init' && typeof data['session_id'] === 'string') return [{type: 'session', sessionId: data['session_id']}];
 		if (subtype === 'api_retry') return [{type: 'retry', attempt: Number(data['attempt'] ?? 0), error: String(data['error'] ?? 'unknown')}];
-		if (subtype === 'permission_denied') return [{type: 'denied', detail: short(data['tool_name'] ?? data['message'] ?? JSON.stringify(data), 120)}];
+		if (subtype === 'permission_denied') {
+			const id = typeof data['tool_use_id'] === 'string' ? data['tool_use_id'] : null;
+			return [{type: 'denied', id, detail: (id && calls.get(id)) || short(data['tool_name'] ?? data['message'] ?? 'tool', 120)}];
+		}
 		return [];
 	}
 	if (type === 'result') {
 		const usage = (data['usage'] ?? {}) as Record<string, unknown>;
 		const denials = Array.isArray(data['permission_denials']) ? (data['permission_denials'] as Array<Record<string, unknown>>) : [];
 		return [
-			...denials.map(denial => ({type: 'denied' as const, detail: describeTool(String(denial['tool_name'] ?? ''), (denial['tool_input'] ?? {}) as Record<string, unknown>)})),
+			...denials.map(denial => ({
+				type: 'denied' as const,
+				id: typeof denial['tool_use_id'] === 'string' ? denial['tool_use_id'] : null,
+				detail: describeTool(String(denial['tool_name'] ?? ''), (denial['tool_input'] ?? {}) as Record<string, unknown>),
+			})),
 			{
 				type: 'result',
 				// A failed run has no `result`; its reasons are in `errors`.
@@ -86,7 +105,9 @@ export function parseStreamLine(line: string): RunEvent[] {
 					description: short(block.input?.['description'] ?? '', 100),
 				});
 			} else {
-				events.push({type: 'activity', agent: parent, text: describeTool(block.name, block.input)});
+				const text = describeTool(block.name, block.input);
+				if (block.id) calls.set(block.id, text);
+				events.push({type: 'activity', agent: parent, text});
 			}
 		} else if (type === 'assistant' && block.type === 'text' && block.text && parent === null) {
 			events.push({type: 'text', text: block.text});

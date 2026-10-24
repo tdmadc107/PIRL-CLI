@@ -3,11 +3,11 @@ import {join} from 'node:path';
 import {afterEach, describe, expect, test} from 'vitest';
 import {readRoleCatalog, roleAgents} from '../src/engine/agents.js';
 import {claudeArgs} from '../src/engine/claudeRunner.js';
-import {describeTool, parseStreamLine} from '../src/engine/claudeStream.js';
+import {createStreamParser, describeTool, parseStreamLine} from '../src/engine/claudeStream.js';
 import {allowedPaths, outsideAllowed, readPlanPackages, readRecords, sameRepo} from '../src/engine/hubData.js';
 import {permissionsFor, ruleRoot} from '../src/engine/permissions.js';
 import {answersMessage, hostInstructions, parseOutputs, parseQuestions, parseSuggestion, stripBlocks} from '../src/engine/protocol.js';
-import {RunController} from '../src/engine/run.js';
+import {formatElapsed, LOG_LIMIT, RunController} from '../src/engine/run.js';
 import {loadRun, resumable, saveRun} from '../src/engine/runStore.js';
 import {cleanupTemp, fakeRunner, git, hubAndTarget, outputsBlock, PYTHON, result, tempDir, writePlan, writeRecord} from './helpers/hub.js';
 
@@ -42,9 +42,19 @@ describe('Claude Code stream-json', () => {
 				}),
 			),
 		).toEqual([
-			{type: 'denied', detail: 'Chạy git commit -m x'},
+			{type: 'denied', id: null, detail: 'Chạy git commit -m x'},
 			{type: 'result', text: 'Xong', isError: false, sessionId: 's-1', usage: {inputTokens: 100, outputTokens: 5}},
 		]);
+	});
+
+	test('a denial names the refused command, which Claude Code only gives in the earlier tool call', () => {
+		const parse = createStreamParser();
+		parse(JSON.stringify({type: 'assistant', parent_tool_use_id: 'tu-1', message: {content: [{type: 'tool_use', id: 'b-7', name: 'Bash', input: {command: 'mkdir -p /tmp/x'}}]}}));
+		expect(parse('{"type":"system","subtype":"permission_denied","tool_name":"Bash","tool_use_id":"b-7","message":"denied"}')).toEqual([
+			{type: 'denied', id: 'b-7', detail: 'Chạy mkdir -p /tmp/x'},
+		]);
+		// Without the earlier call (another parser), only the tool name is known.
+		expect(parseStreamLine('{"type":"system","subtype":"permission_denied","tool_name":"Bash","tool_use_id":"b-7"}')).toEqual([{type: 'denied', id: 'b-7', detail: 'Bash'}]);
 	});
 
 	test('the old Task tool name, errors and junk lines', () => {
@@ -323,6 +333,37 @@ describe('RunController', () => {
 		await started;
 		expect(run.state.status).toBe('stopped');
 		expect(run.persisted()).toMatchObject({kind: 'plan', request: 'Email', status: 'stopped'});
+	});
+
+	test('the log: bounded in memory, complete in the log file, and a refusal reported twice counts once', async () => {
+		const {hub, target} = await hubAndTarget();
+		const logDir = tempDir();
+		let clock = 1_000_000;
+		const {runner} = fakeRunner([
+			(_call, emit) => {
+				emit({type: 'role-start', toolUseId: 'tu-1', role: 'code-analyst', description: 'Trace'});
+				for (let i = 0; i < LOG_LIMIT + 50; i++) {
+					clock += 1000;
+					emit({type: 'activity', agent: 'tu-1', text: `Đọc file-${i}.ts`});
+				}
+				emit({type: 'denied', id: 'b-1', detail: 'Chạy mkdir -p /tmp/x'});
+				emit({type: 'denied', id: 'b-1', detail: 'Chạy mkdir -p /tmp/x'});
+				return [result('Xong.')];
+			},
+		]);
+		const run = new RunController({...deps(hub, target, runner), logDir, now: () => clock}, 3, 'chat', 'Hỏi');
+		await run.start();
+		expect(run.state.denials).toEqual(['Chạy mkdir -p /tmp/x']);
+		expect(run.state.log).toHaveLength(LOG_LIMIT);
+		expect(run.state.logCount).toBeGreaterThan(LOG_LIMIT + 50);
+		expect(run.state.log.at(-1)).toMatchObject({who: 'pirl', text: 'Xong', tone: 'success'});
+		expect(run.state.log.some(entry => entry.who === 'code-analyst' && entry.text === `Đọc file-${LOG_LIMIT + 49}.ts`)).toBe(true);
+		await new Promise(resolve => setTimeout(resolve, 50));
+		const file = readFileSync(run.state.logFile!, 'utf8').trim().split('\n');
+		expect(file).toHaveLength(run.state.logCount);
+		expect(file[0]).toMatch(/^00:00 pirl\s+Bắt đầu Chat: Hỏi$/);
+		expect(file.some(line => /^\d\d:\d\d code-analyst\s+Đọc file-0\.ts$/.test(line))).toBe(true);
+		expect(formatElapsed(3_725_000)).toBe('1:02:05');
 	});
 
 	test('a provider error fails the run with its message', async () => {

@@ -16,7 +16,8 @@ export type RunEvent =
 	| {type: 'activity'; agent: string | null; text: string}
 	| {type: 'text'; text: string}
 	| {type: 'retry'; attempt: number; error: string}
-	| {type: 'denied'; detail: string}
+	/** A refused tool call; `id` is its tool_use_id when known, so the same refusal reported twice counts once. */
+	| {type: 'denied'; id: string | null; detail: string}
 	| {
 			type: 'result';
 			text: string;

@@ -37,11 +37,12 @@ describe('config', () => {
 	});
 
 	test('invalid fields fall back one by one; valid ones are kept', () => {
-		expect(normalizeConfig({provider: 'codex', theme: 'neon', colors: 'forest', glyphs: 'ascii', maxParallelRoles: 9})).toEqual({
+		expect(normalizeConfig({provider: 'codex', theme: 'neon', colors: 'forest', glyphs: 'ascii', motion: 'yes', maxParallelRoles: 9})).toEqual({
 			provider: 'codex',
 			theme: 'auto',
 			colors: 'forest',
 			glyphs: 'ascii',
+			motion: true,
 			maxParallelRoles: DEFAULT_CONFIG.maxParallelRoles,
 		});
 	});

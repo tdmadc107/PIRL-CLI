@@ -2,7 +2,7 @@ import {Box} from 'ink';
 import {blank, hanging, type Line, type Span} from '../lines.js';
 import {displayPath} from '../../core/paths.js';
 import type {RunState} from '../../engine/run.js';
-import {runPanelLines} from '../runView.js';
+import {runPanelLines, type Live} from '../runView.js';
 import type {SessionInfo} from '../session.js';
 import {padEnd, truncateEnd, truncateMiddle, width} from '../text.js';
 import type {Theme} from '../theme.js';
@@ -50,7 +50,7 @@ export function Frame(props: {
 	);
 }
 
-export function sidePanelLines(info: SessionInfo, provider: ProviderBadge, columns: number, theme: Theme, run: RunState | null = null): Line[] {
+export function sidePanelLines(info: SessionInfo, provider: ProviderBadge, columns: number, theme: Theme, run: RunState | null = null, live?: Live, rows = 0): Line[] {
 	const g = theme.glyphs;
 	const labelWidth = 11;
 	const row = (label: string, value: string, extra: Partial<Span> = {}): Line[] => {
@@ -60,7 +60,7 @@ export function sidePanelLines(info: SessionInfo, provider: ProviderBadge, colum
 	const target = info.target;
 	const providerTone = {ok: 'success', warn: 'warning', fail: 'danger', checking: 'muted'} as const;
 	const providerText = {ok: 'sẵn sàng', warn: 'cần kiểm tra', fail: 'chưa sẵn sàng', checking: 'đang kiểm tra'}[provider.state];
-	const lines: Line[] = [
+	const head: Line[] = [
 		...(target.kind === 'git'
 			? [...row('Repo', displayPath(target.root)), ...row('Nhánh', target.branch ?? '—')]
 			: row('Repo', target.reason, {color: 'warning'})),
@@ -68,16 +68,16 @@ export function sidePanelLines(info: SessionInfo, provider: ProviderBadge, colum
 		...row('Framework', info.hub ? `${info.hub.upstreamTag ?? '—'} · ${info.hub.localImprovements} cải tiến` : 'Hub lỗi', info.hub ? {} : {color: 'danger'}),
 		blank,
 		[{text: 'Run', bold: true}],
-		...runPanelLines(run, columns, theme),
 	];
-	return lines;
+	return [...head, ...runPanelLines(run, columns, theme, live, rows - head.length)];
 }
 
-export function SidePanel(props: {info: SessionInfo; provider: ProviderBadge; run: RunState | null; width: number; height: number; theme: Theme}) {
+export function SidePanel(props: {info: SessionInfo; provider: ProviderBadge; run: RunState | null; live?: Live; width: number; height: number; theme: Theme}) {
 	return (
 		<Frame
 			title="Phiên làm việc"
-			lines={sidePanelLines(props.info, props.provider, props.width - 4, props.theme, props.run)}
+			// Rows inside the frame: the height minus the two borders and the title row.
+			lines={sidePanelLines(props.info, props.provider, props.width - 4, props.theme, props.run, props.live, props.height - 3)}
 			width={props.width}
 			height={props.height}
 			theme={props.theme}
@@ -85,16 +85,26 @@ export function SidePanel(props: {info: SessionInfo; provider: ProviderBadge; ru
 	);
 }
 
-export type StatusParts = {usage: string; run: string; hints: string};
+export type StatusParts = {usage: string; run: string; hints: string; spinner?: Span; clock?: Span};
 
 export function statusLine(parts: StatusParts, mode: 'full' | 'usage' | 'single', columns: number, theme: Theme): Line {
 	const sep = ` ${theme.glyphs.sep} `;
 	if (mode === 'single') return [{text: truncateEnd(parts.usage, columns, theme.glyphs.ellipsis), dim: true}];
-	const left = mode === 'full' ? `${parts.usage}${sep}${parts.run}` : parts.usage;
-	if (mode === 'usage' || width(left) + width(parts.hints) + 2 > columns) {
-		return [{text: truncateEnd(left, columns, theme.glyphs.ellipsis), dim: true}];
+	const left: Span[] =
+		mode === 'full'
+			? [
+					{text: `${parts.usage}${sep}`, dim: true},
+					...(parts.spinner ? [parts.spinner, {text: ' '}] : []),
+					{text: parts.run, dim: true},
+					...(parts.clock ? [{text: sep, dim: true}, parts.clock] : []),
+				]
+			: [{text: parts.usage, dim: true}];
+	const leftWidth = left.reduce((sum, span) => sum + width(span.text), 0);
+	if (mode === 'usage' || leftWidth + width(parts.hints) + 2 > columns) {
+		if (leftWidth <= columns) return left;
+		return [{text: truncateEnd(mode === 'full' ? `${parts.usage}${sep}${parts.run}` : parts.usage, columns, theme.glyphs.ellipsis), dim: true}];
 	}
-	return [{text: left, dim: true}, {text: ' '.repeat(columns - width(left) - width(parts.hints))}, {text: parts.hints, dim: true}];
+	return [...left, {text: ' '.repeat(columns - leftWidth - width(parts.hints))}, {text: parts.hints, dim: true}];
 }
 
 export function TooSmall({columns, rows, theme}: {columns: number; rows: number; theme: Theme}) {

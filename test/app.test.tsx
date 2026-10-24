@@ -129,6 +129,16 @@ describe('input and command palette', () => {
 		expect(terminal.frame()).toContain('› Xin chào các bạn');
 	});
 
+	test('Enter that arrives in the same chunk as the text still sends it', async () => {
+		const {terminal} = await start(100, 30);
+		await terminal.press('/resume\r');
+		expect(terminal.frame()).toContain('› /resume');
+		expect(terminal.frame()).toContain('Không có run nào đang dở.');
+		await terminal.press('xin chào\rthêm');
+		expect(terminal.frame()).toContain('› xin chào');
+		expect(terminal.frame()).toContain('› thêm');
+	});
+
 	test('↑ recalls what was sent; Esc clears the input', async () => {
 		const {terminal} = await start(100, 30);
 		await terminal.type('/resume');

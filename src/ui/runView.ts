@@ -1,7 +1,9 @@
 import {basename} from 'node:path';
-import type {RunState, RunStatus} from '../engine/run.js';
+import {formatElapsed, type LogEntry, type RunState, type RunStatus} from '../engine/run.js';
+import {displayPath} from '../core/paths.js';
 import {LAYER_LABELS, type Question} from '../engine/types.js';
 import {blank, hanging, type Line, type Span} from './lines.js';
+import {padEnd, truncateEnd} from './text.js';
 import {ROLE_IDS, type RoleId, type Theme} from './theme.js';
 
 /** A decision the TUI is waiting for: a question from the coordinator, or what to do with framework improvements. */
@@ -72,29 +74,69 @@ export function nextStep(run: RunState): string | null {
 	return null;
 }
 
-export function runLines(run: RunState, columns: number, theme: Theme, interaction: Interaction | null): Line[] {
+/**
+ * What moves while a run works: the spinner frame and the clock. Kept apart from the run's state so the
+ * transcript cache can tell "only the spinner changed" from "the run changed".
+ */
+export type Live = {motion: boolean; showLog: boolean};
+
+/** The spinner cell: turning with motion on, a still glyph with motion off. */
+export const spinnerSpan = (theme: Theme, motion: boolean, extra: Partial<Span> = {}): Span =>
+	motion ? {text: theme.glyphs.spinner[0]!, live: {kind: 'spinner', frames: theme.glyphs.spinner}, ...extra} : {text: theme.glyphs.running, ...extra};
+
+/** Time since `since`, kept current by the ticker. */
+export const clockSpan = (since: number): Span => ({text: '00:00', dim: true, live: {kind: 'clock', since}});
+
+export const isActive = (run: RunState) => run.status === 'running' || run.status === 'checking';
+
+/** Lines of the run's log, newest last; each entry is one row, cut to the width so the cost never grows. */
+export function logLines(entries: LogEntry[], columns: number, theme: Theme): Line[] {
+	// Room for the longest role name (solution-architect, 18) plus a space, when the column allows it.
+	const whoWidth = Math.min(19, Math.max(8, Math.floor(columns * 0.4)));
+	return entries.map(entry => {
+		const who = entry.who === 'pirl' ? 'PIRL' : entry.who;
+		const whoSpan: Span = isRole(entry.who) ? {text: '', role: entry.who} : {text: '', dim: entry.who !== 'pirl', color: entry.who === 'pirl' ? 'accent' : undefined};
+		whoSpan.text = padEnd(truncateEnd(who, whoWidth - 1, theme.glyphs.ellipsis), whoWidth);
+		const room = Math.max(1, columns - 6 - whoWidth);
+		const tone = entry.tone === 'error' ? 'danger' : entry.tone;
+		return [{text: `${formatElapsed(entry.at)} `, dim: true}, whoSpan, {text: truncateEnd(entry.text, room, theme.glyphs.ellipsis), color: tone, dim: !tone}];
+	});
+}
+
+export function runLines(run: RunState, columns: number, theme: Theme, interaction: Interaction | null, live?: Live): Line[] {
 	const g = theme.glyphs;
 	const lines: Line[] = [];
-	const statusTone = run.status === 'failed' ? 'danger' : run.status === 'done' ? 'success' : run.status === 'stopped' ? 'muted' : run.status === 'running' || run.status === 'checking' ? 'accent' : 'warning';
-	const statusGlyph = run.status === 'done' ? g.ok : run.status === 'failed' ? g.fail : run.status === 'stopped' ? g.pending : run.status === 'waiting' || run.status === 'improvements' ? g.warn : g.running;
+	const active = isActive(run);
+	const motion = live?.motion ?? false;
+	const statusTone = run.status === 'failed' ? 'danger' : run.status === 'done' ? 'success' : run.status === 'stopped' ? 'muted' : active ? 'accent' : 'warning';
+	const statusGlyph = run.status === 'done' ? g.ok : run.status === 'failed' ? g.fail : run.status === 'stopped' ? g.pending : run.status === 'waiting' || run.status === 'improvements' ? g.warn : null;
+	const glyph: Span[] = [statusGlyph ? {text: statusGlyph, color: statusTone} : spinnerSpan(theme, motion, {color: statusTone}), {text: ' '}];
+	const clock: Span[] = active ? [{text: ` ${g.sep} `, dim: true}, clockSpan(run.startedAt)] : [];
 	if (run.kind !== 'chat') {
 		lines.push([
-			{text: `${statusGlyph} `, color: statusTone},
+			...glyph,
 			{text: LAYER_LABELS[run.kind], bold: true, color: 'accent'},
 			{text: ` ${g.sep} ${STATUS_LABELS[run.status]}`, color: statusTone},
+			...clock,
 		]);
 	} else if (run.status !== 'done') {
-		lines.push([{text: `${statusGlyph} `, color: statusTone}, {text: `PIRL ${g.sep} ${STATUS_LABELS[run.status]}`, color: statusTone}]);
+		lines.push([...glyph, {text: `PIRL ${g.sep} ${STATUS_LABELS[run.status]}`, color: statusTone}, ...clock]);
 	}
 
 	for (const role of run.roles) {
-		const glyph = role.state === 'running' ? g.running : role.state === 'done' ? g.ok : g.fail;
+		const tone = role.state === 'failed' ? 'danger' : role.state === 'done' ? 'success' : ('accent' as const);
+		const mark: Span = role.state === 'running' ? spinnerSpan(theme, motion, {color: tone}) : {text: role.state === 'done' ? g.ok : g.fail, color: tone};
 		const roleSpan: Span = isRole(role.role) ? {text: role.role, role: role.role, bold: true} : {text: role.role, bold: true};
-		lines.push(...hanging([{text: '  '}, {text: `${glyph} `, color: role.state === 'failed' ? 'danger' : role.state === 'done' ? 'success' : 'accent'}, roleSpan, {text: '  '}], role.description, columns, {dim: true}));
+		lines.push(...hanging([{text: '  '}, mark, {text: ' '}, roleSpan, {text: '  '}], role.description, columns, {dim: true}));
 		if (role.state === 'running' && role.activity) lines.push(...hanging([{text: '      '}], role.activity, columns, {dim: true}));
 	}
-	if ((run.status === 'running' || run.status === 'checking') && run.activity) {
-		lines.push(...hanging([{text: '  '}, {text: `${g.running} `, color: 'accent'}, {text: 'coordinator  ', dim: true}], run.activity, columns, {dim: true}));
+	if (active && run.activity) {
+		lines.push(...hanging([{text: '  '}, spinnerSpan(theme, motion, {color: 'accent'}), {text: ' '}, {text: 'coordinator  ', dim: true}], run.activity, columns, {dim: true}));
+	}
+	// Without the side panel, the newest log lines show here while the run works.
+	if (active && live?.showLog && run.log.length > 0) {
+		lines.push([{text: `  Nhật ký (${run.logCount} dòng)`, dim: true}]);
+		lines.push(...logLines(run.log.slice(-3), columns - 4, theme).map(line => [{text: '    '}, ...line]));
 	}
 
 	if (run.reply && (run.status !== 'running' || run.kind === 'chat')) {
@@ -126,7 +168,10 @@ export function runLines(run: RunState, columns: number, theme: Theme, interacti
 	}
 
 	if (run.denials.length > 0) {
-		lines.push(...hanging([{text: '  '}, {text: `${g.warn} `, color: 'warning'}], `Bị chặn theo quyền của run: ${run.denials.join('; ')}`, columns, {dim: true}));
+		// Refusals are the run's permissions working; the run goes on, and the coordinator reports what it could not do.
+		const shown = run.denials.slice(0, 3).join('; ');
+		const more = run.denials.length > 3 ? ` (và ${run.denials.length - 3} lệnh khác, xem nhật ký)` : '';
+		lines.push(...hanging([{text: '  '}, {text: `${g.info} `, color: 'muted'}], `Đã chặn ${run.denials.length} lệnh ngoài quyền của run, run vẫn tiếp tục: ${shown}${more}`, columns, {dim: true}));
 	}
 
 	const improvements = run.improvements;
@@ -167,24 +212,43 @@ export function runLines(run: RunState, columns: number, theme: Theme, interacti
 		lines.push(blank);
 		lines.push(...hanging([{text: '  '}, {text: 'Bước tiếp theo, khi bạn muốn: ', dim: true}], next, columns, {color: 'accent'}));
 	}
-	if (run.usage.calls > 0 && run.status !== 'running') {
+	if (run.usage.calls > 0 && !active) {
 		const tokens = run.usage.inputTokens + run.usage.outputTokens;
-		lines.push([{text: `  ${run.usage.calls} lượt gọi ${g.sep} ${tokens.toLocaleString('vi-VN')} token`, dim: true}]);
+		const took = run.log.length > 0 ? ` ${g.sep} ${formatElapsed(run.log.at(-1)!.at)}` : '';
+		lines.push([{text: `  ${run.usage.calls} lượt gọi ${g.sep} ${tokens.toLocaleString('vi-VN')} token${took}`, dim: true}]);
 	}
+	if (run.logFile && !active) lines.push(...hanging([{text: '  '}], `Nhật ký đầy đủ: ${displayPath(run.logFile)}`, columns, {dim: true}));
 	return lines;
 }
 
-/** Roles of the run for the side panel: one line each, the running role's activity under it. */
-export function runPanelLines(run: RunState | null, columns: number, theme: Theme): Line[] {
+/**
+ * The side panel's Run section: the run, its roles, then its log filling the rows left (`logRows`), newest last.
+ * Only the rows that fit are laid out, so a long log costs no more to draw than a short one.
+ */
+export function runPanelLines(run: RunState | null, columns: number, theme: Theme, live?: Live, logRows = 0): Line[] {
 	const g = theme.glyphs;
 	if (!run) return hanging([{text: `${g.pending} `, dim: true}], 'Chưa có run nào. Gõ /pirl-plan <request> để bắt đầu.', columns, {dim: true});
-	const lines: Line[] = [[{text: `${LAYER_LABELS[run.kind]} `, bold: true, color: 'accent'}, {text: STATUS_LABELS[run.status], dim: true}]];
-	if (run.roles.length === 0) lines.push(...hanging([{text: '  '}], run.status === 'running' ? 'Coordinator đang chuẩn bị…' : 'Không có role nào chạy.', columns, {dim: true}));
+	const active = isActive(run);
+	const motion = live?.motion ?? false;
+	const lines: Line[] = [
+		[
+			{text: `${LAYER_LABELS[run.kind]} `, bold: true, color: 'accent'},
+			{text: STATUS_LABELS[run.status], dim: true},
+			...(active ? [{text: ` ${g.sep} `, dim: true}, clockSpan(run.startedAt)] : []),
+		],
+	];
+	if (run.roles.length === 0) lines.push(...hanging([{text: '  '}], active ? 'Coordinator đang chuẩn bị…' : 'Không có role nào chạy.', columns, {dim: true}));
 	for (const role of run.roles) {
-		const glyph = role.state === 'running' ? g.running : role.state === 'done' ? g.ok : g.fail;
+		const tone = role.state === 'failed' ? 'danger' : role.state === 'done' ? 'success' : ('accent' as const);
+		const mark: Span = role.state === 'running' ? spinnerSpan(theme, motion, {color: tone}) : {text: role.state === 'done' ? g.ok : g.fail, color: tone};
 		const name: Span = isRole(role.role) ? {text: role.role, role: role.role} : {text: role.role};
-		lines.push([{text: `${glyph} `, color: role.state === 'failed' ? 'danger' : role.state === 'done' ? 'success' : 'accent'}, name]);
-		if (role.state === 'running' && role.activity) lines.push(...hanging([{text: '  '}], role.activity, columns, {dim: true}));
+		lines.push([mark, {text: ' '}, name]);
+	}
+	const rows = logRows - lines.length - 2;
+	if (rows > 0 && run.log.length > 0) {
+		const hidden = run.logCount - Math.min(rows, run.log.length);
+		lines.push(blank, [{text: 'Nhật ký', bold: true}, {text: hidden > 0 ? `  ${hidden} dòng trước` : '', dim: true}]);
+		lines.push(...logLines(run.log.slice(-rows), columns, theme));
 	}
 	return lines;
 }
