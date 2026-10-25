@@ -206,7 +206,7 @@ export function runLines(run: RunState, columns: number, theme: Theme, interacti
 		lines.push(...hanging([{text: '  '}, {text: 'Bước tiếp theo, khi bạn muốn: ', dim: true}], next, columns, {color: 'accent'}));
 	}
 	if (run.usage.calls > 0 && !active) {
-		const took = run.log.length > 0 ? ` ${g.sep} ${formatElapsed(run.log.at(-1)!.at)}` : '';
+		const took = run.lastAt > 0 ? ` ${g.sep} ${formatElapsed(run.lastAt)}` : '';
 		lines.push([{text: `  ${run.usage.calls} lượt gọi${took}`, dim: true}]);
 		for (const text of usageDetail(run.usage, g.sep)) lines.push(...hanging([{text: '  '}], text, columns, {dim: true}));
 		const quota = quotaText(run.quota, g.sep, g.arrow);

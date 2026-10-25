@@ -1,4 +1,4 @@
-import {existsSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs';
+import {mkdtempSync, rmSync, writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {exec as defaultExec, succeeded, type Exec} from '../core/exec.js';
@@ -266,7 +266,6 @@ export async function finishUpdate(
 	}
 }
 
-export const draftExists = (hub: string) => existsSync(draftDir(hub));
 
 /** A unified diff between two texts (null is an absent file), for showing what each side of a conflict changed. */
 export async function textDiff(from: string | null, to: string | null, exec: Exec = defaultExec): Promise<string> {

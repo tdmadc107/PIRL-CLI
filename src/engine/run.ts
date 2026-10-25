@@ -26,9 +26,6 @@ export type RunStatus = 'running' | 'waiting' | 'checking' | 'improvements' | 'd
 /** One line of the run's log; `at` is milliseconds since the run started, `who` a role, `coordinator` or `pirl`. */
 export type LogEntry = {at: number; who: string; text: string; tone?: 'success' | 'warning' | 'error'};
 
-/** Entries kept in memory for the TUI; the log file keeps every entry. Bounded so a long run costs the same to draw. */
-export const LOG_LIMIT = 200;
-
 export type RunState = {
 	id: number;
 	kind: RunKind;
@@ -54,10 +51,8 @@ export type RunState = {
 	error: string | null;
 	/** When the run started (epoch ms), for the elapsed time. */
 	startedAt: number;
-	/** The latest LOG_LIMIT entries, oldest first. */
-	log: LogEntry[];
-	/** Entries written since the start, including those no longer kept in `log`. */
-	logCount: number;
+	/** Milliseconds from the start to the latest log entry: how long the run took, once it ended. */
+	lastAt: number;
 	/** Where the whole log is written, when the run has a log directory. */
 	logFile: string | null;
 };
@@ -181,8 +176,7 @@ export class RunController {
 			quota: {before: null, after: null},
 			error: null,
 			startedAt,
-			log: [],
-			logCount: 0,
+			lastAt: 0,
 			logFile,
 		};
 		if (resume?.status === 'waiting' && resume.questions?.length) this.state.status = 'waiting';
@@ -220,7 +214,7 @@ export class RunController {
 	private update(patch: Partial<RunState>, entry?: Omit<LogEntry, 'at'>) {
 		if (entry) {
 			const line: LogEntry = {at: this.now() - this.state.startedAt, ...entry};
-			patch = {...patch, log: [...this.state.log.slice(-(LOG_LIMIT - 1)), line], logCount: this.state.logCount + 1};
+			patch = {...patch, lastAt: line.at};
 			this.writeLog(line);
 		}
 		this.state = {...this.state, ...patch};

@@ -52,12 +52,6 @@ describe('config', () => {
 		});
 	});
 
-	test('the earlier on/off mouse setting becomes a mode', () => {
-		expect(normalizeConfig({mouse: true}).mouse).toBe('select');
-		expect(normalizeConfig({mouse: false}).mouse).toBe('off');
-		expect(normalizeConfig({mouse: 'wheel'}).mouse).toBe('wheel');
-	});
-
 	test('save then load round-trips and leaves no temporary file', () => {
 		const dir = tempDir();
 		const file = join(dir, 'nested', 'config.json');

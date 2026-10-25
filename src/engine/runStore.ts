@@ -12,8 +12,6 @@ const KEEP = 20;
 
 const repoKey = (target: string) => createHash('sha1').update(target).digest('hex').slice(0, 16);
 const dirFor = (home: string, target: string) => join(home, 'sessions', repoKey(target));
-/** Before several runs were kept, a repository's last run was a single file; it becomes one entry of the list. */
-const legacyFile = (home: string, target: string) => join(home, 'sessions', `${repoKey(target)}.json`);
 const safeName = (key: string) => key.replace(/[^\w.-]/g, '_');
 
 export function saveRun(home: string, target: string, run: PersistedRun): void {
@@ -33,21 +31,8 @@ function prune(dir: string) {
 	for (const file of files.slice(KEEP)) rmSync(join(dir, file.name), {force: true});
 }
 
-function migrateLegacy(home: string, target: string) {
-	const legacy = legacyFile(home, target);
-	if (!existsSync(legacy)) return;
-	try {
-		const data = JSON.parse(readFileSync(legacy, 'utf8')) as Partial<PersistedRun>;
-		const dir = dirFor(home, target);
-		mkdirSync(dir, {recursive: true});
-		writeFileSync(join(dir, 'legacy.json'), JSON.stringify({...data, key: 'legacy'}, null, 2), 'utf8');
-	} catch {}
-	rmSync(legacy, {force: true});
-}
-
 /** The saved runs of `target`, newest first. */
 export function listRuns(home: string, target: string): PersistedRun[] {
-	migrateLegacy(home, target);
 	const dir = dirFor(home, target);
 	if (!existsSync(dir)) return [];
 	const runs: Array<PersistedRun & {mtime: number}> = [];
@@ -60,10 +45,6 @@ export function listRuns(home: string, target: string): PersistedRun[] {
 	return runs
 		.sort((a, b) => (Date.parse(b.savedAt ?? '') || b.mtime) - (Date.parse(a.savedAt ?? '') || a.mtime))
 		.map(({mtime: _mtime, ...run}) => run);
-}
-
-export function clearRun(home: string, target: string, key: string): void {
-	rmSync(join(dirFor(home, target), `${safeName(key)}.json`), {force: true});
 }
 
 /** A run /resume can continue: it was stopped, failed, or is waiting for answers, and has a provider session. */

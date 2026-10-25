@@ -1,5 +1,5 @@
 import {existsSync, readdirSync, readFileSync, rmSync, statSync} from 'node:fs';
-import {isAbsolute, join, relative, resolve} from 'node:path';
+import {isAbsolute, join, resolve} from 'node:path';
 import {exec as defaultExec, succeeded, type Exec} from '../core/exec.js';
 import {parsePorcelain} from '../hub/hub.js';
 import type {LayerKind} from './types.js';
@@ -198,4 +198,3 @@ export function outsideAllowed(changed: string[], allowed: string[]): string[] {
 	});
 }
 
-export const relativeTo = (base: string, path: string) => relative(base, path) || '.';

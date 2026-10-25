@@ -72,8 +72,7 @@ export function normalizeConfig(raw: unknown): Config {
 		colors: oneOf(data['colors'], COLOR_SCHEME_IDS, DEFAULT_CONFIG.colors),
 		glyphs: oneOf(data['glyphs'], ['auto', 'unicode', 'ascii'] as const, DEFAULT_CONFIG.glyphs),
 		motion: typeof data['motion'] === 'boolean' ? data['motion'] : DEFAULT_CONFIG.motion,
-		// Earlier versions stored on or off.
-		mouse: data['mouse'] === false ? 'off' : oneOf(data['mouse'], MOUSE_IDS, DEFAULT_CONFIG.mouse),
+		mouse: oneOf(data['mouse'], MOUSE_IDS, DEFAULT_CONFIG.mouse),
 		maxParallelRoles:
 			typeof parallel === 'number' && Number.isInteger(parallel) && parallel >= PARALLEL_LIMITS.min && parallel <= PARALLEL_LIMITS.max
 				? parallel
