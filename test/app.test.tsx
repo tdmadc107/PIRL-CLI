@@ -318,6 +318,35 @@ describe('startup check and panels', () => {
 		expect(terminal.frame()).not.toMatch(/[╭│✓]/);
 	});
 
+	test('switching the mouse setting back and forth keeps PIRL open and tells the terminal each time', async () => {
+		const modes: string[] = [];
+		const errors: unknown[] = [];
+		const {props, saved} = appProps();
+		// Like the real one, which writes to the terminal: process.stdout.write returns true.
+		const setMouse = (mode: string) => (modes.push(mode), true) as unknown as void;
+		const onError = (error: unknown) => void errors.push(error);
+		process.on('uncaughtException', onError);
+		try {
+			const terminal = renderTerminal(<App {...props} services={{...props.services, setMouse}} />, 100, 30);
+			open.push(terminal);
+			await tick(60);
+			await terminal.type('/settings');
+			await terminal.press(KEYS.enter);
+			for (let i = 0; i < 7; i++) await terminal.press(KEYS.down);
+			for (let i = 0; i < 3; i++) await terminal.press(KEYS.right);
+			await tick(60);
+			expect(errors).toEqual([]);
+			expect(modes).toEqual(['select', 'terminal', 'off', 'select']);
+			expect(saved.at(-1)).toMatchObject({mouse: 'select'});
+			expect(terminal.frame()).toContain('‹ Bôi đen tự do ›');
+			terminal.cleanup();
+			await tick(60);
+			expect(errors).toEqual([]);
+		} finally {
+			process.off('uncaughtException', onError);
+		}
+	});
+
 	test('the provider cannot be switched to one without an adapter', async () => {
 		const {terminal, saved} = await start(100, 30);
 		await terminal.type('/settings');

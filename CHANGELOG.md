@@ -25,6 +25,7 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Fixed
 
+- Changing the mouse setting in `/settings` no longer closes PIRL with "destroy is not a function".
 - Code blocks in replies keep their indentation; it was stripped, so code was shown, and would have been copied,
   flush left. Tabs are drawn as spaces to the next multiple of four instead of pushing the rest of the line out of
   place.

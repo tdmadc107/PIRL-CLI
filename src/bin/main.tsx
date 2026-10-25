@@ -116,7 +116,9 @@ async function main(): Promise<number> {
 				quota: () => (hub ? readClaudeQuota('claude', hub.path) : Promise.resolve(null)),
 				paths: () => paths.get(),
 				attach: text => attachmentContext(resolveMentions(text, attachBase, process.cwd()), [attachBase, ...(hub ? [hub.path] : [])]),
-				setMouse: mode => process.stdout.write(mouseSequence(mode)),
+				setMouse: mode => {
+					process.stdout.write(mouseSequence(mode));
+				},
 				cliUpdate: () => checkForUpdate({file: updateCheckFile(home), name: pkg.name, current: pkg.version}),
 				framework: hub && bundle ? frameworkServices(hub.path, bundle, runner, config => runModels(config).model) : undefined,
 			}}

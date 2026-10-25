@@ -264,8 +264,14 @@ export function App(props: AppProps) {
 	const chatWidth = Math.max(1, bodyWidth - 2);
 	// The spinner and the clock are cells that redraw themselves from the shared ticker (src/ui/ticker.ts);
 	// a tick never re-renders the App. With motion off only the clock moves, once a second.
-	useEffect(() => setTickInterval(config.motion ? SPINNER_MS : 1000), [config.motion]);
-	useEffect(() => props.services.setMouse?.(config.mouse), [config.mouse]);
+	// Effect bodies are blocks: React takes a returned value for the cleanup and calls it, and setMouse writes to
+	// the terminal, which returns true ("destroy is not a function" when the setting changed).
+	useEffect(() => {
+		setTickInterval(config.motion ? SPINNER_MS : 1000);
+	}, [config.motion]);
+	useEffect(() => {
+		props.services.setMouse?.(config.mouse);
+	}, [config.mouse]);
 	// A selection belongs to what was on screen: another panel, a new size or another mouse setting drops it.
 	useEffect(() => {
 		setSelection(null);
@@ -550,7 +556,9 @@ export function App(props: AppProps) {
 	// ---------- heights ----------
 	const palette = overlay || interaction ? null : paletteFor(editor);
 	const suggestions = palette?.items ?? [];
-	useEffect(() => setPaletteIndex(0), [editor.value]);
+	useEffect(() => {
+		setPaletteIndex(0);
+	}, [editor.value]);
 	const headerHeight = layout.kind === 'ok' && layout.header !== 'hidden' ? 1 : 0;
 	const inputLinesShown = layout.kind === 'ok' ? inputHeight(editor, columns - 4, layout.inputMaxLines, theme) : 1;
 	const inputBoxHeight = inputLinesShown + 2;

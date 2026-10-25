@@ -1,3 +1,5 @@
+import {readdirSync, readFileSync} from 'node:fs';
+import {join} from 'node:path';
 import {describe, expect, test} from 'vitest';
 import {backspace, emptyEditor, insert, layoutEditor, move, setValue} from '../src/ui/inputEditor.js';
 import {computeLayout, heightTier, widthTier} from '../src/ui/layout.js';
@@ -188,5 +190,19 @@ describe('terminal input', () => {
 		expect(mouseSequence('terminal')).toBe(`${MOUSE_OFF}\x1b[?1007h`);
 		expect(mouseSequence('off')).toBe(MOUSE_OFF);
 		for (const mode of ['?1000l', '?1002l', '?1006l', '?1007l']) expect(MOUSE_OFF).toContain(mode);
+	});
+});
+
+describe('source rules', () => {
+	test('no effect returns a value by accident: React would call it as the cleanup', () => {
+		const files = (dir: string): string[] => readdirSync(dir, {withFileTypes: true}).flatMap(entry => (entry.isDirectory() ? files(join(dir, entry.name)) : [join(dir, entry.name)]));
+		// `useEffect(() => something(...))` returns what something returns; only a block body or a returned
+		// cleanup function (`() => () => ...`) is allowed.
+		const offending = files('src')
+			.filter(file => /\.tsx?$/.test(file))
+			.flatMap(file => readFileSync(file, 'utf8').split('\n').map((line, index) => ({file, index, line})))
+			.filter(({line}) => /useEffect\(\(\) => [^{(]/.test(line))
+			.map(({file, index}) => `${file}:${index + 1}`);
+		expect(offending).toEqual([]);
 	});
 });
