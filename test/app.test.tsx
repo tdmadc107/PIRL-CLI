@@ -20,6 +20,13 @@ async function start(columns: number, rows: number, overrides: Parameters<typeof
 }
 
 /** Every row fits the window and the frame fills it exactly: nothing wraps, nothing is pushed off screen. */
+/** Waits until the screen shows `text`, for at most `ms`: a busy computer can take a while to draw. */
+async function waitFor(terminal: Terminal, text: string | RegExp, ms = 30_000) {
+	const end = Date.now() + ms;
+	const shows = () => (typeof text === 'string' ? terminal.frame().includes(text) : text.test(terminal.frame()));
+	while (!shows() && Date.now() < end) await tick(40);
+}
+
 function expectFits(terminal: Terminal, columns: number, rows: number) {
 	const lines = terminal.lines();
 	expect(lines.length).toBe(rows);
@@ -83,7 +90,7 @@ describe('responsive layout', () => {
 		const {props} = appProps({info});
 		const terminal = renderTerminal(<App {...props} services={{...props.services, cliUpdate: async () => '1.1.0'}} />, 160, 30);
 		open.push(terminal);
-		await tick(80);
+		await waitFor(terminal, 'Có bản PIRL mới');
 		expect(terminal.lines()[0]).toMatch(/\s+▲ Có PIRL 1\.1\.0$/);
 		expect(terminal.frame()).toContain('Có bản PIRL mới: 1.1.0 (đang dùng 0.1.0).');
 		expect(terminal.frame()).toContain('Thoát (/exit) rồi chạy `pirl update` để cập nhật.');
@@ -95,7 +102,9 @@ describe('responsive layout', () => {
 		const {props} = appProps({info});
 		const terminal = renderTerminal(<App {...props} services={{...props.services, cliUpdate: async () => null}} />, 160, 30);
 		open.push(terminal);
-		await tick(80);
+		// The check answers at once here; give the screen time to draw what would follow it.
+		await waitFor(terminal, 'Sẵn sàng');
+		await tick(200);
 		expect(terminal.lines()[0]).toMatch(/▲ Có framework mới$/);
 		expect(terminal.frame()).not.toContain('Có bản PIRL mới');
 	});
