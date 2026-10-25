@@ -12,6 +12,16 @@ All notable changes to this project are documented in this file. The format foll
   way to update it.
 - PIRL tells you when a new version is out: the header shows it and a note in the chat says how to update. npm is
   asked in the background each time PIRL starts; `PIRL_NO_UPDATE_CHECK=1` turns the check off.
+- Select text with the mouse across more than one screen: drag in the chat or an open panel, without Shift; while
+  the button is held, the wheel or the pointer past an edge scrolls on and extends the selection. Releasing copies
+  it to the clipboard. The right button pastes.
+
+### Changed
+
+- The mouse settings are now "Bôi đen tự do" (PIRL selects text; the default), "Để terminal xử lý" (the terminal
+  selects text on screen and the wheel scrolls through the arrow keys) and off. 1.0's "Con lăn của PIRL" becomes
+  the default, which also scrolls with the wheel. ↑ / ↓ recall sent messages again, except when the terminal handles
+  the mouse.
 
 ## [1.0.1] - 2026-10-25
 

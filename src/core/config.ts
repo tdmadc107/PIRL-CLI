@@ -15,12 +15,13 @@ export const ROLE_MODEL_IDS = ['inherit', 'sonnet', 'opus', 'fable', 'haiku'] as
 export type RoleModelSetting = (typeof ROLE_MODEL_IDS)[number];
 /**
  * What the mouse does in the TUI:
- * - `select`: the terminal keeps the mouse, so dragging selects text as usual; the wheel reaches the TUI as the
- *   arrow keys (alternate scroll mode), which scroll the chat.
- * - `wheel`: the TUI receives the wheel itself; selecting text then needs Shift held while dragging.
+ * - `select`: the TUI receives the mouse. Dragging selects text in the chat or the open panel, scrolling on when the
+ *   wheel turns or the pointer leaves the edge; releasing copies it; the right button pastes.
+ * - `terminal`: the terminal keeps the mouse and its own selection, limited to the screen; the wheel reaches the TUI
+ *   as the arrow keys (alternate scroll mode), which then scroll the chat.
  * - `off`: the TUI asks nothing of the mouse.
  */
-export const MOUSE_IDS = ['select', 'wheel', 'off'] as const;
+export const MOUSE_IDS = ['select', 'terminal', 'off'] as const;
 export type MouseSetting = (typeof MOUSE_IDS)[number];
 export const EFFORT_IDS = ['default', 'low', 'medium', 'high', 'xhigh', 'max'] as const;
 export type EffortSetting = (typeof EFFORT_IDS)[number];
@@ -72,7 +73,8 @@ export function normalizeConfig(raw: unknown): Config {
 		colors: oneOf(data['colors'], COLOR_SCHEME_IDS, DEFAULT_CONFIG.colors),
 		glyphs: oneOf(data['glyphs'], ['auto', 'unicode', 'ascii'] as const, DEFAULT_CONFIG.glyphs),
 		motion: typeof data['motion'] === 'boolean' ? data['motion'] : DEFAULT_CONFIG.motion,
-		mouse: oneOf(data['mouse'], MOUSE_IDS, DEFAULT_CONFIG.mouse),
+		// 1.0's `wheel` (the TUI read only the wheel) is covered by `select`.
+		mouse: oneOf(data['mouse'] === 'wheel' ? 'select' : data['mouse'], MOUSE_IDS, DEFAULT_CONFIG.mouse),
 		maxParallelRoles:
 			typeof parallel === 'number' && Number.isInteger(parallel) && parallel >= PARALLEL_LIMITS.min && parallel <= PARALLEL_LIMITS.max
 				? parallel

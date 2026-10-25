@@ -157,25 +157,36 @@ describe('usage and quota', () => {
 
 describe('terminal input', () => {
 	test('replies to the terminal\'s queries never reach the input box', () => {
-		expect(parseTerminalInput('[?0u')).toEqual({text: '', wheel: 0, filtered: true});
-		expect(parseTerminalInput('\x1b[?1u')).toEqual({text: '', wheel: 0, filtered: true});
+		expect(parseTerminalInput('[?0u')).toEqual({text: '', wheel: 0, mouse: [], filtered: true});
+		expect(parseTerminalInput('\x1b[?1u')).toEqual({text: '', wheel: 0, mouse: [], filtered: true});
 		expect(parseTerminalInput('\x1b[?1;2c')).toMatchObject({text: '', filtered: true});
-		expect(parseTerminalInput('xin chào')).toEqual({text: 'xin chào', wheel: 0, filtered: false});
+		expect(parseTerminalInput('xin chào')).toEqual({text: 'xin chào', wheel: 0, mouse: [], filtered: false});
 		expect(parseTerminalInput('[?0uabc')).toMatchObject({text: 'abc', filtered: true});
 	});
 
-	test('mouse reports: the wheel scrolls, clicks are dropped, modifier keys do not matter', () => {
-		expect(parseTerminalInput('\x1b[<64;10;5M')).toEqual({text: '', wheel: 1, filtered: true});
+	test('mouse reports: the wheel and its notches, whatever modifier keys are held', () => {
+		expect(parseTerminalInput('\x1b[<64;10;5M')).toEqual({text: '', wheel: 1, mouse: [{kind: 'wheel', notches: 1, x: 9, y: 4}], filtered: true});
 		expect(parseTerminalInput('[<65;10;5M[<65;10;5M')).toMatchObject({wheel: -2});
 		expect(parseTerminalInput('[<80;3;3M')).toMatchObject({wheel: 1}); // 64 with Ctrl
-		expect(parseTerminalInput('[<0;3;3M[<0;3;3m')).toEqual({text: '', wheel: 0, filtered: true});
+		expect(parseTerminalInput('[<0;3;3M[<0;3;3m')).toMatchObject({text: '', wheel: 0, filtered: true});
 	});
 
-	test('mouse modes: select keeps dragging for the terminal and sends the wheel as arrows; wheel reports it', () => {
-		expect(mouseSequence('select')).toBe(`${MOUSE_OFF}\x1b[?1007h`);
-		expect(mouseSequence('select')).not.toContain('?1000h');
-		expect(mouseSequence('wheel')).toContain('\x1b[?1000h\x1b[?1006h');
+	test('mouse reports: presses, drags and releases of each button, at 0-based cells', () => {
+		expect(parseTerminalInput('\x1b[<0;10;5M\x1b[<32;12;6M\x1b[<0;14;7m').mouse).toEqual([
+			{kind: 'press', button: 'left', x: 9, y: 4},
+			{kind: 'drag', button: 'left', x: 11, y: 5},
+			{kind: 'release', button: 'left', x: 13, y: 6},
+		]);
+		expect(parseTerminalInput('[<2;1;1M').mouse).toEqual([{kind: 'press', button: 'right', x: 0, y: 0}]);
+		expect(parseTerminalInput('[<4;1;1M').mouse).toEqual([{kind: 'press', button: 'left', x: 0, y: 0}]); // with Shift
+		expect(parseTerminalInput('[<35;8;2M').mouse).toEqual([{kind: 'move', x: 7, y: 1}]);
+		expect(parseTerminalInput('a[<0;1;1Mb')).toMatchObject({text: 'ab', filtered: true});
+	});
+
+	test('mouse modes: select reports presses, drags and the wheel; terminal keeps the mouse and sends the wheel as arrows', () => {
+		expect(mouseSequence('select')).toBe(`${MOUSE_OFF}\x1b[?1000h\x1b[?1002h\x1b[?1006h`);
+		expect(mouseSequence('terminal')).toBe(`${MOUSE_OFF}\x1b[?1007h`);
 		expect(mouseSequence('off')).toBe(MOUSE_OFF);
-		expect(MOUSE_OFF).toContain('?1007l');
+		for (const mode of ['?1000l', '?1002l', '?1006l', '?1007l']) expect(MOUSE_OFF).toContain(mode);
 	});
 });

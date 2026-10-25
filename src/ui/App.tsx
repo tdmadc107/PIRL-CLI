@@ -19,7 +19,7 @@ import {
 } from './content.js';
 import {Header, type ProviderBadge} from './components/Header.js';
 import {commandItem, InputBox, inputHeight, paletteLines, type PaletteItem} from './components/Input.js';
-import {bottomWindow, Lines} from './components/Lines.js';
+import {bottomWindow, Lines, topWindow} from './components/Lines.js';
 import {Frame, SidePanel, statusLine, TooSmall} from './components/Panels.js';
 import {displayPath} from '../core/paths.js';
 import {planEntries, recordEntries, resumeEntries} from './browse.js';
@@ -30,10 +30,12 @@ import {backspace, emptyEditor, insert, mentionAt, move, replaceMention, setValu
 import {computeLayout} from './layout.js';
 import type {Line} from './lines.js';
 import {clockSpan, compactTokens, costText, IMPROVEMENT_CHOICES, isActive, spinnerSpan, STATUS_LABELS, type Interaction, type Live} from './runView.js';
-import {parseTerminalInput} from './terminalInput.js';
+import {parseTerminalInput, type MouseEvent} from './terminalInput.js';
+import {contains, highlightVisible, isEmpty, pointAt, selectedText, type Point, type SelectArea, type Selection} from './selection.js';
 import {SPINNER_MS, setTickInterval} from './ticker.js';
 import type {DoctorState, Message, NewMessage, Services, SessionInfo, StartupNote} from './session.js';
 import {createTheme} from './theme.js';
+import {truncateEnd} from './text.js';
 
 export type AppProps = {
 	info: SessionInfo;
@@ -79,6 +81,9 @@ const FLUSH_MS = 100;
 /** Shift+Enter as xterm's modifyOtherKeys reports it, which Ink does not parse: ESC [27;<mod>;13~ */
 const MODIFIED_ENTER = /^\[27;\d+;13~$/;
 
+/** A drag in progress: where it started (in content) and where the pointer is (on screen). */
+type Drag = {area: Selection['area']; anchor: Point; x: number; y: number; beyond: -1 | 0 | 1};
+
 export function App(props: AppProps) {
 	const {exit} = useApp();
 	const {columns, rows} = useWindowSize();
@@ -109,6 +114,23 @@ export function App(props: AppProps) {
 	const [pathIndex, setPathIndex] = useState<PathEntry[] | null>(null);
 	const [hiddenMention, setHiddenMention] = useState<number | null>(null);
 	const [scroll, setScroll] = useState(0);
+	// Mouse selection: the text selected last, the drag in progress, and a short message once it is copied.
+	const [selection, setSelection] = useState<Selection | null>(null);
+	const [drag, setDragState] = useState<Drag | null>(null);
+	const dragRef = useRef<Drag | null>(null);
+	const [flash, setFlash] = useState<{text: string; ok: boolean} | null>(null);
+	const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+	// Where the selectable content is on screen, and how to scroll it, as of the latest frame.
+	const areaRef = useRef<SelectArea | null>(null);
+	const scrollRef = useRef<(lines: number) => void>(() => {});
+	// While the pointer is held beyond the top or bottom edge, the content keeps scrolling under it.
+	useEffect(() => {
+		if (!drag || drag.beyond === 0) return;
+		const step = drag.beyond === -1 ? 1 : -1;
+		const timer = setInterval(() => scrollRef.current(step), 60);
+		return () => clearInterval(timer);
+	}, [drag?.beyond, drag === null]);
+	useEffect(() => () => void (flashTimer.current && clearTimeout(flashTimer.current)), []);
 	const [overlay, setOverlay] = useState<OverlayKind | null>(null);
 	const [overlayTop, setOverlayTop] = useState(0);
 	const [settingsIndex, setSettingsIndex] = useState(0);
@@ -244,6 +266,12 @@ export function App(props: AppProps) {
 	// a tick never re-renders the App. With motion off only the clock moves, once a second.
 	useEffect(() => setTickInterval(config.motion ? SPINNER_MS : 1000), [config.motion]);
 	useEffect(() => props.services.setMouse?.(config.mouse), [config.mouse]);
+	// A selection belongs to what was on screen: another panel, a new size or another mouse setting drops it.
+	useEffect(() => {
+		setSelection(null);
+		dragRef.current = null;
+		setDragState(null);
+	}, [overlay, columns, rows, config.mouse]);
 	const live: Live = {motion: config.motion};
 
 
@@ -662,6 +690,7 @@ export function App(props: AppProps) {
 
 	const handleKey = (input: string, key: Key) => {
 		const editor = editorRef.current;
+		if (selection) setSelection(null);
 		if (key.ctrl && input === 'c') {
 			if (!stopActive()) exit();
 			return;
@@ -721,7 +750,7 @@ export function App(props: AppProps) {
 			}
 			// With the mouse left to the terminal its wheel arrives as ↑/↓, so they scroll the chat and
 			// Ctrl+P/Ctrl+N recall what was typed.
-			if (!recall && config.mouse === 'select') {
+			if (!recall && config.mouse === 'terminal') {
 				scrollChat(up ? 1 : -1);
 				return;
 			}
@@ -789,19 +818,60 @@ export function App(props: AppProps) {
 	const WHEEL_LINES = 3;
 	/** Scrolls the chat by `lines`: positive toward older lines. */
 	const scrollChat = (lines: number) => setScroll(current => Math.max(0, Math.min(current + lines, Math.max(0, transcript.length - bodyHeight + 1))));
-	const scrollByWheel = (notches: number) => {
-		const lines = notches * WHEEL_LINES;
+	/** Scrolls the chat or the open panel by `lines`: positive toward the top. */
+	const scrollLines = (lines: number) => {
 		if (overlay === 'framework') framework.wheel(lines);
 		else if (overlay && listContent) list.wheel(lines, listContent.entries);
 		else if (overlay === 'settings') return;
 		else if (overlay) setOverlayTop(top => Math.max(0, Math.min(overlayMaxTop, Math.min(top, overlayMaxTop) - lines)));
 		else scrollChat(lines);
 	};
+	const scrollByWheel = (notches: number) => scrollLines(notches * WHEEL_LINES);
+	scrollRef.current = scrollLines;
+
+	// ---------- selecting text with the mouse (setting `select`, src/ui/selection.ts) ----------
+	const setDrag = (next: Drag | null) => {
+		dragRef.current = next;
+		setDragState(next);
+	};
+	const showFlash = (text: string, ok: boolean) => {
+		setFlash({text, ok});
+		if (flashTimer.current) clearTimeout(flashTimer.current);
+		flashTimer.current = setTimeout(() => setFlash(null), 2500);
+	};
+	const copySelection = async (text: string) => {
+		if (!text) return;
+		const how = props.services.clipboard ? await props.services.clipboard.copy(text) : 'failed';
+		const count = text.split('\n').length;
+		showFlash(how === 'failed' ? 'Không copy được: không tìm thấy công cụ clipboard của hệ thống' : `Đã copy ${count} dòng`, how !== 'failed');
+	};
+	const handleMouse = (event: MouseEvent) => {
+		if (config.mouse !== 'select') return;
+		const area = areaRef.current;
+		if (event.kind === 'press' && event.button === 'left') {
+			setSelection(null);
+			setDrag(area && contains(area, event.x, event.y) ? {area: area.area, anchor: pointAt(area, event.x, event.y).point, x: event.x, y: event.y, beyond: 0} : null);
+		} else if (event.kind === 'drag' && event.button === 'left' && dragRef.current) {
+			setDrag({...dragRef.current, x: event.x, y: event.y, beyond: area ? pointAt(area, event.x, event.y).beyond : 0});
+		} else if (event.kind === 'release' && dragRef.current) {
+			const drag = dragRef.current;
+			setDrag(null);
+			if (!area || area.area !== drag.area) return;
+			const chosen: Selection = {area: drag.area, anchor: drag.anchor, focus: pointAt(area, event.x, event.y).point};
+			if (isEmpty(chosen)) return;
+			setSelection(chosen);
+			void copySelection(selectedText(area.lines, chosen));
+		} else if (event.kind === 'press' && event.button === 'right' && !overlay) {
+			// The right button pastes, as it does in a terminal that keeps the mouse.
+			void pasteClipboard();
+		}
+	};
 
 	useInput((raw, key) => {
 		// Terminal replies and mouse reports are not typed text (src/ui/terminalInput.ts).
 		const parsed = parseTerminalInput(raw);
 		if (parsed.wheel !== 0) scrollByWheel(parsed.wheel);
+		for (const event of parsed.mouse) handleMouse(event);
 		if (parsed.filtered && parsed.text === '') return;
 		const input = parsed.text;
 		// Typed text and Enter can reach the TUI in one chunk (fast typing, an input method, SSH). Ink passes such a
@@ -820,12 +890,47 @@ export function App(props: AppProps) {
 		if (!overlay) setEditor(current => insert(current, text));
 	});
 
-	if (layout.kind === 'too-small') return <TooSmall columns={columns} rows={rows} theme={theme} />;
+	if (layout.kind === 'too-small') {
+		areaRef.current = null;
+		return <TooSmall columns={columns} rows={rows} theme={theme} />;
+	}
 
 	const chat = bottomWindow(transcript, bodyHeight, scroll);
+	const chatRows = (chat.above > 0 ? 1 : 0) + chat.lines.length + (chat.below > 0 ? 1 : 0);
+	// Where the selectable text is on screen. The chat sits at the bottom of its box, one column in; a panel's text
+	// starts below its border and title, two columns in (src/ui/components/Panels.tsx, Frame).
+	const overlayTopShown = overlay === 'framework' ? frameworkView.top : listContent ? listView.top : overlayTop;
+	const overlayWindow = overlay ? topWindow(overlayContent, Math.max(0, bodyHeight - 3), overlayTopShown) : null;
+	const area: SelectArea = overlayWindow
+		? {
+				area: 'overlay',
+				lines: overlayContent,
+				firstLine: overlayWindow.above,
+				count: overlayWindow.lines.length,
+				top: headerHeight + 2 + (overlayWindow.above > 0 ? 1 : 0),
+				left: 2,
+				right: bodyWidth,
+				rowsFrom: headerHeight,
+				rowsTo: headerHeight + bodyHeight - 1,
+			}
+		: {
+				area: 'chat',
+				lines: transcript,
+				firstLine: chat.above,
+				count: chat.lines.length,
+				top: headerHeight + (bodyHeight - chatRows) + (chat.above > 0 ? 1 : 0),
+				left: 1,
+				right: bodyWidth,
+				rowsFrom: headerHeight,
+				rowsTo: headerHeight + bodyHeight - 1,
+			};
+	areaRef.current = area;
+	// During a drag the selection runs to the content under the pointer, which moves when the view scrolls.
+	const shownSelection: Selection | null =
+		config.mouse !== 'select' ? null : drag && drag.area === area.area ? {area: drag.area, anchor: drag.anchor, focus: pointAt(area, drag.x, drag.y).point} : selection;
 	const chatLines: Line[] = [
 		...(chat.above > 0 ? [[{text: `${theme.glyphs.up} ${chat.above} dòng cũ hơn (PgUp)`, dim: true}]] : []),
-		...chat.lines,
+		...highlightVisible(chat.lines, chat.above, shownSelection, 'chat'),
 		...(chat.below > 0 ? [[{text: `${theme.glyphs.down} ${chat.below} dòng mới hơn (PgDn)`, color: 'accent' as const}]] : []),
 	];
 
@@ -864,12 +969,15 @@ export function App(props: AppProps) {
 	const usage = [`${totals.calls} lượt gọi`, totals.tokens > 0 && `${compactTokens(totals.tokens)} token`, cost, quotaShort].filter(Boolean).join(` ${g.sep} `);
 	const runText = activeRun ? `${LAYER_LABELS[activeRun.kind]}: ${STATUS_LABELS[activeRun.status]}` : doctor.state === 'running' ? 'đang kiểm tra môi trường' : 'không có run';
 	const runWorking = activeRun !== null && isActive(activeRun);
-	const status = statusLine(
-		{usage, run: runText, hints, spinner: runWorking ? spinnerSpan(theme, config.motion, {color: 'accent'}) : undefined, clock: runWorking ? clockSpan(activeRun!.startedAt) : undefined},
-		layout.status,
-		columns,
-		theme,
-	);
+	// Right after a selection is copied, the status line says so at any width, for a moment.
+	const status: Line = flash
+		? [{text: truncateEnd(`${flash.ok ? g.ok : g.fail} ${flash.text}`, columns, g.ellipsis), color: flash.ok ? 'success' : 'danger'}]
+		: statusLine(
+				{usage, run: runText, hints, spinner: runWorking ? spinnerSpan(theme, config.motion, {color: 'accent'}) : undefined, clock: runWorking ? clockSpan(activeRun!.startedAt) : undefined},
+				layout.status,
+				columns,
+				theme,
+			);
 
 	return (
 		<Box flexDirection="column" width={columns} height={rows}>
@@ -879,10 +987,10 @@ export function App(props: AppProps) {
 					<Frame
 						title={OVERLAY_TITLES[overlay]}
 						hint="Esc đóng"
-						lines={overlayContent}
+						lines={highlightVisible(overlayContent, 0, shownSelection, 'overlay')}
 						width={bodyWidth}
 						height={bodyHeight}
-						top={overlay === 'framework' ? frameworkView.top : listContent ? listView.top : overlayTop}
+						top={overlayTopShown}
 						theme={theme}
 						active
 					/>

@@ -52,6 +52,12 @@ describe('config', () => {
 		});
 	});
 
+	test('the 1.0 mouse setting wheel becomes select, which covers it', () => {
+		expect(normalizeConfig({mouse: 'wheel'}).mouse).toBe('select');
+		expect(normalizeConfig({mouse: 'terminal'}).mouse).toBe('terminal');
+		expect(normalizeConfig({mouse: 'nonsense'}).mouse).toBe('select');
+	});
+
 	test('save then load round-trips and leaves no temporary file', () => {
 		const dir = tempDir();
 		const file = join(dir, 'nested', 'config.json');

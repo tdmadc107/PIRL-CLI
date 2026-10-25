@@ -189,7 +189,7 @@ describe('input and command palette', () => {
 	});
 
 	test('with the mouse left to the terminal, ↑/↓ (and so its wheel) scroll the chat', async () => {
-		const {terminal} = await start(80, 16);
+		const {terminal} = await start(80, 16, {initialConfig: {...DEFAULT_CONFIG, mouse: 'terminal'}});
 		for (let i = 0; i < 6; i++) {
 			await terminal.type('/khong-co');
 			await terminal.press(KEYS.enter);
@@ -201,8 +201,8 @@ describe('input and command palette', () => {
 		expect(terminal.frame()).not.toContain('dòng mới hơn');
 	});
 
-	test('with the wheel taken by PIRL, ↑ recalls what was sent', async () => {
-		const {terminal} = await start(100, 30, {initialConfig: {...DEFAULT_CONFIG, mouse: 'wheel'}});
+	test('with the mouse taken by PIRL (the default), ↑ recalls what was sent', async () => {
+		const {terminal} = await start(100, 30);
 		await terminal.type('/resume');
 		await terminal.press(KEYS.enter);
 		await terminal.press(KEYS.up);
@@ -245,7 +245,7 @@ describe('input and command palette', () => {
 	});
 
 	test('the mouse wheel scrolls the chat; terminal replies never reach the input', async () => {
-		const {terminal} = await start(80, 16, {initialConfig: {...DEFAULT_CONFIG, mouse: 'wheel'}});
+		const {terminal} = await start(80, 16);
 		for (let i = 0; i < 6; i++) {
 			await terminal.type('/khong-co');
 			await terminal.press(KEYS.enter);
