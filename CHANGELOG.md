@@ -6,14 +6,24 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [1.0.1] - 2026-10-25
 
-Documentation only: the CLI and the bundled framework (fw-1.1.0) are the same as in 1.0.0.
+Documentation and tests only: the CLI and the bundled framework (fw-1.1.0) are the same as in 1.0.0.
+
+### Added
+
+- A [user guide](docs/user-guide.md) with the details of using PIRL: commands, keyboard shortcuts, `@`
+  attachments, how a run works, usage limits, settings, framework updates and where data is stored.
+- Uninstallation steps in the README.
 
 ### Changed
 
-- The README is now in English and rewritten for new users: features, requirements, installation, quick start,
-  commands, keyboard shortcuts, `@` attachments, how a run works, usage limits, settings, framework updates and
-  where data is stored.
+- The README is now in English and introduces the product: highlights, requirements, installation, quick start,
+  documentation links, uninstallation and development.
 - The changelog is now in English.
+
+### Fixed
+
+- The test suite no longer times out on slower Windows computers, where it stopped `npm test` and so
+  `npm publish`.
 
 ## [1.0.0] - 2026-10-25
 
