@@ -10,9 +10,10 @@ Documentation only: the CLI and the bundled framework (fw-1.1.0) are the same as
 
 ### Changed
 
-- The README is now in English and rewritten for new users: features, requirements, installation, quick start,
-  commands, keyboard shortcuts, `@` attachments, how a run works, usage limits, settings, framework updates and
-  where data is stored.
+- The README is now in English and introduces the product: highlights, requirements, installation, quick start
+  and uninstallation.
+- The details of using PIRL moved to a new [user guide](docs/user-guide.md): commands, keyboard shortcuts, `@`
+  attachments, how a run works, usage limits, settings, framework updates and where data is stored.
 - The changelog is now in English.
 
 ## [1.0.0] - 2026-10-25
