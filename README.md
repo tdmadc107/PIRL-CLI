@@ -41,6 +41,14 @@ Verify the installation:
 pirl --version
 ```
 
+## Updating
+
+```bash
+pirl update
+```
+
+PIRL also tells you when a new version is out, in the header and in the chat.
+
 ## Quick start
 
 Start PIRL in the Git repository you want to work on:

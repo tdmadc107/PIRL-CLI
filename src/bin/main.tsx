@@ -3,6 +3,7 @@ import {render} from 'ink';
 import {createClipboard} from '../core/clipboard.js';
 import {loadConfig, saveConfig, type Config} from '../core/config.js';
 import {exec} from '../core/exec.js';
+import {checkForUpdate, runUpdate, updateCheckFile} from '../core/selfUpdate.js';
 import {configFile, displayPath, hubDir, packageInfo, packageRoot, pirlHome} from '../core/paths.js';
 import {detectTargetRepo} from '../core/targetRepo.js';
 import {runDoctor} from '../doctor/doctor.js';
@@ -31,6 +32,7 @@ const HELP = `PIRL CLI: chạy PIRL framework (Plan – Implement – Review) b�
 
 Cách dùng
   pirl              Mở TUI. Thư mục hiện tại (git repo) là target repo.
+  pirl update       Cập nhật PIRL lên bản mới nhất trên npm.
   pirl --version    In phiên bản CLI và framework đi kèm.
   pirl --help       In hướng dẫn này.
 
@@ -52,6 +54,7 @@ async function main(): Promise<number> {
 		console.log(`pirl ${pkg.version} (framework ${framework})`);
 		return 0;
 	}
+	if (args[0] === 'update' && args.length === 1) return runUpdate({name: pkg.name, current: pkg.version, root});
 	if (args.length > 0) {
 		console.error(`pirl: không nhận tham số "${args[0]}". Lệnh chạy bên trong TUI.\n\n${HELP}`);
 		return 2;
@@ -114,6 +117,7 @@ async function main(): Promise<number> {
 				paths: () => paths.get(),
 				attach: text => attachmentContext(resolveMentions(text, attachBase, process.cwd()), [attachBase, ...(hub ? [hub.path] : [])]),
 				setMouse: mode => process.stdout.write(mouseSequence(mode)),
+				cliUpdate: () => checkForUpdate({file: updateCheckFile(home), name: pkg.name, current: pkg.version}),
 				framework: hub && bundle ? frameworkServices(hub.path, bundle, runner, config => runModels(config).model) : undefined,
 			}}
 		/>,

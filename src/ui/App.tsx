@@ -115,12 +115,31 @@ export function App(props: AppProps) {
 	const [doctor, setDoctor] = useState<DoctorState>({state: 'idle'});
 	// The Hub changes under the session (committed improvements, /framework): its status is kept fresh here.
 	const [hub, setHub] = useState(props.info.hub);
-	const info = useMemo(() => ({...props.info, hub}), [props.info, hub]);
+	// A newer PIRL release, found by a background check at start; the header and a note say so.
+	const [cliUpdate, setCliUpdate] = useState<string | null>(props.info.cliUpdate ?? null);
+	const info = useMemo(() => ({...props.info, hub, cliUpdate}), [props.info, hub, cliUpdate]);
 	const refreshHub = () => void props.services.framework?.status().then(setHub, () => {});
 	// The plan's usage windows: read once at start, then as each run reports them.
 	const [quota, setQuota] = useState<QuotaRow[] | null>(null);
 	useEffect(() => {
 		props.services.quota?.().then(rows => rows && setQuota(current => current ?? rows), () => {});
+	}, []);
+	useEffect(() => {
+		props.services.cliUpdate?.().then(
+			version => {
+				if (!version) return;
+				setCliUpdate(version);
+				addMessages([
+					{
+						kind: 'note',
+						tone: 'info',
+						text: `Có bản PIRL mới: ${version} (đang dùng ${props.info.cliVersion}).`,
+						hint: 'Thoát (/exit) rồi chạy `pirl update` để cập nhật.',
+					},
+				]);
+			},
+			() => {},
+		);
 	}, []);
 
 	// Runs: their state for drawing, their controllers for acting, and the answers being collected.

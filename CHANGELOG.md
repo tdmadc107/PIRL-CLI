@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file. The format foll
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `pirl update` installs the newest version of PIRL from npm. A copy run from its source is left alone, with the
+  way to update it.
+- PIRL tells you when a new version is out: the header shows it and a note in the chat says how to update. npm is
+  asked at most once a day, in the background; `PIRL_NO_UPDATE_CHECK=1` turns the check off.
+
 ## [1.0.1] - 2026-10-25
 
 Documentation and tests only: the CLI and the bundled framework (fw-1.1.0) are the same as in 1.0.0.
@@ -74,5 +83,6 @@ fw-1.1.0.
 - The validator reads quoted frontmatter strings literally. Before, a Windows path in `target_repo`
   (`"C:\Users\..."`) was rejected, and the `\n` in `"D:\new-app"` became a line break.
 
+[Unreleased]: https://github.com/tdmadc107/PIRL-CLI/compare/v1.0.1...HEAD
 [1.0.1]: https://github.com/tdmadc107/PIRL-CLI/releases/tag/v1.0.1
 [1.0.0]: https://github.com/tdmadc107/PIRL-CLI/releases/tag/v1.0.0

@@ -77,6 +77,29 @@ describe('responsive layout', () => {
 		expect(narrow.terminal.lines()[0]!.length).toBeLessThanOrEqual(80);
 	});
 
+	test('a newer PIRL release: a note says how to update, and the header shows it before a framework update', async () => {
+		const info = sessionInfo();
+		info.hub = {...info.hub!, updateAvailable: true};
+		const {props} = appProps({info});
+		const terminal = renderTerminal(<App {...props} services={{...props.services, cliUpdate: async () => '1.1.0'}} />, 160, 30);
+		open.push(terminal);
+		await tick(80);
+		expect(terminal.lines()[0]).toMatch(/\s+▲ Có PIRL 1\.1\.0$/);
+		expect(terminal.frame()).toContain('Có bản PIRL mới: 1.1.0 (đang dùng 0.1.0).');
+		expect(terminal.frame()).toContain('Thoát (/exit) rồi chạy `pirl update` để cập nhật.');
+	});
+
+	test('no newer release: no note, and the framework update keeps its place', async () => {
+		const info = sessionInfo();
+		info.hub = {...info.hub!, updateAvailable: true};
+		const {props} = appProps({info});
+		const terminal = renderTerminal(<App {...props} services={{...props.services, cliUpdate: async () => null}} />, 160, 30);
+		open.push(terminal);
+		await tick(80);
+		expect(terminal.lines()[0]).toMatch(/▲ Có framework mới$/);
+		expect(terminal.frame()).not.toContain('Có bản PIRL mới');
+	});
+
 	test('a long repository name is shortened in the middle', async () => {
 		const info = sessionInfo({target: {kind: 'git', root: '/w/x', name: 'a-very-long-repository-name-for-the-shop-frontend', branch: 'main'}});
 		const {terminal} = await start(62, 24, {info});

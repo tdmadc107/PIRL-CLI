@@ -25,7 +25,12 @@ export function headerLine(info: SessionInfo, provider: ProviderBadge, mode: 'fu
 	const providerSpans: Span[] = [{text: `${glyph} `, color: tone[provider.state]}, {text: provider.label}];
 	const improvements = info.hub && info.hub.localImprovements > 0 ? ` (+${info.hub.localImprovements} cải tiến)` : '';
 	const framework: Span[] | null = mode === 'full' && info.hub ? [{text: `${info.hub.upstreamTag ?? 'framework'}${improvements}`, dim: true}] : null;
-	const update: Span[] | null = info.hub?.updateAvailable ? [{text: `${g.warn} Có framework mới`, color: 'warning'}] : null;
+	// A newer CLI comes first: it brings its own framework, which /framework then offers.
+	const update: Span[] | null = info.cliUpdate
+		? [{text: `${g.warn} Có PIRL ${info.cliUpdate}`, color: 'warning'}]
+		: info.hub?.updateAvailable
+			? [{text: `${g.warn} Có framework mới`, color: 'warning'}]
+			: null;
 	const brand: Span[] = [{text: 'PIRL', color: 'accent', bold: true}];
 
 	const join = (...parts: Array<Span[] | null>): Line => parts.filter((part): part is Span[] => part !== null).flatMap((part, index) => (index === 0 ? part : [sep, ...part]));
