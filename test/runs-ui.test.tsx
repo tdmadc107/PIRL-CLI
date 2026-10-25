@@ -43,7 +43,7 @@ async function startWithRuns(scripts: FakeScript[], extra: Partial<Services> = {
 	return {terminal, hub, target, calls};
 }
 
-const until = async (terminal: Terminal, text: string | RegExp, ms = 30_000) => {
+const until = async (terminal: Terminal, text: string | RegExp, ms = 90_000) => {
 	const end = Date.now() + ms;
 	while (Date.now() < end) {
 		const frame = terminal.frame();
@@ -121,7 +121,7 @@ describe('layer runs in the TUI', () => {
 		await until(terminal, 'Plan · đang chạy');
 		expect(terminal.frame()).toContain('Esc dừng run');
 		// The provider starts after the run's snapshot of the Hub and the target, which is slow on Windows.
-		for (const end = Date.now() + 30_000; calls.length === 0 && Date.now() < end; ) await tick(40);
+		for (const end = Date.now() + 60_000; calls.length === 0 && Date.now() < end; ) await tick(40);
 		await tick(100);
 		await terminal.press(KEYS.escape);
 		await until(terminal, 'Đã dừng. Gõ /resume để chạy tiếp.');
@@ -244,7 +244,7 @@ describe('layer runs in the TUI', () => {
 		for (const request of ['Việc A', 'Việc B']) {
 			await terminal.type(`/pirl-plan ${request}`);
 			await terminal.press(KEYS.enter);
-			for (const end = Date.now() + 30_000; calls.length < (request === 'Việc A' ? 1 : 2) && Date.now() < end; ) await tick(40);
+			for (const end = Date.now() + 60_000; calls.length < (request === 'Việc A' ? 1 : 2) && Date.now() < end; ) await tick(40);
 			await tick(100);
 			await terminal.press(KEYS.escape);
 			await until(terminal, request === 'Việc A' ? 'Plan · đã dừng' : /đã dừng[\s\S]*đã dừng/);

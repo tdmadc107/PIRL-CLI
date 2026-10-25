@@ -5,3 +5,5 @@ bundled-framework/
 *.tsbuildinfo
 # Output of `npm pack`.
 *.tgz
+# Internal release memo, kept out of the repository.
+docs/RELEASING.md

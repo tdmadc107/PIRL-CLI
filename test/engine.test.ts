@@ -341,7 +341,7 @@ describe('RunController', () => {
 		await run.resolveImprovements('discard');
 		expect(run.state.status).toBe('done');
 		expect(git(hub, 'status', '--porcelain')).toBe('');
-	}, 60_000);
+	});
 
 	test('questions pause the run; answers resume the same session', async () => {
 		const {hub, target} = await hubAndTarget();

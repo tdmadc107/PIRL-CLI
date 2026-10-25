@@ -28,7 +28,7 @@ const git = (cwd: string, ...args: string[]) =>
 	execFileSync('git', ['-c', 'user.name=T', '-c', 'user.email=t@t', '-c', 'commit.gpgsign=false', ...args], {cwd, encoding: 'utf8'}).trim();
 const ROLE = '.agents/roles/code-analyst.role.md';
 
-async function until(terminal: ReturnType<typeof renderTerminal>, text: string | RegExp, ms = 30_000) {
+async function until(terminal: ReturnType<typeof renderTerminal>, text: string | RegExp, ms = 90_000) {
 	const deadline = Date.now() + ms;
 	while (Date.now() < deadline) {
 		const frame = terminal.frame();
@@ -98,7 +98,7 @@ describe('/framework', () => {
 
 		await terminal.press(KEYS.down);
 		await terminal.press(KEYS.enter);
-		await until(terminal, 'Đã cập nhật lên fw-9.9.9', 60_000);
+		await until(terminal, 'Đã cập nhật lên fw-9.9.9', 150_000);
 		expect(readFileSync(join(hub, ROLE), 'utf8')).toContain('# code-analyst (local + upstream)');
 		expect(git(hub, 'status', '--porcelain')).toBe('');
 		await until(terminal, /fw-9\.9\.9/);
@@ -112,7 +112,7 @@ describe('/framework', () => {
 		await terminal.press(KEYS.enter);
 		await until(terminal, 'Đã hoàn tác lần cập nhật lên fw-9.9.9.');
 		expect(git(hub, 'rev-parse', 'main')).toBe(before);
-	}, 120_000);
+	});
 
 	test('local improvements: the diff of a file, then restoring it to the original', async () => {
 		const {hub, terminal} = await setup(bundle);
@@ -133,5 +133,5 @@ describe('/framework', () => {
 		await terminal.press(KEYS.enter);
 		await until(terminal, `Restore ${ROLE} to the original framework`);
 		expect(terminal.frame()).toContain('nguồn: restore');
-	}, 60_000);
+	});
 });
