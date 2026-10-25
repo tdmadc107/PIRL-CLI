@@ -145,6 +145,22 @@ describe('layer runs in the TUI', () => {
 		if (calls.length === 0) expect(terminal.frame()).toContain('Đã dừng trước khi provider bắt đầu. Gõ lại lệnh để chạy.');
 	});
 
+	test('a layer run that cannot be saved for /resume is reported, and the run still ends', async () => {
+		// No Plan is written, so the checks send the coordinator back twice and the run ends failed: three calls.
+		const call = () => [{type: 'session', sessionId: 's-1'} as const, result('Chưa có Plan.')];
+		const {terminal} = await startWithRuns([call, call, call], {
+			saveRun: () => {
+				throw new Error('ENOSPC: no space left on device');
+			},
+		});
+		await terminal.type('/pirl-plan Thêm email');
+		await terminal.press(KEYS.enter);
+		await until(terminal, 'Không lưu được run cho /resume: ENOSPC: no space left on device');
+		await until(terminal, /Plan · (lỗi|thất bại|đã dừng|xong)/i);
+		await terminal.type('xin chào');
+		expect(terminal.frame()).toContain('› xin chào');
+	});
+
 	test('one run at a time', async () => {
 		const {terminal} = await startWithRuns([() => new Promise(() => {})]);
 		await terminal.type('/pirl-plan A');

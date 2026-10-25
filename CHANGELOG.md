@@ -10,6 +10,9 @@ All notable changes to this project are documented in this file. The format foll
 
 - Changing the mouse setting in `/settings` no longer closes PIRL with "destroy_ is not a function". The bug was
   present since 1.0.0.
+- Failures that could close PIRL are now reported instead: a clipboard tool that fails (copy, paste, `/copy`), a
+  Hub or saved runs that cannot be read (`/plans`, `/records`, `/resume`), a run that cannot be saved for
+  `/resume`, a run that cannot start, and a failure while committing or discarding framework improvements.
 
 ## [1.1.0] - 2026-10-25
 

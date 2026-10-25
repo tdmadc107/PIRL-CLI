@@ -192,6 +192,32 @@ describe('selecting with the mouse in the TUI', () => {
 		expect(copied[0]).toMatch(/^\/pirl-plan[\s\S]*\n\/pirl-implement$/);
 	});
 
+	test('a clipboard that fails is reported on the status line; PIRL stays open', async () => {
+		const clipboard: Clipboard = {
+			copy: async () => {
+				throw new Error('không ghi được file tạm');
+			},
+			paste: async () => {
+				throw new Error('không đọc được');
+			},
+		};
+		const base = appProps({initialConfig: {...DEFAULT_CONFIG}});
+		const terminal = renderTerminal(<App {...base.props} services={{...base.props.services, clipboard}} />, 100, 30);
+		open.push(terminal);
+		await tick(60);
+		await terminal.type('/m1');
+		await terminal.press(KEYS.enter);
+		const from = cell(terminal, '› /m1');
+		await terminal.press(sgr(0, from.x, from.y));
+		await terminal.press(sgr(32, from.x + 4, from.y));
+		await terminal.press(sgr(0, from.x + 4, from.y, 'm'));
+		await until(() => terminal.frame().includes('Không copy được'));
+		expect(terminal.frame()).toContain('Không copy được: không ghi được file tạm');
+		await terminal.press(sgr(2, from.x, from.y));
+		await until(() => terminal.frame().includes('Không đọc được clipboard'));
+		expect(terminal.frame()).toContain('Không đọc được clipboard');
+	});
+
 	test('with the mouse left to the terminal, PIRL ignores mouse reports', async () => {
 		const copied: string[] = [];
 		const clipboard: Clipboard = {copy: async text => (copied.push(text), 'native'), paste: async () => null};

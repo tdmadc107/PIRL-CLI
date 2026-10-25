@@ -515,6 +515,36 @@ describe('RunController', () => {
 		expect(formatElapsed(3_725_000)).toBe('1:02:05');
 	});
 
+	test('a fault while handling an event is written to the log, and the run still finishes', async () => {
+		const {hub, target} = await hubAndTarget();
+		const {runner} = fakeRunner([() => [{type: 'session', sessionId: 's-1'}, {type: 'activity', agent: null, text: 'Đọc'}, result('Xong.')]]);
+		const run = new RunController({...deps(hub, target, runner), logDir: tempDir()}, 1, 'chat', 'Hỏi');
+		let thrown = false;
+		run.subscribe(state => {
+			if (state.activity === 'Đọc' && !thrown) {
+				thrown = true;
+				throw new Error('listener hỏng');
+			}
+		});
+		await run.start();
+		expect(run.state.status).toBe('done');
+		await new Promise(resolve => setTimeout(resolve, 50));
+		expect(readFileSync(run.state.logFile!, 'utf8')).toMatch(/Lỗi nội bộ khi xử lý sự kiện activity: listener hỏng/);
+	});
+
+	test('a choice on the improvements that fails is shown on them instead of being thrown', async () => {
+		const {hub, target} = await hubAndTarget();
+		const {runner} = fakeRunner([() => [result('Xong.')]]);
+		const run = new RunController(deps(hub, target, runner), 1, 'chat', 'Hỏi');
+		await run.start();
+		run.state = {...run.state, status: 'improvements', improvements: {files: ['AGENTS.md'], state: 'pending', tests: {state: 'pass'}}};
+		(run as unknown as {exec: unknown}).exec = async () => {
+			throw new Error('git không chạy được');
+		};
+		await expect(run.resolveImprovements('commit')).resolves.toBeUndefined();
+		expect(run.state.improvements).toMatchObject({state: 'pending', error: 'git không chạy được'});
+	});
+
 	test('a provider error fails the run with its message', async () => {
 		const {hub, target} = await hubAndTarget();
 		const {runner} = fakeRunner([() => [{type: 'result', text: 'Credit balance is too low', isError: true, sessionId: 's'}]]);

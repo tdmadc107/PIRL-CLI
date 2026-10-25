@@ -55,14 +55,21 @@ export function createClipboard(options: {
 			for (const tool of found.copy) {
 				let result;
 				if (found.windows) {
-					const dir = mkdtempSync(join(tmpdir(), 'pirl-clip-'));
-					const file = join(dir, 'clip.txt');
+					// The text goes through a temporary file; a file that cannot be written falls through to the next way.
+					let dir: string | null = null;
 					try {
+						dir = mkdtempSync(join(tmpdir(), 'pirl-clip-'));
+						const file = join(dir, 'clip.txt');
 						writeFileSync(file, text, 'utf8');
 						const quoted = file.replace(/'/g, "''");
 						result = await exec(tool.command, [...tool.args, `Get-Content -Raw -Encoding UTF8 -LiteralPath '${quoted}' | Set-Clipboard`], {timeoutMs: 15_000});
+					} catch {
+						continue;
 					} finally {
-						rmSync(dir, {recursive: true, force: true});
+						// A temporary file Windows still holds is left for the system's temp cleanup.
+						try {
+							if (dir) rmSync(dir, {recursive: true, force: true, maxRetries: 3});
+						} catch {}
 					}
 				} else {
 					result = await exec(tool.command, tool.args, {input: text, env: utf8Env, timeoutMs: 15_000});
