@@ -223,6 +223,8 @@ Windows với Node 22 và 24.
 
 ### Phát hành
 
+Quy trình đầy đủ để đăng thủ công từ máy, kèm cách tăng version: [docs/RELEASING.md](docs/RELEASING.md). Tóm tắt:
+
 1. Cập nhật `version` trong `package.json` và mục mới trong `CHANGELOG.md`. Nếu framework đổi, tăng
    `pirl.frameworkVersion`: Hub của người dùng so bản này với nhánh `upstream` để báo có framework mới.
 2. Merge vào `main`, đợi CI xanh.
