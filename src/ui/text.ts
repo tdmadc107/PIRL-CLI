@@ -51,9 +51,28 @@ function graphemesFromEnd(text: string, max: number): string {
 }
 
 /** Wraps plain text to `columns` cells: at spaces when possible, inside a word only when it is longer than a line. */
+/**
+ * Tabs as spaces, to the next multiple of four. A terminal draws a tab as a jump to its next tab stop, but its
+ * measured width is 0, so a tab left in a line would push the rest of it out of place.
+ */
+export function expandTabs(text: string): string {
+	if (!text.includes('\t')) return text;
+	return text
+		.split('\n')
+		.map(line => {
+			let out = '';
+			for (const part of line.split('\t').slice(0, -1)) {
+				out += part;
+				out += ' '.repeat(4 - (width(out) % 4));
+			}
+			return out + line.slice(line.lastIndexOf('\t') + 1);
+		})
+		.join('\n');
+}
+
 export function wrapText(text: string, columns: number): string[] {
 	if (columns <= 0) return [];
-	return text.split('\n').flatMap(paragraph =>
+	return expandTabs(text).split('\n').flatMap(paragraph =>
 		paragraph === '' ? [''] : wrapAnsi(paragraph, columns, {hard: true, trim: true, wordWrap: true}).split('\n'),
 	);
 }

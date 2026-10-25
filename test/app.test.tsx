@@ -20,6 +20,13 @@ async function start(columns: number, rows: number, overrides: Parameters<typeof
 }
 
 /** Every row fits the window and the frame fills it exactly: nothing wraps, nothing is pushed off screen. */
+/** Waits until the screen shows `text`, for at most `ms`: a busy computer can take a while to draw. */
+async function waitFor(terminal: Terminal, text: string | RegExp, ms = 30_000) {
+	const end = Date.now() + ms;
+	const shows = () => (typeof text === 'string' ? terminal.frame().includes(text) : text.test(terminal.frame()));
+	while (!shows() && Date.now() < end) await tick(40);
+}
+
 function expectFits(terminal: Terminal, columns: number, rows: number) {
 	const lines = terminal.lines();
 	expect(lines.length).toBe(rows);
@@ -75,6 +82,31 @@ describe('responsive layout', () => {
 		expect(wide.terminal.lines()[0]).toMatch(/fw-1\.0\.0 \(\+2 cải tiến\)\s+▲ Có framework mới$/);
 		const narrow = await start(80, 30, {info});
 		expect(narrow.terminal.lines()[0]!.length).toBeLessThanOrEqual(80);
+	});
+
+	test('a newer PIRL release: a note says how to update, and the header shows it before a framework update', async () => {
+		const info = sessionInfo();
+		info.hub = {...info.hub!, updateAvailable: true};
+		const {props} = appProps({info});
+		const terminal = renderTerminal(<App {...props} services={{...props.services, cliUpdate: async () => '1.1.0'}} />, 160, 30);
+		open.push(terminal);
+		await waitFor(terminal, 'Có bản PIRL mới');
+		expect(terminal.lines()[0]).toMatch(/\s+▲ Có PIRL 1\.1\.0$/);
+		expect(terminal.frame()).toContain('Có bản PIRL mới: 1.1.0 (đang dùng 0.1.0).');
+		expect(terminal.frame()).toContain('Thoát (/exit) rồi chạy `pirl update` để cập nhật.');
+	});
+
+	test('no newer release: no note, and the framework update keeps its place', async () => {
+		const info = sessionInfo();
+		info.hub = {...info.hub!, updateAvailable: true};
+		const {props} = appProps({info});
+		const terminal = renderTerminal(<App {...props} services={{...props.services, cliUpdate: async () => null}} />, 160, 30);
+		open.push(terminal);
+		// The check answers at once here; give the screen time to draw what would follow it.
+		await waitFor(terminal, 'Sẵn sàng');
+		await tick(200);
+		expect(terminal.lines()[0]).toMatch(/▲ Có framework mới$/);
+		expect(terminal.frame()).not.toContain('Có bản PIRL mới');
 	});
 
 	test('a long repository name is shortened in the middle', async () => {
@@ -157,7 +189,7 @@ describe('input and command palette', () => {
 	});
 
 	test('with the mouse left to the terminal, ↑/↓ (and so its wheel) scroll the chat', async () => {
-		const {terminal} = await start(80, 16);
+		const {terminal} = await start(80, 16, {initialConfig: {...DEFAULT_CONFIG, mouse: 'terminal'}});
 		for (let i = 0; i < 6; i++) {
 			await terminal.type('/khong-co');
 			await terminal.press(KEYS.enter);
@@ -169,8 +201,8 @@ describe('input and command palette', () => {
 		expect(terminal.frame()).not.toContain('dòng mới hơn');
 	});
 
-	test('with the wheel taken by PIRL, ↑ recalls what was sent', async () => {
-		const {terminal} = await start(100, 30, {initialConfig: {...DEFAULT_CONFIG, mouse: 'wheel'}});
+	test('with the mouse taken by PIRL (the default), ↑ recalls what was sent', async () => {
+		const {terminal} = await start(100, 30);
 		await terminal.type('/resume');
 		await terminal.press(KEYS.enter);
 		await terminal.press(KEYS.up);
@@ -213,7 +245,7 @@ describe('input and command palette', () => {
 	});
 
 	test('the mouse wheel scrolls the chat; terminal replies never reach the input', async () => {
-		const {terminal} = await start(80, 16, {initialConfig: {...DEFAULT_CONFIG, mouse: 'wheel'}});
+		const {terminal} = await start(80, 16);
 		for (let i = 0; i < 6; i++) {
 			await terminal.type('/khong-co');
 			await terminal.press(KEYS.enter);

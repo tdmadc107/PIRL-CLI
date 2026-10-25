@@ -99,7 +99,7 @@ export function helpLines(columns: number, theme: Theme): Line[] {
 		{term: 'Shift+Enter', description: 'Xuống dòng trong ô nhập (cũng được: \\ rồi Enter, Ctrl+J, Alt+Enter)'},
 		{term: 'Ctrl+V', description: 'Dán từ clipboard (chuột phải hoặc phím dán của terminal cũng được)'},
 		{term: 'Tab', description: 'Hoàn thành tên lệnh đang chọn'},
-		{term: theme.glyphs.upDown, description: 'Chọn lệnh gợi ý hoặc đáp án; ngoài ra cuộn khung chat (chuột "Bôi đen tự do") hoặc xem lại nội dung đã gửi'},
+		{term: theme.glyphs.upDown, description: 'Chọn lệnh gợi ý hoặc đáp án; ngoài ra xem lại nội dung đã gửi (chuột "Để terminal xử lý": cuộn khung chat)'},
 		{term: 'Ctrl+P / Ctrl+N', description: 'Xem lại nội dung đã gửi'},
 		{term: '@', description: 'Đính kèm file hoặc thư mục: Tab/Enter chọn, Enter lần nữa trên thư mục đang mở để đính kèm cả thư mục, Esc ẩn danh sách'},
 		{term: 'PgUp / PgDn', description: 'Cuộn khung chat'},
@@ -115,7 +115,7 @@ export function helpLines(columns: number, theme: Theme): Line[] {
 	lines.push(heading('Phím tắt'));
 	lines.push(...definitionList(keys, columns));
 	lines.push(blank);
-	lines.push(...hanging([], 'Nhập không có dấu / là câu hỏi, standalone task hoặc bảo trì framework. Muốn copy một đoạn bất kỳ: bôi đen bằng chuột như mọi nội dung trong terminal; /copy copy nguyên câu trả lời gần nhất.', columns, {dim: true}));
+	lines.push(...hanging([], 'Nhập không có dấu / là câu hỏi, standalone task hoặc bảo trì framework. Muốn copy một đoạn: kéo chuột bôi đen, đang giữ chuột thì lăn để bôi đen tiếp, thả chuột là copy; /copy copy nguyên câu trả lời gần nhất.', columns, {dim: true}));
 	lines.push(...hanging([], 'Windows Terminal trước bản 1.25 không phân biệt Shift+Enter với Enter: dùng Ctrl+J, hoặc thêm phím tắt sendInput "\\n" cho shift+enter trong settings.json.', columns, {dim: true}));
 	return lines;
 }
@@ -158,11 +158,12 @@ export type SettingsRow = {
 
 const MODEL_LABELS: Record<ModelSetting, string> = {sonnet: 'Sonnet (khuyến nghị)', opus: 'Opus', fable: 'Fable', haiku: 'Haiku', default: 'Theo Claude Code'};
 const ROLE_MODEL_LABELS: Record<RoleModelSetting, string> = {inherit: 'Giống coordinator', sonnet: 'Sonnet', opus: 'Opus', fable: 'Fable', haiku: 'Haiku'};
-const MOUSE_LABELS: Record<MouseSetting, string> = {select: 'Bôi đen tự do', wheel: 'Con lăn của PIRL', off: 'Tắt'};
+const MOUSE_LABELS: Record<MouseSetting, string> = {select: 'Bôi đen tự do', terminal: 'Để terminal xử lý', off: 'Tắt'};
 const MOUSE_NOTES: Record<MouseSetting, string> = {
 	select:
-		'Kéo chuột bôi đen như bình thường. Con lăn cuộn hội thoại vì terminal gửi nó thành phím ↑/↓, nên ↑/↓ cuộn hội thoại và Ctrl+P/Ctrl+N gọi lại lệnh đã gõ. Cần terminal hỗ trợ: Windows Terminal, VS Code, iTerm2, Terminal của macOS, GNOME, kitty, WezTerm',
-	wheel: 'PIRL nhận con lăn trực tiếp, chạy trên mọi terminal có chuột. Bôi đen chữ phải giữ Shift khi kéo (iTerm2: Option); ↑/↓ gọi lại lệnh đã gõ',
+		'Kéo chuột để bôi đen, không cần Shift; đang giữ chuột thì lăn con lăn hoặc kéo chạm mép để cuộn tiếp và bôi đen thêm. Thả chuột là copy. Chuột phải dán. Con lăn cuộn hội thoại; ↑/↓ gọi lại lệnh đã gõ',
+	terminal:
+		'Terminal tự bôi đen như bình thường nhưng chỉ trong phạm vi màn hình. Con lăn đến PIRL thành phím ↑/↓, nên ↑/↓ cuộn hội thoại và Ctrl+P/Ctrl+N gọi lại lệnh đã gõ',
 	off: 'PIRL không dùng chuột. Cuộn bằng PageUp/PageDown; ↑/↓ gọi lại lệnh đã gõ',
 };
 const EFFORT_LABELS: Record<EffortSetting, string> = {default: 'Theo Claude Code', low: 'Thấp', medium: 'Vừa', high: 'Cao', xhigh: 'Rất cao', max: 'Tối đa'};

@@ -1,5 +1,4 @@
-import {createHash} from 'node:crypto';
-import {appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync} from 'node:fs';
+import {appendFileSync, readFileSync, writeFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {afterEach, describe, expect, test} from 'vitest';
 import {readRoleCatalog, roleAgents} from '../src/engine/agents.js';
@@ -8,7 +7,7 @@ import {createStreamParser, describeTool, parseStreamLine} from '../src/engine/c
 import {allowedPaths, outsideAllowed, readFrontmatter, readPlanPackages, readRecords, sameRepo} from '../src/engine/hubData.js';
 import {permissionsFor, ruleRoot} from '../src/engine/permissions.js';
 import {answersMessage, hostInstructions, parseOutputs, parseQuestions, parseSuggestion, stripBlocks} from '../src/engine/protocol.js';
-import {formatElapsed, LOG_LIMIT, RunController} from '../src/engine/run.js';
+import {formatElapsed, RunController} from '../src/engine/run.js';
 import {listRuns, resumable, saveRun} from '../src/engine/runStore.js';
 import type {RunEvent} from '../src/engine/types.js';
 import {cleanupTemp, fakeRunner, git, hubAndTarget, outputsBlock, PYTHON, result, tempDir, usage, writePlan, writeRecord} from './helpers/hub.js';
@@ -269,16 +268,6 @@ describe('run store', () => {
 		expect(listRuns(home, '/w/a').map(run => [run.key, run.status])).toEqual([['k1', 'done'], ['k2', 'failed']]);
 		expect(listRuns(home, '/w/a').filter(resumable).map(run => run.key)).toEqual(['k2']);
 	});
-
-	test('the single file of earlier versions becomes one entry', () => {
-		const home = tempDir();
-		const target = '/w/a';
-		const name = createHash('sha1').update(target).digest('hex').slice(0, 16);
-		mkdirSync(join(home, 'sessions'), {recursive: true});
-		writeFileSync(join(home, 'sessions', `${name}.json`), JSON.stringify({target, kind: 'plan', request: 'Cũ', sessionId: 's-0', status: 'stopped', questions: [], before}));
-		expect(listRuns(home, target)).toEqual([expect.objectContaining({key: 'legacy', request: 'Cũ'})]);
-		expect(existsSync(join(home, 'sessions', `${name}.json`))).toBe(false);
-	});
 });
 
 describe('RunController', () => {
@@ -393,12 +382,12 @@ describe('RunController', () => {
 			[{kind: 'session', label: '5 giờ', percent: 12, resetsAt: null}],
 			[{kind: 'session', label: '5 giờ', percent: 19, resetsAt: null}],
 		];
-		const run = new RunController({...deps(hub, target, runner), quota: async () => meters.shift() ?? null}, 1, 'chat', 'Hỏi');
+		const run = new RunController({...deps(hub, target, runner), logDir: tempDir(), quota: async () => meters.shift() ?? null}, 1, 'chat', 'Hỏi');
 		await run.start();
-		await new Promise(resolve => setTimeout(resolve, 20));
+		await new Promise(resolve => setTimeout(resolve, 50));
 		expect(run.state.quota.before?.[0]?.percent).toBe(12);
 		expect(run.state.quota.after?.[0]?.percent).toBe(19);
-		expect(run.state.log.some(entry => entry.text.startsWith('Token đến giờ: 9000 đọc cache'))).toBe(true);
+		expect(readFileSync(run.state.logFile!, 'utf8')).toMatch(/Token đến giờ: 9000 đọc cache/);
 	});
 
 	test('a failing validator and a missing record send the coordinator back, at most twice', async () => {
@@ -496,14 +485,14 @@ describe('RunController', () => {
 		expect(run.state.status).toBe('stopped');
 	});
 
-	test('the log: bounded in memory, complete in the log file, and a refusal reported twice counts once', async () => {
+	test('the log file has every entry, the run its duration, and a refusal reported twice counts once', async () => {
 		const {hub, target} = await hubAndTarget();
 		const logDir = tempDir();
 		let clock = 1_000_000;
 		const {runner} = fakeRunner([
 			(_call, emit) => {
 				emit({type: 'role-start', toolUseId: 'tu-1', role: 'code-analyst', description: 'Trace'});
-				for (let i = 0; i < LOG_LIMIT + 50; i++) {
+				for (let i = 0; i < 250; i++) {
 					clock += 1000;
 					emit({type: 'activity', agent: 'tu-1', text: `Đọc file-${i}.ts`});
 				}
@@ -515,15 +504,14 @@ describe('RunController', () => {
 		const run = new RunController({...deps(hub, target, runner), logDir, now: () => clock}, 3, 'chat', 'Hỏi');
 		await run.start();
 		expect(run.state.denials).toEqual(['Chạy mkdir -p /tmp/x']);
-		expect(run.state.log).toHaveLength(LOG_LIMIT);
-		expect(run.state.logCount).toBeGreaterThan(LOG_LIMIT + 50);
-		expect(run.state.log.at(-1)).toMatchObject({who: 'pirl', text: 'Xong', tone: 'success'});
-		expect(run.state.log.some(entry => entry.who === 'code-analyst' && entry.text === `Đọc file-${LOG_LIMIT + 49}.ts`)).toBe(true);
+		expect(run.state.lastAt).toBe(250_000);
 		await new Promise(resolve => setTimeout(resolve, 50));
 		const file = readFileSync(run.state.logFile!, 'utf8').trim().split('\n');
-		expect(file).toHaveLength(run.state.logCount);
+		expect(file.length).toBeGreaterThan(250);
 		expect(file[0]).toMatch(/^00:00 pirl\s+Bắt đầu Chat: Hỏi$/);
 		expect(file.some(line => /^\d\d:\d\d code-analyst\s+Đọc file-0\.ts$/.test(line))).toBe(true);
+		expect(file.some(line => /code-analyst\s+Đọc file-249\.ts$/.test(line))).toBe(true);
+		expect(file.at(-1)).toMatch(/pirl\s+Xong$/);
 		expect(formatElapsed(3_725_000)).toBe('1:02:05');
 	});
 

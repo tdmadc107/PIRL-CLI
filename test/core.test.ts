@@ -52,10 +52,10 @@ describe('config', () => {
 		});
 	});
 
-	test('the earlier on/off mouse setting becomes a mode', () => {
-		expect(normalizeConfig({mouse: true}).mouse).toBe('select');
-		expect(normalizeConfig({mouse: false}).mouse).toBe('off');
-		expect(normalizeConfig({mouse: 'wheel'}).mouse).toBe('wheel');
+	test('the 1.0 mouse setting wheel becomes select, which covers it', () => {
+		expect(normalizeConfig({mouse: 'wheel'}).mouse).toBe('select');
+		expect(normalizeConfig({mouse: 'terminal'}).mouse).toBe('terminal');
+		expect(normalizeConfig({mouse: 'nonsense'}).mouse).toBe('select');
 	});
 
 	test('save then load round-trips and leaves no temporary file', () => {

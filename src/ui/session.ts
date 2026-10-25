@@ -28,6 +28,8 @@ export type SessionInfo = {
 	target: TargetRepo;
 	hub: HubStatus | null;
 	hubError: string | null;
+	/** A newer PIRL release on npm than the one running, once the background check has found one. */
+	cliUpdate?: string | null;
 };
 
 export type StartRunOptions = {
@@ -91,6 +93,8 @@ export type Services = {
 	paths?(): Promise<PathEntry[]>;
 	/** The context of the `@` mentions of a request that name existing paths (src/engine/attachments.ts). */
 	attach?(text: string): Promise<AttachedContext>;
+	/** A newer PIRL release than the running one, or null (src/core/selfUpdate.ts); asked once at start, in the background. */
+	cliUpdate?(): Promise<string | null>;
 	/** Tells the terminal what PIRL wants from the mouse (src/ui/terminalInput.ts, mouseSequence). */
 	setMouse?(mode: MouseSetting): void;
 };

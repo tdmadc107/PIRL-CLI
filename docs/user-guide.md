@@ -11,6 +11,7 @@ This guide covers everything after installation. For requirements and installati
 - [Settings](#settings)
 - [Framework updates](#framework-updates)
 - [Where your data lives](#where-your-data-lives)
+- [Updating PIRL](#updating-pirl)
 
 The interface is in Vietnamese; agents reply in the language of your request.
 
@@ -50,7 +51,15 @@ PIRL suggests the matching command instead of running it.
 | Esc | Clear the input, close a panel, or stop the running run |
 | Ctrl+C | Stop the running run; quit when nothing runs |
 
-Select text with the mouse as usual to copy it; `/copy` copies the whole latest reply.
+### Selecting and copying text
+
+Drag with the mouse to select text in the chat or an open panel; no Shift key is needed. While you hold the
+button, turn the wheel or move the pointer past the top or bottom edge, and the view scrolls on with the selection,
+so a selection can be longer than the screen. Release the button to copy the selection to the clipboard; the status
+line confirms it. A click clears the selection, and the right button pastes into the input.
+
+`/copy` copies the whole latest reply. To let the terminal select text instead, set **Mouse** to "Để terminal xử lý"
+in `/settings`; its selection is then limited to what is on screen.
 
 ## Attaching files with `@`
 
@@ -103,7 +112,7 @@ servers, so each request carries less context.
 | Coordinator model | Sonnet (default), Opus, Fable, Haiku, or the agent's default |
 | Role model | Same as the coordinator (default), or a specific model |
 | Reasoning effort | Agent default, low, medium, high, xhigh, max; applies to the coordinator and every role |
-| Mouse | Free text selection (default), PIRL handles the wheel, or off |
+| Mouse | PIRL selects text and scrolls with the wheel (default), the terminal handles the mouse, or off |
 | Parallel roles | 1 to 4 roles of a run working at the same time (default 2) |
 | Appearance | Color scheme, light or dark background, Unicode or ASCII glyphs, motion |
 
@@ -135,3 +144,17 @@ original, and show the history of improvements.
 
 Plans, reports and records stay in the Hub, never in your project repository. Set `PIRL_HOME` to use another
 directory than `~/.pirl`.
+
+## Updating PIRL
+
+Run `pirl update` outside the TUI. It asks npm for the newest version and installs it with
+`npm install -g pirl-framework-cli@<version>`. If npm needs administrator rights to write the global folder,
+`pirl update` prints the command to run with them.
+
+Each time PIRL starts, it asks npm in the background, so the TUI never waits for it. When a newer version is out,
+the header shows "Có PIRL x.y.z" and a note in the chat says how to update. Without a network connection, PIRL
+uses npm's last answer. Set `PIRL_NO_UPDATE_CHECK=1` (or `NO_UPDATE_NOTIFIER=1`)
+to turn the check off; it is also off in CI.
+
+A new version of PIRL may bring a new version of the framework. Your Hub is not changed by the update: open
+`/framework` to apply the new framework when you choose.

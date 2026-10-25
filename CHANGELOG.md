@@ -4,6 +4,31 @@ All notable changes to this project are documented in this file. The format foll
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-10-25
+
+### Added
+
+- `pirl update` installs the newest version of PIRL from npm. A copy run from its source is left alone, with the
+  way to update it.
+- PIRL tells you when a new version is out: the header shows it and a note in the chat says how to update. npm is
+  asked in the background each time PIRL starts; `PIRL_NO_UPDATE_CHECK=1` turns the check off.
+- Select text with the mouse across more than one screen: drag in the chat or an open panel, without Shift; while
+  the button is held, the wheel or the pointer past an edge scrolls on and extends the selection. Releasing copies
+  it to the clipboard. The right button pastes.
+
+### Changed
+
+- The mouse settings are now "Bôi đen tự do" (PIRL selects text; the default), "Để terminal xử lý" (the terminal
+  selects text on screen and the wheel scrolls through the arrow keys) and off. 1.0's "Con lăn của PIRL" becomes
+  the default, which also scrolls with the wheel. ↑ / ↓ recall sent messages again, except when the terminal handles
+  the mouse.
+
+### Fixed
+
+- Code blocks in replies keep their indentation; it was stripped, so code was shown, and would have been copied,
+  flush left. Tabs are drawn as spaces to the next multiple of four instead of pushing the rest of the line out of
+  place.
+
 ## [1.0.1] - 2026-10-25
 
 Documentation and tests only: the CLI and the bundled framework (fw-1.1.0) are the same as in 1.0.0.
@@ -74,5 +99,6 @@ fw-1.1.0.
 - The validator reads quoted frontmatter strings literally. Before, a Windows path in `target_repo`
   (`"C:\Users\..."`) was rejected, and the `\n` in `"D:\new-app"` became a line break.
 
+[1.1.0]: https://github.com/tdmadc107/PIRL-CLI/releases/tag/v1.1.0
 [1.0.1]: https://github.com/tdmadc107/PIRL-CLI/releases/tag/v1.0.1
 [1.0.0]: https://github.com/tdmadc107/PIRL-CLI/releases/tag/v1.0.0
