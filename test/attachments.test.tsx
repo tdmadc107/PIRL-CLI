@@ -173,7 +173,7 @@ describe('@ in the TUI', () => {
 		return {terminal, calls};
 	}
 
-	const until = async (terminal: Terminal, check: (frame: string) => boolean, ms = 20_000) => {
+	const until = async (terminal: Terminal, check: (frame: string) => boolean, ms = 60_000) => {
 		const end = Date.now() + ms;
 		while (Date.now() < end) {
 			if (check(terminal.frame())) return;

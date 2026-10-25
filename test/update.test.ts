@@ -32,7 +32,7 @@ afterEach(() => {
 });
 
 const git = (cwd: string, ...args: string[]) =>
-	execFileSync('git', ['-c', 'user.name=T', '-c', 'user.email=t@t', '-c', 'commit.gpgsign=false', ...args], {cwd, encoding: 'utf8'}).trim();
+	execFileSync('git', ['-c', 'user.name=T', '-c', 'user.email=t@t', '-c', 'commit.gpgsign=false', '-c', 'core.autocrlf=false', '-c', 'core.safecrlf=false', ...args], {cwd, encoding: 'utf8'}).trim();
 
 const ROLE = '.agents/roles/code-analyst.role.md';
 const FORMAT = '.skills/pirl-plan/references/plan-format.md';
@@ -84,7 +84,7 @@ describe('update', () => {
 		expect(existsSync(draftDir(hub))).toBe(false);
 		expect(git(hub, 'branch', '--list', 'pirl-update')).toBe('');
 		expect(await hubStatus(hub, newer)).toMatchObject({updateAvailable: false, upstreamTag: 'fw-9.9.9', uncommitted: []});
-	}, 60_000);
+	});
 
 	test('a conflict waits for the user: the versions and the improvement behind it are shown, the choice is applied', async () => {
 		const hub = await hubWithImprovement(text => text.replace('# code-analyst', '# code-analyst (local)'));
@@ -102,7 +102,7 @@ describe('update', () => {
 		await resolveConflict(draft.dir, ROLE, 'mine');
 		expect(await finishUpdate(hub, draft, PYTHON)).toMatchObject({ok: true});
 		expect(readFileSync(join(hub, ROLE), 'utf8')).toContain('# code-analyst (local)');
-	}, 60_000);
+	});
 
 	test('a merge that breaks the framework\'s tests is dropped and main stays as it was', async () => {
 		const hub = await hubWithImprovement();
@@ -113,7 +113,7 @@ describe('update', () => {
 		expect(git(hub, 'rev-parse', 'main')).toBe(before);
 		expect(git(hub, 'status', '--porcelain')).toBe('');
 		expect(existsSync(draftDir(hub))).toBe(false);
-	}, 60_000);
+	});
 
 	test('the last update can be undone; the newer version stays offered', async () => {
 		const hub = await hubWithImprovement();

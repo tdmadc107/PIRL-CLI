@@ -34,7 +34,7 @@ export function removeDir(dir: string) {
 }
 
 export const git = (cwd: string, ...args: string[]) =>
-	execFileSync('git', ['-c', 'user.name=T', '-c', 'user.email=t@t', '-c', 'commit.gpgsign=false', ...args], {cwd, encoding: 'utf8'}).trim();
+	execFileSync('git', ['-c', 'user.name=T', '-c', 'user.email=t@t', '-c', 'commit.gpgsign=false', '-c', 'core.autocrlf=false', '-c', 'core.safecrlf=false', ...args], {cwd, encoding: 'utf8'}).trim();
 
 /** A real Hub built from the bundled framework, and a target repository with one commit. */
 export async function hubAndTarget() {

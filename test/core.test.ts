@@ -19,7 +19,7 @@ afterEach(() => {
 });
 
 const git = async (cwd: string, ...args: string[]) => {
-	const result = await exec('git', ['-c', 'user.name=T', '-c', 'user.email=t@t', '-c', 'commit.gpgsign=false', ...args], {cwd});
+	const result = await exec('git', ['-c', 'user.name=T', '-c', 'user.email=t@t', '-c', 'commit.gpgsign=false', '-c', 'core.autocrlf=false', '-c', 'core.safecrlf=false', ...args], {cwd});
 	expect(result.code, result.stderr).toBe(0);
 	return result.stdout;
 };
