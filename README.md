@@ -103,6 +103,10 @@ Coordinator được dặn chuyển các đường dẫn này cho role liên qua
 ngoài target repo được cấp quyền đọc cho run đó. Một `@` không trỏ tới đường dẫn nào, như `dev@shop.vn`, giữ
 nguyên là chữ. Nội dung gửi kèm tính vào token vào của run.
 
+Trên Windows, PIRL không đọc đường dẫn mạng hay thiết bị (`\\máy\thư-mục`, `//máy/thư-mục`, `\\?\…`) trong `@`,
+trừ khi chính repo hoặc thư mục home nằm trên share đó: chỉ cần đọc thử, Windows đã kết nối tới máy kia và gửi
+thông tin đăng nhập NTLM của bạn, mà `@` có thể nằm lẫn trong một đoạn văn bản dán vào.
+
 ### Một run diễn ra thế nào
 
 1. `/pirl-plan <request>` (tương tự `/pirl-implement`, `/pirl-review`) chạy coordinator bằng Claude Code
