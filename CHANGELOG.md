@@ -4,16 +4,30 @@ All notable changes to this project are documented in this file. The format foll
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Documentation only: the CLI and the bundled framework (fw-1.1.0) are the same as in 1.0.1.
+
+### Added
+
+- A [user guide](docs/user-guide.md) with the details of using PIRL: commands, keyboard shortcuts, `@`
+  attachments, how a run works, usage limits, settings, framework updates and where data is stored.
+- Uninstallation steps in the README.
+
+### Changed
+
+- The README now introduces the product: highlights, requirements, installation, quick start, documentation
+  links, uninstallation and development. The usage details it held moved to the user guide.
+
 ## [1.0.1] - 2026-10-25
 
 Documentation only: the CLI and the bundled framework (fw-1.1.0) are the same as in 1.0.0.
 
 ### Changed
 
-- The README is now in English and introduces the product: highlights, requirements, installation, quick start
-  and uninstallation.
-- The details of using PIRL moved to a new [user guide](docs/user-guide.md): commands, keyboard shortcuts, `@`
-  attachments, how a run works, usage limits, settings, framework updates and where data is stored.
+- The README is now in English and rewritten for new users: features, requirements, installation, quick start,
+  commands, keyboard shortcuts, `@` attachments, how a run works, usage limits, settings, framework updates and
+  where data is stored.
 - The changelog is now in English.
 
 ## [1.0.0] - 2026-10-25
@@ -65,5 +79,6 @@ fw-1.1.0.
 - The validator reads quoted frontmatter strings literally. Before, a Windows path in `target_repo`
   (`"C:\Users\..."`) was rejected, and the `\n` in `"D:\new-app"` became a line break.
 
+[Unreleased]: https://github.com/tdmadc107/PIRL-CLI/compare/v1.0.1...HEAD
 [1.0.1]: https://github.com/tdmadc107/PIRL-CLI/releases/tag/v1.0.1
 [1.0.0]: https://github.com/tdmadc107/PIRL-CLI/releases/tag/v1.0.0
