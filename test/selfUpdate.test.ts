@@ -41,36 +41,29 @@ describe('versions', () => {
 });
 
 describe('the update check of the TUI', () => {
-	test('asks npm at most once a day and reports only a newer release', async () => {
+	test('asks npm at every start, so a version out three hours later shows at the next start', async () => {
 		const file = updateCheckFile(tempDir('pirl-update-'));
-		const npm = fakeNpm({latest: ok('1.1.0')});
+		let latest = '1.0.1';
+		const calls: string[] = [];
+		const exec: Exec = async (_command, args) => (calls.push(args.join(' ')), ok(latest));
 		let now = Date.parse('2026-11-01T08:00:00Z');
-		const check = (current: string) => checkForUpdate({file, name: NAME, current, exec: npm.exec, now: () => now, env: {}});
-		expect(await check('1.0.1')).toBe('1.1.0');
-		expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual({checkedAt: '2026-11-01T08:00:00.000Z', latest: '1.1.0'});
-		now += 60 * 60 * 1000;
-		expect(await check('1.0.1')).toBe('1.1.0');
-		expect(await check('1.1.0')).toBeNull();
-		expect(npm.calls).toHaveLength(1);
-		now += 24 * 60 * 60 * 1000;
-		await check('1.1.0');
-		expect(npm.calls).toHaveLength(2);
+		const check = () => checkForUpdate({file, name: NAME, current: '1.0.1', exec, now: () => now, env: {}});
+		expect(await check()).toBeNull();
+		now += 3 * 60 * 60 * 1000;
+		latest = '1.1.0';
+		expect(await check()).toBe('1.1.0');
+		expect(calls).toHaveLength(2);
+		expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual({checkedAt: '2026-11-01T11:00:00.000Z', latest: '1.1.0'});
 	});
 
-	test('a failed check is silent and not saved, so the next start asks again', async () => {
+	test('offline, the last answer npm gave is used; never having reached npm, it stays silent', async () => {
 		const file = updateCheckFile(tempDir('pirl-update-'));
 		const offline = fakeNpm({latest: failed});
 		expect(await checkForUpdate({file, name: NAME, current: '1.0.1', exec: offline.exec, env: {}})).toBeNull();
 		expect(existsSync(file)).toBe(false);
 		expect(await checkForUpdate({file, name: NAME, current: '1.0.1', exec: fakeNpm({latest: ok('1.1.0')}).exec, env: {}})).toBe('1.1.0');
-	});
-
-	test('a check dated in the future counts as old', async () => {
-		const file = updateCheckFile(tempDir('pirl-update-'));
-		writeFileSync(file, JSON.stringify({checkedAt: '2030-01-01T00:00:00.000Z', latest: '1.0.1'}));
-		const npm = fakeNpm({latest: ok('1.2.0')});
-		expect(await checkForUpdate({file, name: NAME, current: '1.0.1', exec: npm.exec, now: () => Date.parse('2026-11-01T00:00:00Z'), env: {}})).toBe('1.2.0');
-		expect(npm.calls).toHaveLength(1);
+		expect(await checkForUpdate({file, name: NAME, current: '1.0.1', exec: offline.exec, env: {}})).toBe('1.1.0');
+		expect(await checkForUpdate({file, name: NAME, current: '1.1.0', exec: offline.exec, env: {}})).toBeNull();
 	});
 
 	test('stays silent in CI, or when turned off; CI=false is not CI', async () => {
@@ -109,10 +102,12 @@ describe('pirl update', () => {
 		const {globalRoot, root, write} = globalInstall('1.0.1', '1.1.0');
 		const lines: string[] = [];
 		const ran: string[] = [];
+		const checkFile = updateCheckFile(tempDir('pirl-update-'));
 		const code = await runUpdate({
 			name: NAME,
 			current: '1.0.1',
 			root,
+			checkFile,
 			log: line => lines.push(line),
 			exec: fakeNpm({latest: ok('1.1.0'), root: ok(`${globalRoot}\n`)}).exec,
 			run: async (command, args) => {
@@ -123,6 +118,7 @@ describe('pirl update', () => {
 		});
 		expect(code).toBe(0);
 		expect(ran).toEqual([`npm install -g ${NAME}@1.1.0`]);
+		expect(JSON.parse(readFileSync(checkFile, 'utf8')).latest).toBe('1.1.0');
 		expect(lines).toContain('Cập nhật 1.0.1 → 1.1.0…');
 		expect(lines).toContain('Đã cập nhật lên 1.1.0.');
 		expect(lines.at(-1)).toMatch(/framework mới \(fw-1\.2\.0\).*\/framework/);

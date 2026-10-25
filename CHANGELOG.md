@@ -11,7 +11,7 @@ All notable changes to this project are documented in this file. The format foll
 - `pirl update` installs the newest version of PIRL from npm. A copy run from its source is left alone, with the
   way to update it.
 - PIRL tells you when a new version is out: the header shows it and a note in the chat says how to update. npm is
-  asked at most once a day, in the background; `PIRL_NO_UPDATE_CHECK=1` turns the check off.
+  asked in the background each time PIRL starts; `PIRL_NO_UPDATE_CHECK=1` turns the check off.
 
 ## [1.0.1] - 2026-10-25
 

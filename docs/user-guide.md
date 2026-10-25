@@ -143,8 +143,9 @@ Run `pirl update` outside the TUI. It asks npm for the newest version and instal
 `npm install -g pirl-framework-cli@<version>`. If npm needs administrator rights to write the global folder,
 `pirl update` prints the command to run with them.
 
-Once a day, PIRL checks npm in the background when it starts. When a newer version is out, the header shows
-"Có PIRL x.y.z" and a note in the chat says how to update. Set `PIRL_NO_UPDATE_CHECK=1` (or `NO_UPDATE_NOTIFIER=1`)
+Each time PIRL starts, it asks npm in the background, so the TUI never waits for it. When a newer version is out,
+the header shows "Có PIRL x.y.z" and a note in the chat says how to update. Without a network connection, PIRL
+uses npm's last answer. Set `PIRL_NO_UPDATE_CHECK=1` (or `NO_UPDATE_NOTIFIER=1`)
 to turn the check off; it is also off in CI.
 
 A new version of PIRL may bring a new version of the framework. Your Hub is not changed by the update: open

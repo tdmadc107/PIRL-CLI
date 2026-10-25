@@ -54,7 +54,7 @@ async function main(): Promise<number> {
 		console.log(`pirl ${pkg.version} (framework ${framework})`);
 		return 0;
 	}
-	if (args[0] === 'update' && args.length === 1) return runUpdate({name: pkg.name, current: pkg.version, root});
+	if (args[0] === 'update' && args.length === 1) return runUpdate({name: pkg.name, current: pkg.version, root, checkFile: updateCheckFile(pirlHome())});
 	if (args.length > 0) {
 		console.error(`pirl: không nhận tham số "${args[0]}". Lệnh chạy bên trong TUI.\n\n${HELP}`);
 		return 2;

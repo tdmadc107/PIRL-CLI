@@ -32,11 +32,10 @@ export async function latestVersion(name: string, exec: Exec = defaultExec): Pro
 	return RELEASE.test(version) ? version : null;
 }
 
-/** The last answer from npm, kept in `~/.pirl/update-check.json` so the TUI asks at most once a day. */
+/** npm's last answer, kept in `~/.pirl/update-check.json` for the starts when npm cannot be reached. */
 type UpdateCheck = {checkedAt: string; latest: string};
 
 export const updateCheckFile = (home: string) => join(home, 'update-check.json');
-const CHECK_EVERY_MS = 24 * 60 * 60 * 1000;
 
 function readCheck(file: string): UpdateCheck | null {
 	try {
@@ -52,7 +51,7 @@ function writeCheck(file: string, check: UpdateCheck) {
 		mkdirSync(dirname(file), {recursive: true});
 		writeFileSync(file, `${JSON.stringify(check)}\n`);
 	} catch {
-		// A check that cannot be saved is asked again next time.
+		// Only the offline fallback is lost.
 	}
 }
 
@@ -63,8 +62,8 @@ const isOn = (value: string | undefined) => value !== undefined && !['', '0', 'f
 export const updateCheckDisabled = (env: NodeJS.ProcessEnv = process.env) => isOn(env['PIRL_NO_UPDATE_CHECK']) || isOn(env['NO_UPDATE_NOTIFIER']) || isOn(env['CI']);
 
 /**
- * A newer release than `current`, or null. npm is asked at most once a day; in between, its last answer is used.
- * Never throws: an update check that fails is simply silent, and is not saved, so the next start asks again.
+ * A newer release than `current`, or null. npm is asked at every start (in the background, so the TUI never waits),
+ * and its answer is saved; when npm cannot be reached, the last saved answer is used instead. Never throws.
  */
 export async function checkForUpdate(options: {
 	file: string;
@@ -76,15 +75,9 @@ export async function checkForUpdate(options: {
 }): Promise<string | null> {
 	if (updateCheckDisabled(options.env)) return null;
 	const now = options.now ?? Date.now;
-	const saved = readCheck(options.file);
-	// A check dated in the future (the clock was changed) counts as old.
-	const age = saved ? now() - Date.parse(saved.checkedAt) : Number.NaN;
-	const fresh = saved !== null && age >= 0 && age < CHECK_EVERY_MS;
-	let latest = fresh ? saved.latest : null;
-	if (!fresh) {
-		latest = await latestVersion(options.name, options.exec).catch(() => null);
-		if (latest) writeCheck(options.file, {checkedAt: new Date(now()).toISOString(), latest});
-	}
+	let latest = await latestVersion(options.name, options.exec).catch(() => null);
+	if (latest) writeCheck(options.file, {checkedAt: new Date(now()).toISOString(), latest});
+	else latest = readCheck(options.file)?.latest ?? null;
 	return latest && compareVersions(latest, options.current) > 0 ? latest : null;
 }
 
@@ -130,6 +123,8 @@ export async function runUpdate(options: {
 	name: string;
 	current: string;
 	root: string;
+	/** Where the TUI's update check keeps npm's last answer; `pirl update` refreshes it. */
+	checkFile?: string;
 	log?: (line: string) => void;
 	exec?: Exec;
 	run?: RunInTerminal;
@@ -140,6 +135,7 @@ export async function runUpdate(options: {
 	const install = `npm install -g ${options.name}`;
 	log(`Đang kiểm tra bản mới của ${options.name}…`);
 	const latest = await latestVersion(options.name, exec);
+	if (latest && options.checkFile) writeCheck(options.checkFile, {checkedAt: new Date().toISOString(), latest});
 	if (!latest) {
 		log('Không lấy được bản mới nhất từ npm: mất mạng, hoặc npm vẫn đang xử lý một bản vừa đăng. Thử lại sau ít phút.');
 		log(`Hoặc tự cập nhật: ${install}`);
