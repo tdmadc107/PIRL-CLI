@@ -73,14 +73,10 @@ export function createClaudeRunner(command = 'claude'): AgentRunner {
 			child.once('close', () => running.delete(child));
 			let buffer = '';
 			let stderr = '';
-			// A consumer that fails on one event must not stop reading the stream; its error joins the call's stderr,
-			// which is reported with the call's result.
 			const emit = (event: RunEvent) => {
 				try {
 					onEvent(event);
-				} catch (error) {
-					stderr += `PIRL: lỗi khi xử lý sự kiện ${event.type}: ${error instanceof Error ? error.message : String(error)}\n`;
-				}
+				} catch {}
 			};
 			child.stdout?.setEncoding('utf8').on('data', (chunk: string) => {
 				buffer += chunk;

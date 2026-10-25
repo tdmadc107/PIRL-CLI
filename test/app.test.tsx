@@ -347,29 +347,6 @@ describe('startup check and panels', () => {
 		}
 	});
 
-	test('a Hub or saved runs that cannot be read are reported in the panel or the chat, never crash PIRL', async () => {
-		const {props} = appProps();
-		const broken = () => {
-			throw new Error('EACCES: permission denied');
-		};
-		const terminal = renderTerminal(<App {...props} services={{...props.services, plans: broken, records: broken, runs: broken}} />, 100, 30);
-		open.push(terminal);
-		await tick(60);
-		for (const command of ['/plans', '/records']) {
-			await terminal.type(command);
-			await terminal.press(KEYS.enter);
-			await tick(60);
-			expect(terminal.frame()).toContain('Không đọc được Hub: EACCES: permission denied.');
-			await terminal.press(KEYS.escape);
-		}
-		await terminal.type('/resume');
-		await terminal.press(KEYS.enter);
-		await tick(60);
-		expect(terminal.frame()).toContain('Không đọc được các run đã lưu: EACCES: permission denied');
-		await terminal.type('xin chào');
-		expect(terminal.frame()).toContain('› xin chào');
-	});
-
 	test('the provider cannot be switched to one without an adapter', async () => {
 		const {terminal, saved} = await start(100, 30);
 		await terminal.type('/settings');

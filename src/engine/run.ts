@@ -10,6 +10,7 @@ import {
 	discardImprovements,
 	listPlanSets,
 	outsideAllowed,
+	readFrontmatter,
 } from './hubData.js';
 import {permissionsFor} from './permissions.js';
 import {answersMessage, hostInstructions, parseOutputs, parseQuestions, parseSuggestion, stripBlocks, type RunOutputs} from './protocol.js';
@@ -329,12 +330,7 @@ export class RunController {
 		this.callBase = this.state.usage;
 		this.handle = deps.runner.start(request, event => {
 			if (event.type === 'result') result = event;
-			// A fault in handling one event must not stop the run, nor go unseen: it is written to the run's log.
-			try {
-				this.apply(event);
-			} catch (error) {
-				this.update({}, {who: 'pirl', text: `Lỗi nội bộ khi xử lý sự kiện ${event.type}: ${error instanceof Error ? error.message : String(error)}`, tone: 'error'});
-			}
+			this.apply(event);
 		});
 		const exit = await this.handle.done;
 		this.handle = null;
@@ -597,17 +593,7 @@ export class RunController {
 	}
 
 	/** The user's decision on this run's framework improvements. */
-	/** The user's choice for the framework improvements; a failure is shown on the improvements, never thrown. */
 	async resolveImprovements(choice: 'commit' | 'keep' | 'discard'): Promise<void> {
-		const pending = this.state.improvements;
-		try {
-			await this.applyImprovementChoice(choice);
-		} catch (error) {
-			if (pending) this.update({improvements: {...pending, error: error instanceof Error ? error.message : String(error)}});
-		}
-	}
-
-	private async applyImprovementChoice(choice: 'commit' | 'keep' | 'discard'): Promise<void> {
 		const pending = this.state.improvements;
 		if (!pending || pending.state !== 'pending') return;
 		if (choice === 'commit' && pending.tests?.state === 'fail') {
@@ -630,6 +616,14 @@ export class RunController {
 			{status: 'done', improvements: {files: pending.files, state: choice === 'commit' ? 'committed' : 'discarded'}},
 			{who: 'pirl', text: `${choice === 'commit' ? 'Đã commit' : 'Đã bỏ'} ${pending.files.length} file cải tiến. Xong`, tone: 'success'},
 		);
+	}
+
+	/** Task ID and title of the Plan file this run produced or worked on, for the run block. */
+	planSummary(): string | null {
+		const file = this.resolveHubPath(this.state.outputs.planFile);
+		if (!file) return null;
+		const fields = readFrontmatter(readFileSync(file, 'utf8'));
+		return `${fields['task_id'] ?? ''} ${fields['title'] ?? ''}`.trim() || null;
 	}
 }
 

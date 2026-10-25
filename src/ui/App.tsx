@@ -81,9 +81,6 @@ const FLUSH_MS = 100;
 /** Shift+Enter as xterm's modifyOtherKeys reports it, which Ink does not parse: ESC [27;<mod>;13~ */
 const MODIFIED_ENTER = /^\[27;\d+;13~$/;
 
-/** An error's message, for a note. */
-const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
-
 /** A drag in progress: where it started (in content) and where the pointer is (on screen). */
 type Drag = {area: Selection['area']; anchor: Point; x: number; y: number; beyond: -1 | 0 | 1};
 
@@ -371,11 +368,7 @@ export function App(props: AppProps) {
 				const key = `${state.sessionId}|${state.status}|${state.questions.length}`;
 				if (state.sessionId && key !== savedAs) {
 					savedAs = key;
-					try {
-						props.services.saveRun?.(controller.persisted());
-					} catch (error) {
-						addMessages([{kind: 'note', tone: 'warning', text: `Không lưu được run cho /resume: ${messageOf(error)}`}]);
-					}
+					props.services.saveRun?.(controller.persisted());
 				}
 			}
 			if (state.status === 'done' || state.status === 'failed' || state.status === 'stopped') {
@@ -434,12 +427,7 @@ export function App(props: AppProps) {
 				]);
 			}
 		}
-		let failed: string | null;
-		try {
-			failed = startRun(kind, request, attached);
-		} catch (error) {
-			failed = `Không bắt đầu được run: ${messageOf(error)}`;
-		}
+		const failed = startRun(kind, request, attached);
 		if (failed) addMessages([{kind: 'note', tone: 'error', text: failed}]);
 	};
 
@@ -462,14 +450,7 @@ export function App(props: AppProps) {
 	};
 
 	/** The runs /resume offers: stopped, failed or waiting ones that have a provider session. */
-	/** The runs /resume offers, or why the saved runs could not be read. */
-	const readResumable = (): {runs: PersistedRun[]; error: string | null} => {
-		try {
-			return {runs: (props.services.runs?.() ?? []).filter(run => resumable(run)), error: null};
-		} catch (error) {
-			return {runs: [], error: `Không đọc được các run đã lưu: ${messageOf(error)}`};
-		}
-	};
+	const resumableRuns = () => (props.services.runs?.() ?? []).filter(run => resumable(run));
 
 	const resumeRun = (last: PersistedRun): NewMessage => {
 		const blocker = runBlocker(last.kind);
@@ -500,13 +481,7 @@ export function App(props: AppProps) {
 			addMessages([{kind: 'note', tone: 'info', text: 'Chưa có câu trả lời nào để copy.'}]);
 			return;
 		}
-		let how: 'native' | 'terminal' | 'failed' = 'failed';
-		try {
-			if (props.services.clipboard) how = await props.services.clipboard.copy(run.reply);
-		} catch (error) {
-			addMessages([{kind: 'note', tone: 'error', text: `Không copy được: ${messageOf(error)}`}]);
-			return;
-		}
+		const how = props.services.clipboard ? await props.services.clipboard.copy(run.reply) : 'failed';
 		addMessages([
 			how === 'failed'
 				? {kind: 'note', tone: 'error', text: 'Không copy được: không tìm thấy công cụ clipboard của hệ thống.'}
@@ -515,12 +490,7 @@ export function App(props: AppProps) {
 	};
 
 	const pasteClipboard = async () => {
-		let text: string | null = null;
-		try {
-			text = props.services.clipboard ? await props.services.clipboard.paste() : null;
-		} catch {
-			// Reported below like an empty clipboard: the terminal's own paste key still works.
-		}
+		const text = props.services.clipboard ? await props.services.clipboard.paste() : null;
 		if (text) setEditor(current => insert(current, text));
 		else addMessages([{kind: 'note', tone: 'warning', text: 'Không đọc được clipboard. Dùng phím dán của terminal (chuột phải, Ctrl+Shift+V).'}]);
 	};
@@ -531,43 +501,30 @@ export function App(props: AppProps) {
 		const target = props.info.target.kind === 'git' ? props.info.target.root : null;
 		const width = Math.max(20, bodyWidth - 4);
 		const intro = (text: string) => hanging([], text, width, {dim: true});
-		const unreadable = (error?: unknown) => hanging([{text: `${theme.glyphs.fail} `, color: 'danger'}], `Không đọc được Hub${error === undefined ? '' : `: ${messageOf(error)}`}.`, width);
+		const unreadable = () => hanging([{text: `${theme.glyphs.fail} `, color: 'danger'}], 'Không đọc được Hub.', width);
 		switch (overlay) {
 			case 'plans': {
 				if (!target || !props.services.plans) return {entries: [], header: unreadable()};
-				let packages;
-				try {
-					packages = props.services.plans();
-				} catch (error) {
-					return {entries: [], header: unreadable(error)};
-				}
+				const packages = props.services.plans();
 				const header = intro(`Đọc trong Hub${hub ? ` (${displayPath(hub.path)})` : ''}: các Plan package có target_repo là repo hiện tại. Enter để xem một Plan hoặc report.`);
 				if (packages.length === 0) header.push(blank, ...hanging([{text: `${theme.glyphs.pending} `, dim: true}], 'Chưa có Plan nào cho repo này. Gõ /pirl-plan <request> để tạo.', width));
 				return {entries: planEntries(packages, theme), header};
 			}
 			case 'records': {
-				let records;
-				try {
-					records = props.services.records?.() ?? null;
-				} catch (error) {
-					return {entries: [], header: unreadable(error)};
-				}
+				const records = props.services.records?.() ?? null;
 				if (!records) return {entries: [], header: unreadable()};
 				const header = intro('Record tự đánh giá của các run trên repo này, mới nhất trước (đọc trong Hub, .agents/evals/records/). Enter để xem chi tiết.');
 				if (records.length === 0) header.push(blank, ...hanging([{text: `${theme.glyphs.pending} `, dim: true}], 'Chưa có record nào.', width));
 				return {entries: recordEntries(records, theme), header};
 			}
-			case 'resume': {
-				const saved = readResumable();
-				if (saved.error) return {entries: [], header: hanging([{text: `${theme.glyphs.fail} `, color: 'danger'}], saved.error, width)};
+			case 'resume':
 				return {
-					entries: resumeEntries(saved.runs, theme, run => {
+					entries: resumeEntries(resumableRuns(), theme, run => {
 						setOverlay(null);
 						addMessages([{kind: 'user', text: `/resume ${LAYER_LABELS[run.kind]}: ${run.request.split('\n')[0]!.slice(0, 80)}`}, resumeRun(run)]);
 					}),
 					header: intro('Chọn run muốn chạy tiếp, mới nhất trước. Run chạy tiếp đúng session của provider mà nó đã dừng.'),
 				};
-			}
 			default:
 				return null;
 		}
@@ -638,9 +595,7 @@ export function App(props: AppProps) {
 			if (effect.type === 'copy') afterwards = () => void copyLatest();
 			if (effect.type === 'resume') {
 				afterwards = () => {
-					const saved = readResumable();
-					if (saved.error) addMessages([{kind: 'note', tone: 'error', text: saved.error}]);
-					else if (saved.runs.length === 0) addMessages([{kind: 'note', tone: 'info', text: 'Không có run nào đang dở.'}]);
+					if (resumableRuns().length === 0) addMessages([{kind: 'note', tone: 'info', text: 'Không có run nào đang dở.'}]);
 					else if (activeRunId !== null) addMessages([{kind: 'note', tone: 'error', text: runBlocker('plan') ?? ''}]);
 					else {
 						list.reset();
@@ -897,15 +852,9 @@ export function App(props: AppProps) {
 	};
 	const copySelection = async (text: string) => {
 		if (!text) return;
-		let how: 'native' | 'terminal' | 'failed' = 'failed';
-		let problem = 'không tìm thấy công cụ clipboard của hệ thống';
-		try {
-			if (props.services.clipboard) how = await props.services.clipboard.copy(text);
-		} catch (error) {
-			problem = messageOf(error);
-		}
+		const how = props.services.clipboard ? await props.services.clipboard.copy(text) : 'failed';
 		const count = text.split('\n').length;
-		showFlash(how === 'failed' ? `Không copy được: ${problem}` : `Đã copy ${count} dòng`, how !== 'failed');
+		showFlash(how === 'failed' ? 'Không copy được: không tìm thấy công cụ clipboard của hệ thống' : `Đã copy ${count} dòng`, how !== 'failed');
 	};
 	const handleMouse = (event: MouseEvent) => {
 		if (config.mouse !== 'select') return;
