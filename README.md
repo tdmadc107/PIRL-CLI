@@ -32,10 +32,13 @@ Bản 1.0.0 (xem [CHANGELOG.md](CHANGELOG.md)).
 Từ npm (sau khi bản 1.0.0 được phát hành):
 
 ```bash
-npm install -g pirl-cli
+npm install -g @tdmadc107/pirl-cli
 ```
 
-Cập nhật: `npm install -g pirl-cli@latest`. Bản CLI mới không tự ghi gì vào framework của bạn. Nếu bản mới
+Lệnh chạy là `pirl`. Gói mang tên tài khoản npm (`@tdmadc107/`) vì npm không nhận tên `pirl-cli`: quá giống một
+gói đã có.
+
+Cập nhật: `npm install -g @tdmadc107/pirl-cli@latest`. Bản CLI mới không tự ghi gì vào framework của bạn. Nếu bản mới
 kèm framework mới, header hiện "Có framework mới"; mở `/framework` để cập nhật khi bạn muốn.
 
 Từ mã nguồn:
@@ -48,7 +51,7 @@ npm run setup     # cài thư viện, build, đóng gói và cài lệnh `pirl` 
 
 Cập nhật bản cài từ mã nguồn: trong thư mục `PIRL-CLI`, chạy `git pull` rồi `npm run setup`.
 
-Gỡ: `npm uninstall -g pirl-cli`. Hub và cài đặt ở `~/.pirl` vẫn giữ lại; xoá tay nếu không cần.
+Gỡ: `npm uninstall -g @tdmadc107/pirl-cli`. Hub và cài đặt ở `~/.pirl` vẫn giữ lại; xoá tay nếu không cần.
 
 Trên PowerShell, nếu gõ `pirl` báo "running scripts is disabled on this system", chạy
 `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` một lần, hoặc gõ `pirl.cmd` thay cho `pirl`.

@@ -25,7 +25,7 @@ export function packageRoot(from: string = fileURLToPath(import.meta.url)): stri
 	let dir = dirname(from);
 	while (!existsSync(join(dir, 'package.json'))) {
 		const parent = dirname(dir);
-		if (parent === dir) throw new Error('package.json of pirl-cli not found');
+		if (parent === dir) throw new Error('package.json of PIRL CLI not found');
 		dir = parent;
 	}
 	return dir;
