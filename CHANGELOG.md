@@ -4,7 +4,7 @@ All notable changes to this project are documented in this file. The format foll
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.1.0] - 2026-10-25
 
 ### Added
 
@@ -99,6 +99,6 @@ fw-1.1.0.
 - The validator reads quoted frontmatter strings literally. Before, a Windows path in `target_repo`
   (`"C:\Users\..."`) was rejected, and the `\n` in `"D:\new-app"` became a line break.
 
-[Unreleased]: https://github.com/tdmadc107/PIRL-CLI/compare/v1.0.1...HEAD
+[1.1.0]: https://github.com/tdmadc107/PIRL-CLI/releases/tag/v1.1.0
 [1.0.1]: https://github.com/tdmadc107/PIRL-CLI/releases/tag/v1.0.1
 [1.0.0]: https://github.com/tdmadc107/PIRL-CLI/releases/tag/v1.0.0
