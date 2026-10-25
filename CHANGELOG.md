@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file. The format foll
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Planned as 1.0.1. Documentation only: the CLI and the bundled framework (fw-1.1.0) are the same as in 1.0.0.
+
+### Changed
+
+- The README is now in English and rewritten for new users: features, requirements, installation, quick start,
+  commands, keyboard shortcuts, `@` attachments, how a run works, usage limits, settings, framework updates and
+  where data is stored.
+- The changelog is now in English.
+
 ## [1.0.0] - 2026-10-25
 
 First release, published on npm as `pirl-framework-cli`. Provider: Claude Code 2.1.281 or later. Bundled framework:
@@ -53,4 +64,5 @@ fw-1.1.0.
 - The validator reads quoted frontmatter strings literally. Before, a Windows path in `target_repo`
   (`"C:\Users\..."`) was rejected, and the `\n` in `"D:\new-app"` became a line break.
 
+[Unreleased]: https://github.com/tdmadc107/PIRL-CLI/compare/v1.0.0...HEAD
 [1.0.0]: https://github.com/tdmadc107/PIRL-CLI/releases/tag/v1.0.0
