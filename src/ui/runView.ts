@@ -3,7 +3,7 @@ import {formatElapsed, type RunState, type RunStatus} from '../engine/run.js';
 import {displayPath} from '../core/paths.js';
 import {LAYER_LABELS, totalTokens, type Question, type QuotaRow, type Usage} from '../engine/types.js';
 import {blank, hanging, type Line, type Span} from './lines.js';
-import {padEnd, truncateEnd, width} from './text.js';
+import {expandTabs, padEnd, truncateEnd, width} from './text.js';
 import {ROLE_IDS, type RoleId, type Theme} from './theme.js';
 
 /** A decision the TUI is waiting for: a question from the coordinator, or what to do with framework improvements. */
@@ -40,10 +40,16 @@ export function markdownLines(text: string, columns: number, indent = 0): Line[]
 			continue;
 		}
 		if (code) {
-			lines.push(...hanging([pad, {text: '  '}], raw || ' ', columns, {dim: true}));
+			// Code keeps its indentation: it goes into the prefix, which wrapping leaves alone, so wrapped parts of a
+			// long line also line up under its text.
+			const expanded = expandTabs(raw);
+			const own = /^ */.exec(expanded)![0];
+			// Very deep indentation is capped at half the width, so the code itself always has room.
+			const lead = own.slice(0, Math.max(0, Math.floor(columns / 2) - indent - 2));
+			lines.push(...hanging([pad, {text: `  ${lead}`}], expanded.slice(own.length) || ' ', columns, {dim: true}));
 			continue;
 		}
-		const line = raw.replace(/\*\*(.+?)\*\*/g, '$1');
+		const line = expandTabs(raw).replace(/\*\*(.+?)\*\*/g, '$1');
 		const heading = /^#{1,6}\s+(.*)$/.exec(line);
 		const bullet = /^(\s*)[-*]\s+(.*)$/.exec(line);
 		const numbered = /^(\s*)(\d+[.)])\s+(.*)$/.exec(line);

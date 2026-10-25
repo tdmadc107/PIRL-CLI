@@ -690,7 +690,10 @@ export function App(props: AppProps) {
 
 	const handleKey = (input: string, key: Key) => {
 		const editor = editorRef.current;
+		// A key ends any selection, and any drag whose release never came (the window lost focus mid-drag), which
+		// would otherwise keep scrolling.
 		if (selection) setSelection(null);
+		if (dragRef.current) setDrag(null);
 		if (key.ctrl && input === 'c') {
 			if (!stopActive()) exit();
 			return;

@@ -23,6 +23,12 @@ All notable changes to this project are documented in this file. The format foll
   the default, which also scrolls with the wheel. ↑ / ↓ recall sent messages again, except when the terminal handles
   the mouse.
 
+### Fixed
+
+- Code blocks in replies keep their indentation; it was stripped, so code was shown, and would have been copied,
+  flush left. Tabs are drawn as spaces to the next multiple of four instead of pushing the rest of the line out of
+  place.
+
 ## [1.0.1] - 2026-10-25
 
 Documentation and tests only: the CLI and the bundled framework (fw-1.1.0) are the same as in 1.0.0.

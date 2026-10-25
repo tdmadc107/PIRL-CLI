@@ -3,7 +3,9 @@ import type {Clipboard} from '../src/core/clipboard.js';
 import {DEFAULT_CONFIG} from '../src/core/config.js';
 import {App} from '../src/ui/App.js';
 import type {Line} from '../src/ui/lines.js';
+import {markdownLines} from '../src/ui/runView.js';
 import {columnsOf, highlight, pointAt, selectedText, sliceText, type SelectArea, type Selection} from '../src/ui/selection.js';
+import {expandTabs} from '../src/ui/text.js';
 import {appProps} from './helpers/fixtures.js';
 import {KEYS, renderTerminal, tick} from './helpers/terminal.js';
 
@@ -63,6 +65,25 @@ describe('selection: points, columns and text', () => {
 		// Code keeps its own indentation.
 		const code = [plain('    function a() {'), plain('      return 1;'), plain('    }')];
 		expect(selectedText(code, {area: 'chat', anchor: {line: 0, col: 0}, focus: {line: 2, col: 99}})).toBe('function a() {\n  return 1;\n}');
+	});
+});
+
+describe('code in replies keeps its indentation, so a copy of it does too', () => {
+	test('tabs become spaces to the next multiple of four, measured in display columns', () => {
+		expect(expandTabs('a\tb')).toBe('a   b');
+		expect(expandTabs('\t\tx')).toBe('        x');
+		expect(expandTabs('日\tx')).toBe('日  x');
+		expect(expandTabs('no tab')).toBe('no tab');
+	});
+
+	test('a code block is drawn with its own indentation, tabs included; very deep indentation is capped', () => {
+		const lines = markdownLines('```go\nfunc a() {\n\tif x {\n\t\treturn 1\n\t}\n}\n```', 40);
+		const text = lines.map(line => line.map(span => span.text).join(''));
+		expect(text).toEqual(['  func a() {', '      if x {', '          return 1', '      }', '  }']);
+		const all: Selection = {area: 'chat', anchor: {line: 0, col: 0}, focus: {line: lines.length - 1, col: 99}};
+		expect(selectedText(lines, all)).toBe('func a() {\n    if x {\n        return 1\n    }\n}');
+		const deep = markdownLines(`\`\`\`\n${' '.repeat(60)}x\n\`\`\``, 40)[0]!.map(span => span.text).join('');
+		expect(deep.trimEnd()).toBe(`${' '.repeat(20)}x`);
 	});
 });
 
@@ -130,6 +151,19 @@ describe('selecting with the mouse in the TUI', () => {
 		await until(() => copied.length > 0);
 		expect(copied[0]).toContain('/m6');
 		expect(copied[0]).toContain('/m8');
+	});
+
+	test('a key ends a drag whose release never came, so the view stops scrolling', async () => {
+		const {terminal, copied} = await start(80, 16, 8);
+		const from = cell(terminal, '› /m8');
+		await terminal.press(sgr(0, from.x, from.y));
+		await terminal.press(sgr(32, 5, 0));
+		await tick(150);
+		await terminal.press('x');
+		const after = terminal.frame();
+		await tick(400);
+		expect(terminal.frame()).toBe(after);
+		expect(copied).toEqual([]);
 	});
 
 	test('a click is not a selection; the right button pastes into the input', async () => {
