@@ -6,6 +6,7 @@ import {
 	FILE_LIMIT,
 	findMentions,
 	pathIndex,
+	remoteRoot,
 	resolveMentions,
 	suggestPaths,
 	type PathEntry,
@@ -55,6 +56,33 @@ describe('@ mentions', () => {
 		expect(suggestPaths(INDEX, 'app').map(entry => entry.path)).toEqual(['src/ui/App.tsx', 'docs/app guide.md', 'src/ui/appState.ts']);
 		expect(suggestPaths(INDEX, 'src/m').map(entry => entry.path)).toEqual(['src/main.ts']);
 		expect(suggestPaths(INDEX, 'zzz')).toEqual([]);
+	});
+
+	test('Windows: network shares and devices, in every spelling, are told apart from local paths', () => {
+		for (const path of ['\\\\host\\share\\x', '//host/share/x', '/\\host\\share\\x', '\\/host/share/x', '\\\\host@80\\dav\\x', '\\\\?\\C:\\x', '\\\\.\\pipe\\x']) {
+			expect(remoteRoot(path, 'win32'), path).not.toBeNull();
+			expect(remoteRoot(path, 'linux'), path).toBeNull();
+		}
+		expect(remoteRoot('//HOST/Share/x', 'win32')).toBe(remoteRoot('\\\\host\\share\\y', 'win32'));
+		for (const path of ['C:\\Users\\dev\\a.ts', 'C:/Users/dev/a.ts', '/home/dev/a.ts', 'src/a.ts', '\\src\\a.ts']) {
+			expect(remoteRoot(path, 'win32'), path).toBeNull();
+		}
+	});
+
+	test('Windows: a mention of a network share is never looked at, so no connection to its host is made', () => {
+		const base = tempDir('pirl-attach-');
+		writeFileSync(join(base, 'a.ts'), '');
+		// On Linux and macOS `//tmp/x` is a local path that exists; on Windows the same spelling names a share.
+		const doubled = `/${join(base, 'a.ts')}`;
+		// Elsewhere it is the same file as the single-slash spelling, attached once.
+		if (process.platform !== 'win32') expect(resolveMentions(`@${doubled} @${join(base, 'a.ts')}`, base, base, 'linux').map(item => item.display)).toEqual(['a.ts']);
+		expect(resolveMentions(`@${doubled} @\\\\attacker\\share\\x @//attacker/share/x @\\\\attacker@80\\dav\\x`, base, base, 'win32')).toEqual([]);
+		// Local mentions keep working.
+		expect(resolveMentions(`@a.ts @${join(base, 'a.ts')}`, base, base, 'win32').map(item => item.display)).toEqual(['a.ts']);
+	});
+
+	test.runIf(process.platform === 'win32')('Windows: a share is read only when the repository itself is on it', () => {
+		expect(resolveMentions('@\\\\127.0.0.1\\c$\\Windows @//localhost/c$/Windows', 'C:\\', 'C:\\')).toEqual([]);
 	});
 
 	test('mentions in a request: quoted paths, no e-mail addresses, trailing punctuation dropped, unknown ones left as text', () => {

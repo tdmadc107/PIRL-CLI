@@ -103,6 +103,10 @@ Coordinator được dặn chuyển các đường dẫn này cho role liên qua
 ngoài target repo được cấp quyền đọc cho run đó. Một `@` không trỏ tới đường dẫn nào, như `dev@shop.vn`, giữ
 nguyên là chữ. Nội dung gửi kèm tính vào token vào của run.
 
+Trên Windows, PIRL không đọc đường dẫn mạng hay thiết bị (`\\máy\thư-mục`, `//máy/thư-mục`, `\\?\…`) trong `@`,
+trừ khi chính repo hoặc thư mục home nằm trên share đó: chỉ cần đọc thử, Windows đã kết nối tới máy kia và gửi
+thông tin đăng nhập NTLM của bạn, mà `@` có thể nằm lẫn trong một đoạn văn bản dán vào.
+
 ### Một run diễn ra thế nào
 
 1. `/pirl-plan <request>` (tương tự `/pirl-implement`, `/pirl-review`) chạy coordinator bằng Claude Code
@@ -222,6 +226,8 @@ CI (`.github/workflows/ci.yml`) chạy typecheck, test, test của framework và
 Windows với Node 22 và 24.
 
 ### Phát hành
+
+Quy trình đầy đủ để đăng thủ công từ máy, kèm cách tăng version: [docs/RELEASING.md](docs/RELEASING.md). Tóm tắt:
 
 1. Cập nhật `version` trong `package.json` và mục mới trong `CHANGELOG.md`. Nếu framework đổi, tăng
    `pirl.frameworkVersion`: Hub của người dùng so bản này với nhánh `upstream` để báo có framework mới.

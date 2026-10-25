@@ -1,6 +1,6 @@
 import {closeSync, openSync, readdirSync, readFileSync, readSync, statSync} from 'node:fs';
 import {homedir} from 'node:os';
-import {isAbsolute, join, relative, resolve, sep} from 'node:path';
+import {isAbsolute, join, relative, resolve, sep, win32} from 'node:path';
 import {exec as defaultExec, succeeded, type Exec} from '../core/exec.js';
 
 /**
@@ -122,10 +122,33 @@ export type Attachment = {
 	size: number;
 };
 
-/** The path a mention names, if it exists: `~/` is the home directory; a relative path is read from `base`, then from `cwd`. */
-function locate(mention: string, base: string, cwd: string): {path: string; kind: 'file' | 'folder'; size: number} | null {
-	const candidates = mention.startsWith('~/') || mention === '~' ? [join(homedir(), mention.slice(1))] : isAbsolute(mention) ? [mention] : [resolve(base, mention), resolve(cwd, mention)];
+/**
+ * The share or device a Windows path starts with (`\\host\share\`, `\\?\C:\`, `\\.\pipe\`), or null for a
+ * local path. Windows takes any two separators at the start as one, so `//host/share` and `/\host\share` count too.
+ * Elsewhere `//tmp/x` is an ordinary local path and `\` an ordinary character: null.
+ */
+export function remoteRoot(path: string, platform: NodeJS.Platform = process.platform): string | null {
+	if (platform !== 'win32' || !/^[\\/]{2}/.test(path)) return null;
+	return win32.parse(win32.normalize(path)).root.toLowerCase();
+}
+
+/**
+ * The path a mention names, if it exists: `~/` is the home directory; a relative path is read from `base`, then from `cwd`.
+ * On Windows a path on a network share or a device is never looked at unless the base, the start directory or the
+ * home directory is on that same share: merely reading it would connect to the host (SMB, or WebDAV for
+ * `\\host@80\x`) and send it the user's NTLM credentials, and a mention can come from pasted text.
+ */
+function locate(mention: string, base: string, cwd: string, platform: NodeJS.Platform): {path: string; kind: 'file' | 'folder'; size: number} | null {
+	const candidates = mention.startsWith('~/') || mention === '~' ? [join(homedir(), mention.slice(1))] : isAbsolute(mention) ? [resolve(mention)] : [resolve(base, mention), resolve(cwd, mention)];
+	const trusted = [base, cwd, homedir()].map(dir => remoteRoot(dir, platform)).filter((root): root is string => root !== null);
+	const untrusted = (path: string) => {
+		const root = remoteRoot(path, platform);
+		return root !== null && !trusted.includes(root);
+	};
+	// The mention as written and each path it resolves to: either one naming a share is enough to skip it.
+	if (untrusted(mention)) return null;
 	for (const candidate of candidates) {
+		if (untrusted(candidate)) continue;
 		try {
 			const stat = statSync(candidate);
 			if (stat.isDirectory()) return {path: candidate, kind: 'folder', size: 0};
@@ -141,12 +164,12 @@ function locate(mention: string, base: string, cwd: string): {path: string; kind
  * The mentions of the text that name an existing file or folder, once each. A mention followed by punctuation
  * ("xem @src/a.ts, rồi…") still names the path without it. Mentions that name nothing stay plain text.
  */
-export function resolveMentions(text: string, base: string, cwd: string = base): Attachment[] {
+export function resolveMentions(text: string, base: string, cwd: string = base, platform: NodeJS.Platform = process.platform): Attachment[] {
 	const attachments: Attachment[] = [];
 	const seen = new Set<string>();
 	for (const mention of findMentions(text)) {
 		const trimmed = mention.replace(/[.,;:!?)\]}'"]+$/, '');
-		const found = locate(mention, base, cwd) ?? (trimmed && trimmed !== mention ? locate(trimmed, base, cwd) : null);
+		const found = locate(mention, base, cwd, platform) ?? (trimmed && trimmed !== mention ? locate(trimmed, base, cwd, platform) : null);
 		if (!found || seen.has(found.path)) continue;
 		seen.add(found.path);
 		const inside = relative(base, found.path);
