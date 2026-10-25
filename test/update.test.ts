@@ -129,5 +129,5 @@ describe('update', () => {
 		expect((await hubStatus(hub, newer)).updateAvailable).toBe(true);
 		// Updating again reuses the version already on upstream.
 		expect(await finishUpdate(hub, await startUpdate(hub, newer), PYTHON)).toMatchObject({ok: true});
-	}, 90_000);
+	});
 });
