@@ -1,50 +1,56 @@
 # Changelog
 
-Định dạng theo [Keep a Changelog](https://keepachangelog.com/vi/1.1.0/); phiên bản theo
-[Semantic Versioning](https://semver.org/lang/vi/).
+All notable changes to this project are documented in this file. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
+[Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] - 2026-10-24
+## [1.0.0] - 2026-10-25
 
-Bản phát hành đầu tiên. Provider: Claude Code (2.1.281 trở lên). Framework đi kèm: fw-1.1.0.
+First release, published on npm as `pirl-framework-cli`. Provider: Claude Code 2.1.281 or later. Bundled framework:
+fw-1.1.0.
 
-### Thêm
+### Added
 
-- Đính kèm file hoặc thư mục bằng `@`: gợi ý đường dẫn của repo khi gõ; khi gửi, file văn bản nhỏ đi kèm nội
-  dung, file lớn và thư mục đi kèm đường dẫn hoặc danh sách file. Trên Windows, đường dẫn mạng (UNC) và thiết bị
-  không bao giờ được đọc, trừ share chứa chính repo hoặc thư mục home.
-- TUI mở bằng `pirl` trong thư mục của một git repo; repo đó là target repo.
-- `/pirl-plan`, `/pirl-implement`, `/pirl-review` chạy một layer của PIRL bằng Claude Code của bạn. Mỗi role là
-  một subagent riêng, quyền theo layer.
-- Nhập không có `/`: hỏi đáp, việc độc lập, bảo trì framework. Run gợi ý lệnh layer khi yêu cầu là một layer.
-- Câu hỏi giữa run (chọn bằng phím mũi tên, gõ số hoặc nhập câu trả lời khác). `/resume` mở danh sách các run
-  còn chạy tiếp được của repo để chọn, kể cả sau khi đóng TUI.
-- `/plans` và `/records`: chọn một mục rồi Enter để xem nội dung Plan, report, hoặc chi tiết record.
-- Sau mỗi run, CLI tự chạy validator và kiểm tra record tự đánh giá. Sau Implement, CLI kiểm tra file thay đổi có
-  nằm trong Allowed paths của Plan không.
-- Cải tiến framework của run được chạy test của framework rồi mới hỏi commit vào Hub. Test lỗi thì không commit
-  được.
+- A terminal UI started with `pirl` in a Git repository, which becomes the target repository.
+- `/pirl-plan`, `/pirl-implement` and `/pirl-review` run a PIRL layer through your Claude Code. Each role runs as
+  its own subagent, with permissions set per layer.
+- Text typed without a `/` is a question, a standalone task or framework maintenance. When it asks for a layer,
+  the run suggests the matching command instead of running it.
+- Questions during a run: pick an answer with the arrow keys, type its number, or write your own.
+- `/resume` lists the runs of the repository that can continue and resumes the one you choose, even after the
+  TUI was closed.
+- After each run, PIRL runs the framework's validator and checks the self-evaluation record. After Implement, it
+  checks that the changed files are within the Plan's allowed paths.
+- Framework improvements made by a run are tested with the framework's own tests before PIRL offers to commit
+  them to the Hub; an improvement that fails the tests cannot be committed.
 - `/framework`:
-  - cập nhật lên bản đi kèm CLI qua bản nháp, có merge 3 chiều;
-  - giải quyết xung đột: giữ bản của bạn, lấy bản gốc mới, để agent gộp, hoặc sửa tay;
-  - chạy test của framework trước khi áp dụng;
-  - hoàn tác lần cập nhật gần nhất;
-  - xem khác biệt so với bản gốc, khôi phục từng file, lịch sử cải tiến.
-- Theo dõi run: spinner, đồng hồ, việc từng role đang làm; nhật ký đầy đủ ở `~/.pirl/logs/`.
-- Token theo loại (đọc cache, ghi cache, ra, vào mới) gồm cả các role, và giá trị quy đổi theo giá API.
-- Hạn mức 5 giờ và tuần trong bảng bên phải: thanh phần trăm và giờ đặt lại.
-- Con lăn chuột cuộn hội thoại và các bảng, trong khi kéo chuột vẫn bôi đen chữ như bình thường.
-- `/settings`: model coordinator (mặc định Sonnet), model các role, mức suy luận (áp dụng cho mọi role), số role
-  chạy song song, bảng màu, giao diện, ký hiệu, hiệu ứng chuyển động, chuột.
-- `/plans`, `/records`, `/doctor`, `/copy`, `/clear`, `/help`, `/exit`; dán bằng Ctrl+V; xuống dòng bằng
-  Shift+Enter, Ctrl+J hoặc `\` + Enter.
-- Bố cục co giãn từ 40 cột; hỗ trợ bộ gõ tiếng Việt.
+  - update to the framework bundled with the CLI through a draft, with a three-way merge;
+  - resolve conflicts by keeping your version, taking the new one, letting the agent merge them, or editing by
+    hand;
+  - run the framework's tests before applying an update;
+  - undo the last update;
+  - view differences from the original, restore single files, and browse the history of improvements.
+- `/plans` and `/records`: open a Plan, a review report or a record to see its details.
+- Attach files and folders with `@`: paths of the repository are suggested as you type. Small text files are sent
+  with their content; large files and folders are sent as paths or file lists. On Windows, network (UNC) and
+  device paths are never read, except on the share that holds the repository or the home directory.
+- Run progress: a spinner, a clock and what each role is doing; the full log of each run in `~/.pirl/logs/`.
+- Token usage by kind (cache reads, cache writes, output, new input), including the roles', with its equivalent at
+  API list prices.
+- 5-hour and weekly usage limits in the side panel, with percentage bars and reset times.
+- Mouse wheel scrolling of the chat and panels, while dragging still selects text as usual.
+- `/settings`: coordinator model (Sonnet by default), role model, reasoning effort for every role, parallel roles,
+  color scheme, light or dark background, glyphs, motion and mouse mode.
+- `/doctor`, `/copy`, `/clear`, `/help` and `/exit`; paste with Ctrl+V; new lines with Shift+Enter, Ctrl+J or `\`
+  then Enter.
+- A responsive layout from 40 columns, and support for Vietnamese input methods.
 
 ### Framework fw-1.1.0
 
-- Phần chi tiết của tự đánh giá chuyển sang `self-evaluation.instructions.md`, kèm mẫu JSON của record. Không quy
-  tắc nào thay đổi.
-- Plan, report và record dùng múi giờ của máy thay vì UTC+7 cố định.
-- Validator đọc nguyên văn chuỗi trong ngoặc của frontmatter. Trước đây, một `target_repo` dạng đường dẫn Windows
-  (`"C:\Users\..."`) bị từ chối, hoặc `\n` trong `"D:\new-app"` bị đổi thành ký tự xuống dòng.
+- The details of self-evaluation moved to `self-evaluation.instructions.md`, with a JSON template for records. No
+  rule changed.
+- Plans, reports and records use the computer's time zone instead of a fixed UTC+7.
+- The validator reads quoted frontmatter strings literally. Before, a Windows path in `target_repo`
+  (`"C:\Users\..."`) was rejected, and the `\n` in `"D:\new-app"` became a line break.
 
 [1.0.0]: https://github.com/tdmadc107/PIRL-CLI/releases/tag/v1.0.0
