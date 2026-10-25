@@ -74,7 +74,8 @@ describe('@ mentions', () => {
 		writeFileSync(join(base, 'a.ts'), '');
 		// On Linux and macOS `//tmp/x` is a local path that exists; on Windows the same spelling names a share.
 		const doubled = `/${join(base, 'a.ts')}`;
-		if (process.platform !== 'win32') expect(resolveMentions(`@${doubled}`, base, base, 'linux')).toHaveLength(1);
+		// Elsewhere it is the same file as the single-slash spelling, attached once.
+		if (process.platform !== 'win32') expect(resolveMentions(`@${doubled} @${join(base, 'a.ts')}`, base, base, 'linux').map(item => item.display)).toEqual(['a.ts']);
 		expect(resolveMentions(`@${doubled} @\\\\attacker\\share\\x @//attacker/share/x @\\\\attacker@80\\dav\\x`, base, base, 'win32')).toEqual([]);
 		// Local mentions keep working.
 		expect(resolveMentions(`@a.ts @${join(base, 'a.ts')}`, base, base, 'win32').map(item => item.display)).toEqual(['a.ts']);

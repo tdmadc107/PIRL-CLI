@@ -139,11 +139,16 @@ export function remoteRoot(path: string, platform: NodeJS.Platform = process.pla
  * `\\host@80\x`) and send it the user's NTLM credentials, and a mention can come from pasted text.
  */
 function locate(mention: string, base: string, cwd: string, platform: NodeJS.Platform): {path: string; kind: 'file' | 'folder'; size: number} | null {
-	const candidates = mention.startsWith('~/') || mention === '~' ? [join(homedir(), mention.slice(1))] : isAbsolute(mention) ? [mention] : [resolve(base, mention), resolve(cwd, mention)];
+	const candidates = mention.startsWith('~/') || mention === '~' ? [join(homedir(), mention.slice(1))] : isAbsolute(mention) ? [resolve(mention)] : [resolve(base, mention), resolve(cwd, mention)];
 	const trusted = [base, cwd, homedir()].map(dir => remoteRoot(dir, platform)).filter((root): root is string => root !== null);
+	const untrusted = (path: string) => {
+		const root = remoteRoot(path, platform);
+		return root !== null && !trusted.includes(root);
+	};
+	// The mention as written and each path it resolves to: either one naming a share is enough to skip it.
+	if (untrusted(mention)) return null;
 	for (const candidate of candidates) {
-		const root = remoteRoot(candidate, platform);
-		if (root !== null && !trusted.includes(root)) continue;
+		if (untrusted(candidate)) continue;
 		try {
 			const stat = statSync(candidate);
 			if (stat.isDirectory()) return {path: candidate, kind: 'folder', size: 0};
