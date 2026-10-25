@@ -1,4 +1,4 @@
-import {mkdirSync, readFileSync, writeFileSync} from 'node:fs';
+import {existsSync, mkdirSync, readFileSync, writeFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {afterEach, describe, expect, test} from 'vitest';
 import type {Exec, ExecResult} from '../src/core/exec.js';
@@ -35,6 +35,8 @@ describe('versions', () => {
 		expect(await latestVersion(NAME, fakeNpm({latest: ok('1.1.0\n')}).exec)).toBe('1.1.0');
 		expect(await latestVersion(NAME, fakeNpm({latest: ok('0.0.0-stage\n')}).exec)).toBeNull();
 		expect(await latestVersion(NAME, fakeNpm({latest: failed}).exec)).toBeNull();
+		// npm configured with json=true prints the version quoted.
+		expect(await latestVersion(NAME, fakeNpm({latest: ok('"1.1.0"\n')}).exec)).toBe('1.1.0');
 	});
 });
 
@@ -55,15 +57,30 @@ describe('the update check of the TUI', () => {
 		expect(npm.calls).toHaveLength(2);
 	});
 
-	test('stays silent when npm cannot answer, in CI, or when turned off', async () => {
+	test('a failed check is silent and not saved, so the next start asks again', async () => {
 		const file = updateCheckFile(tempDir('pirl-update-'));
-		expect(await checkForUpdate({file, name: NAME, current: '1.0.1', exec: fakeNpm({latest: failed}).exec, env: {}})).toBeNull();
+		const offline = fakeNpm({latest: failed});
+		expect(await checkForUpdate({file, name: NAME, current: '1.0.1', exec: offline.exec, env: {}})).toBeNull();
+		expect(existsSync(file)).toBe(false);
+		expect(await checkForUpdate({file, name: NAME, current: '1.0.1', exec: fakeNpm({latest: ok('1.1.0')}).exec, env: {}})).toBe('1.1.0');
+	});
+
+	test('a check dated in the future counts as old', async () => {
+		const file = updateCheckFile(tempDir('pirl-update-'));
+		writeFileSync(file, JSON.stringify({checkedAt: '2030-01-01T00:00:00.000Z', latest: '1.0.1'}));
+		const npm = fakeNpm({latest: ok('1.2.0')});
+		expect(await checkForUpdate({file, name: NAME, current: '1.0.1', exec: npm.exec, now: () => Date.parse('2026-11-01T00:00:00Z'), env: {}})).toBe('1.2.0');
+		expect(npm.calls).toHaveLength(1);
+	});
+
+	test('stays silent in CI, or when turned off; CI=false is not CI', async () => {
 		const npm = fakeNpm({latest: ok('9.9.9')});
 		for (const env of [{CI: 'true'}, {PIRL_NO_UPDATE_CHECK: '1'}, {NO_UPDATE_NOTIFIER: '1'}]) {
 			expect(updateCheckDisabled(env)).toBe(true);
 			expect(await checkForUpdate({file: updateCheckFile(tempDir('pirl-update-')), name: NAME, current: '1.0.1', exec: npm.exec, env})).toBeNull();
 		}
 		expect(npm.calls).toEqual([]);
+		for (const env of [{CI: 'false'}, {CI: '0'}, {PIRL_NO_UPDATE_CHECK: ''}]) expect(updateCheckDisabled(env)).toBe(false);
 	});
 });
 
@@ -126,7 +143,7 @@ describe('pirl update', () => {
 		const code = await runUpdate({name: NAME, current: '1.0.1', root: source, log: line => lines.push(line), exec: fakeNpm({latest: ok('1.1.0'), root: ok(globalRoot)}).exec, run: async (c, a) => (ran.push([c, ...a].join(' ')), 0)});
 		expect(code).toBe(1);
 		expect(ran).toEqual([]);
-		expect(lines.join('\n')).toMatch(/không phải bản cài bằng npm -g[\s\S]*git pull rồi npm run setup/);
+		expect(lines.join('\n')).toMatch(/không phải bản cài bằng npm install -g[\s\S]*pnpm add -g[\s\S]*git pull rồi npm run setup/);
 	});
 
 	test('npm unreachable or the install failing: exit 1 with the command to run by hand', async () => {
@@ -135,7 +152,12 @@ describe('pirl update', () => {
 		expect(await runUpdate({name: NAME, current: '1.0.1', root, log: line => lines.push(line), exec: fakeNpm({latest: failed}).exec})).toBe(1);
 		expect(lines.at(-1)).toContain(`npm install -g ${NAME}`);
 		lines.length = 0;
-		expect(await runUpdate({name: NAME, current: '1.0.1', root, log: line => lines.push(line), exec: fakeNpm({latest: ok('1.1.0'), root: ok(globalRoot)}).exec, run: async () => 243})).toBe(1);
+		const npm = fakeNpm({latest: ok('1.1.0'), root: ok(globalRoot)});
+		expect(await runUpdate({name: NAME, current: '1.0.1', root, log: line => lines.push(line), exec: npm.exec, run: async () => 243, platform: 'linux'})).toBe(1);
 		expect(lines.join('\n')).toContain(`sudo npm install -g ${NAME}@1.1.0`);
+		lines.length = 0;
+		expect(await runUpdate({name: NAME, current: '1.0.1', root, log: line => lines.push(line), exec: npm.exec, run: async () => 1, platform: 'win32'})).toBe(1);
+		expect(lines.join('\n')).toMatch(/EPERM hoặc EBUSY: đóng các cửa sổ đang chạy pirl/);
+		expect(lines.join('\n')).not.toContain('sudo');
 	});
 });

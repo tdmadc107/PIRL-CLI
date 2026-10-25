@@ -27,12 +27,13 @@ export function compareVersions(a: string, b: string): number {
 export async function latestVersion(name: string, exec: Exec = defaultExec): Promise<string | null> {
 	const result = await exec('npm', ['view', name, 'dist-tags.latest'], {timeoutMs: 20_000});
 	if (!succeeded(result)) return null;
-	const version = result.stdout.trim();
+	// With `json=true` in the user's npm config, the version comes quoted.
+	const version = result.stdout.trim().replace(/^"(.*)"$/, '$1');
 	return RELEASE.test(version) ? version : null;
 }
 
 /** The last answer from npm, kept in `~/.pirl/update-check.json` so the TUI asks at most once a day. */
-type UpdateCheck = {checkedAt: string; latest: string | null};
+type UpdateCheck = {checkedAt: string; latest: string};
 
 export const updateCheckFile = (home: string) => join(home, 'update-check.json');
 const CHECK_EVERY_MS = 24 * 60 * 60 * 1000;
@@ -55,12 +56,15 @@ function writeCheck(file: string, check: UpdateCheck) {
 	}
 }
 
+/** A variable that is set to something other than an empty string, `0` or `false`. */
+const isOn = (value: string | undefined) => value !== undefined && !['', '0', 'false'].includes(value.trim().toLowerCase());
+
 /** The checks are off in CI and when the user asks for it, with PIRL_NO_UPDATE_CHECK or NO_UPDATE_NOTIFIER. */
-export const updateCheckDisabled = (env: NodeJS.ProcessEnv = process.env) => Boolean(env['PIRL_NO_UPDATE_CHECK'] || env['NO_UPDATE_NOTIFIER'] || env['CI']);
+export const updateCheckDisabled = (env: NodeJS.ProcessEnv = process.env) => isOn(env['PIRL_NO_UPDATE_CHECK']) || isOn(env['NO_UPDATE_NOTIFIER']) || isOn(env['CI']);
 
 /**
  * A newer release than `current`, or null. npm is asked at most once a day; in between, its last answer is used.
- * Never throws: an update check that fails is simply silent.
+ * Never throws: an update check that fails is simply silent, and is not saved, so the next start asks again.
  */
 export async function checkForUpdate(options: {
 	file: string;
@@ -73,11 +77,13 @@ export async function checkForUpdate(options: {
 	if (updateCheckDisabled(options.env)) return null;
 	const now = options.now ?? Date.now;
 	const saved = readCheck(options.file);
-	const fresh = saved && now() - Date.parse(saved.checkedAt) < CHECK_EVERY_MS;
+	// A check dated in the future (the clock was changed) counts as old.
+	const age = saved ? now() - Date.parse(saved.checkedAt) : Number.NaN;
+	const fresh = saved !== null && age >= 0 && age < CHECK_EVERY_MS;
 	let latest = fresh ? saved.latest : null;
 	if (!fresh) {
 		latest = await latestVersion(options.name, options.exec).catch(() => null);
-		writeCheck(options.file, {checkedAt: new Date(now()).toISOString(), latest});
+		if (latest) writeCheck(options.file, {checkedAt: new Date(now()).toISOString(), latest});
 	}
 	return latest && compareVersions(latest, options.current) > 0 ? latest : null;
 }
@@ -127,6 +133,7 @@ export async function runUpdate(options: {
 	log?: (line: string) => void;
 	exec?: Exec;
 	run?: RunInTerminal;
+	platform?: NodeJS.Platform;
 }): Promise<number> {
 	const log = options.log ?? (line => console.log(line));
 	const exec = options.exec ?? defaultExec;
@@ -134,7 +141,8 @@ export async function runUpdate(options: {
 	log(`Đang kiểm tra bản mới của ${options.name}…`);
 	const latest = await latestVersion(options.name, exec);
 	if (!latest) {
-		log(`Không hỏi được npm về bản mới nhất. Kiểm tra kết nối mạng, hoặc tự cập nhật: ${install}`);
+		log('Không lấy được bản mới nhất từ npm: mất mạng, hoặc npm vẫn đang xử lý một bản vừa đăng. Thử lại sau ít phút.');
+		log(`Hoặc tự cập nhật: ${install}`);
 		return 1;
 	}
 	if (compareVersions(latest, options.current) <= 0) {
@@ -143,16 +151,21 @@ export async function runUpdate(options: {
 	}
 	const globalRoot = await exec('npm', ['root', '-g'], {timeoutMs: 20_000});
 	if (!succeeded(globalRoot) || !inside(options.root, globalRoot.stdout.trim())) {
-		log(`Có bản mới ${latest} (đang dùng ${options.current}), nhưng PIRL này chạy từ ${options.root}, không phải bản cài bằng npm -g.`);
-		log(`Bản chạy từ mã nguồn: trong thư mục đó, chạy git pull rồi npm run setup. Hoặc cài bản npm: ${install}`);
+		log(`Có bản mới ${latest} (đang dùng ${options.current}), nhưng PIRL này chạy từ ${options.root}, không phải bản cài bằng npm install -g.`);
+		log('- Cài bằng pnpm, yarn hoặc bun: cập nhật bằng chính trình đó (ví dụ pnpm add -g pirl-framework-cli).');
+		log('- Chạy từ mã nguồn: trong thư mục đó, chạy git pull rồi npm run setup.');
 		return 1;
 	}
 	const framework = readPackage(options.root)?.pirl?.frameworkVersion ?? null;
 	log(`Cập nhật ${options.current} → ${latest}…`);
 	const code = await (options.run ?? runInTerminal)('npm', ['install', '-g', `${options.name}@${latest}`]);
 	if (code !== 0) {
-		log(`Cập nhật không thành công. Nếu npm báo lỗi quyền (EACCES, EPERM), chạy lại với quyền quản trị: sudo ${install}@${latest}`);
-		log('(Windows: mở terminal bằng "Run as administrator" rồi chạy lệnh trên, bỏ sudo.)');
+		log('Cập nhật không thành công; xem lỗi của npm ở trên.');
+		if ((options.platform ?? process.platform) === 'win32') {
+			log(`Nếu npm báo EPERM hoặc EBUSY: đóng các cửa sổ đang chạy pirl rồi chạy lại ${install}@${latest}. Vẫn lỗi quyền thì mở terminal bằng "Run as administrator".`);
+		} else {
+			log(`Nếu npm báo lỗi quyền (EACCES): sudo ${install}@${latest}`);
+		}
 		return 1;
 	}
 	// npm replaced the package in place, so its package.json is now the new one.
