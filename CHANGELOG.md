@@ -12,6 +12,12 @@ All notable changes to this project are documented in this file. The format foll
   to the TUI and to `pirl --help` and `pirl update`. Agents still reply in the language of your request.
   PIRL's own messages to the agent (validator fixes, your answers, /resume) follow the chosen language too.
 
+### Framework fw-1.2.0
+
+- Implement roles finish a clean-code check before handing over to the verification roles: they write only the
+  code the required logic needs, reuse existing logic, and check that the new code is clean, free of potential
+  bugs and maintainable, and that every line has a purpose.
+
 ## [1.1.1] - 2026-10-25
 
 ### Fixed

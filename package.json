@@ -35,7 +35,7 @@
     "node": ">=22"
   },
   "pirl": {
-    "frameworkVersion": "1.1.0"
+    "frameworkVersion": "1.2.0"
   },
   "scripts": {
     "bundle-framework": "node scripts/bundle-framework.mjs",
