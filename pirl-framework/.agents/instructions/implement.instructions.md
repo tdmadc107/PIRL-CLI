@@ -5,7 +5,7 @@ applyTo: ".agents/instructions/implement.instructions.md"
 metadata:
   id: ".agents/instructions/implement"
   kind: "instruction"
-  version: "2.2.0"
+  version: "2.3.0"
   status: "active"
 ---
 
@@ -112,8 +112,7 @@ work, the sources and the related REQs/QGs, then merges the results by evidence.
 
 - Trace the execution path from input to result before changing anything. Keep
   each invariant where it is owned and update the affected writers/readers
-  within scope. Do not add abstractions, migrations, platforms or test
-  infrastructure just because it is convenient.
+  within scope.
 - The Plan's path list is the scope of the main work, not the boundary of
   consistency. Once the behavior is stable, sweep the whole target repository
   and the related context documentation, not just the task's directory, for
@@ -168,6 +167,21 @@ work, the sources and the related REQs/QGs, then merges the results by evidence.
   ([sources of evidence](layered-task-execution.instructions.md#verification-by-reasoning)).
   A repair run that touches the UI captures the layout again per the
   [layout verification instructions](layout-verification.instructions.md), into a new run directory.
+
+### Clean code
+
+Every implementation role applies this rule to the code it creates or changes
+and completes it before handing over to the verification roles. The
+verification roles still work independently.
+
+Write only code that carries out the required logic: no redundant code, no
+dead code, no code that degrades the logic. Before writing code, answer:
+
+1. Does the logic already exist in the code, and is new code really needed?
+2. Can the existing code be reused?
+3. Is the new code clean, and is it free of potential risks or bugs?
+4. Is the new code maintainable?
+5. What is the purpose of each line of code?
 
 ## Changes to the Plan confirmed by the user
 
