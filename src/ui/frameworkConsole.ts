@@ -1,6 +1,7 @@
 import type {Key} from 'ink';
 import {useRef, useState} from 'react';
 import type {Config} from '../core/config.js';
+import {plural, t} from '../core/i18n.js';
 import {displayPath} from '../core/paths.js';
 import type {HubStatus} from '../hub/hub.js';
 import type {Conflict, Draft, HistoryEntry, LastUpdate, LocalChange} from '../hub/update.js';
@@ -31,7 +32,7 @@ type Screen =
 			body: string[];
 			yes: string;
 			action: () => Promise<Screen>;
-			/** A second way to proceed, offered between `yes` and "Không". */
+			/** A second way to proceed, offered between `yes` and "No". */
 			alt?: {label: string; action: () => Promise<Screen>};
 			back: Screen;
 			selected: number;
@@ -44,8 +45,9 @@ type Screen =
 
 type HomeAction = {id: 'update' | 'changes' | 'history' | 'uncommitted' | 'undo'; label: string};
 
-const RESOLUTION_LABELS: Record<Resolution, string> = {mine: 'giữ bản của bạn', theirs: 'lấy bản gốc mới', merged: 'dùng bản gộp của agent', edited: 'đã sửa tay'};
-const CONFLICT_CHOICES = ['Giữ bản của bạn', 'Lấy bản gốc mới', 'Để agent gộp hai bản', 'Tự sửa trong bản nháp'] as const;
+const resolutionLabel = (resolution: Resolution) =>
+	({mine: t('giữ bản của bạn', 'keep yours'), theirs: t('lấy bản gốc mới', 'take the new original'), merged: t('dùng bản gộp của agent', 'use the agent\'s merge'), edited: t('đã sửa tay', 'edited by hand')})[resolution];
+const conflictChoices = () => [t('Giữ bản của bạn', 'Keep yours'), t('Lấy bản gốc mới', 'Take the new original'), t('Để agent gộp hai bản', 'Let the agent merge both'), t('Tự sửa trong bản nháp', 'Edit the draft yourself')];
 /** Files holding the core and safety rules: a conflict there gets no recommended choice; the user reads and decides. */
 const SAFETY_FILES = new Set(['AGENTS.md']);
 
@@ -78,11 +80,11 @@ export function useFrameworkConsole(props: FrameworkConsoleProps) {
 	const homeActions = (): HomeAction[] => {
 		if (!hub) return [];
 		const actions: HomeAction[] = [];
-		if (hub.uncommitted.length > 0) actions.push({id: 'uncommitted', label: `${hub.uncommitted.length} file chưa commit: commit hoặc bỏ`});
-		if (hub.updateAvailable) actions.push({id: 'update', label: `Cập nhật lên fw-${hub.bundledVersion}`});
-		actions.push({id: 'changes', label: 'Xem cải tiến cục bộ (khác bản gốc)'});
-		actions.push({id: 'history', label: 'Lịch sử cải tiến'});
-		if (undo) actions.push({id: 'undo', label: `Hoàn tác lần cập nhật lên ${undo.version}`});
+		if (hub.uncommitted.length > 0) actions.push({id: 'uncommitted', label: t(`${hub.uncommitted.length} file chưa commit: commit hoặc bỏ`, `${hub.uncommitted.length} uncommitted ${plural(hub.uncommitted.length, 'file')}: commit or discard`)});
+		if (hub.updateAvailable) actions.push({id: 'update', label: t(`Cập nhật lên fw-${hub.bundledVersion}`, `Update to fw-${hub.bundledVersion}`)});
+		actions.push({id: 'changes', label: t('Xem cải tiến cục bộ (khác bản gốc)', 'Local improvements (differences from the original)')});
+		actions.push({id: 'history', label: t('Lịch sử cải tiến', 'Improvement history')});
+		if (undo) actions.push({id: 'undo', label: t(`Hoàn tác lần cập nhật lên ${undo.version}`, `Undo the update to ${undo.version}`)});
 		return actions;
 	};
 
@@ -114,10 +116,10 @@ export function useFrameworkConsole(props: FrameworkConsoleProps) {
 		);
 	};
 
-	const blocked = (): string | null => (props.runActive ? 'Đang có run: đợi run xong rồi mới thay đổi Hub, vì run đã ghim phiên bản framework.' : null);
+	const blocked = (): string | null => (props.runActive ? t('Đang có run: đợi run xong rồi mới thay đổi Hub, vì run đã ghim phiên bản framework.', 'A run is going: wait for it before changing the Hub, because the run pinned the framework version.') : null);
 
 	const openConflict = ({draft, resolved}: UpdateState, conflict: Conflict) =>
-		step('Đang so sánh các bản', async () => ({
+		step(t('Đang so sánh các bản', 'Comparing the versions'), async () => ({
 			name: 'conflict',
 			draft,
 			resolved,
@@ -132,10 +134,10 @@ export function useFrameworkConsole(props: FrameworkConsoleProps) {
 		const home: Screen = {name: 'home', selected: (screenRef.current as {selected?: number}).selected ?? 0};
 		switch (action.id) {
 			case 'changes':
-				step('Đang đọc khác biệt', async () => ({name: 'changes', items: await services.changes(), selected: 0}));
+				step(t('Đang đọc khác biệt', 'Reading the difference'), async () => ({name: 'changes', items: await services.changes(), selected: 0}));
 				return;
 			case 'history':
-				step('Đang đọc lịch sử', async () => ({name: 'history', items: await services.history()}));
+				step(t('Đang đọc lịch sử', 'Reading the history'), async () => ({name: 'history', items: await services.history()}));
 				return;
 			case 'uncommitted': {
 				const reason = blocked();
@@ -143,18 +145,26 @@ export function useFrameworkConsole(props: FrameworkConsoleProps) {
 				const files = hub.uncommitted;
 				setScreen({
 					name: 'confirm',
-					title: `${files.length} file trong Hub chưa commit`,
-					body: [...files.slice(0, 12), ...(files.length > 12 ? [`… và ${files.length - 12} file khác`] : []), '', 'Cập nhật và khôi phục cần Hub sạch. Commit giữ các thay đổi này như cải tiến của bạn; bỏ thì chúng mất hẳn.'],
-					yes: 'Commit các file này',
+					title: t(`${files.length} file trong Hub chưa commit`, `${files.length} uncommitted ${plural(files.length, 'file')} in the Hub`),
+					body: [
+						...files.slice(0, 12),
+						...(files.length > 12 ? [t(`… và ${files.length - 12} file khác`, `… and ${files.length - 12} more ${plural(files.length - 12, 'file')}`)] : []),
+						'',
+						t(
+							'Cập nhật và khôi phục cần Hub sạch. Commit giữ các thay đổi này như cải tiến của bạn; bỏ thì chúng mất hẳn.',
+							'Updating and restoring need a clean Hub. Committing keeps these changes as your improvements; discarding loses them for good.',
+						),
+					],
+					yes: t('Commit các file này', 'Commit these files'),
 					action: async () => {
 						await services.commitUncommitted(files);
-						return {name: 'result', tone: 'success', text: `Đã commit ${files.length} file vào Hub.`};
+						return {name: 'result', tone: 'success', text: t(`Đã commit ${files.length} file vào Hub.`, `Committed ${files.length} ${plural(files.length, 'file')} to the Hub.`)};
 					},
 					alt: {
-						label: 'Bỏ các file này',
+						label: t('Bỏ các file này', 'Discard these files'),
 						action: async () => {
 							await services.discardUncommitted(files);
-							return {name: 'result', tone: 'success', text: `Đã bỏ thay đổi của ${files.length} file.`};
+							return {name: 'result', tone: 'success', text: t(`Đã bỏ thay đổi của ${files.length} file.`, `Discarded the changes of ${files.length} ${plural(files.length, 'file')}.`)};
 						},
 					},
 					back: home,
@@ -165,7 +175,7 @@ export function useFrameworkConsole(props: FrameworkConsoleProps) {
 			case 'update': {
 				const reason = blocked();
 				if (reason) return setScreen({name: 'result', tone: 'error', text: reason});
-				step(`Đang gộp fw-${hub.bundledVersion} vào bản nháp`, async () => {
+				step(t(`Đang gộp fw-${hub.bundledVersion} vào bản nháp`, `Merging fw-${hub.bundledVersion} into a draft`), async () => {
 					const draft = await services.startUpdate();
 					return {name: 'update', draft, resolved: {}, selected: 0};
 				});
@@ -178,19 +188,19 @@ export function useFrameworkConsole(props: FrameworkConsoleProps) {
 				const later = undo.commits.slice(0, -1);
 				setScreen({
 					name: 'confirm',
-					title: `Hoàn tác lần cập nhật lên ${undo.version}`,
+					title: t(`Hoàn tác lần cập nhật lên ${undo.version}`, `Undo the update to ${undo.version}`),
 					body: [
-						'Hub quay về đúng như trước lần cập nhật đó.',
+						t('Hub quay về đúng như trước lần cập nhật đó.', 'The Hub goes back to exactly how it was before that update.'),
 						...(later.length > 0
-							? ['', `${later.length} commit làm sau lần cập nhật cũng sẽ mất:`, ...later.slice(0, 8).map(commit => `- ${commit.subject}`)]
+							? ['', t(`${later.length} commit làm sau lần cập nhật cũng sẽ mất:`, `Also lost: ${later.length} ${plural(later.length, 'commit')} made after the update:`), ...later.slice(0, 8).map(commit => `- ${commit.subject}`)]
 							: []),
 						'',
-						`Bản fw-${hub.bundledVersion} vẫn còn để cập nhật lại khi bạn muốn.`,
+						t(`Bản fw-${hub.bundledVersion} vẫn còn để cập nhật lại khi bạn muốn.`, `fw-${hub.bundledVersion} stays available to update again when you want.`),
 					],
-					yes: 'Hoàn tác',
+					yes: t('Hoàn tác', 'Undo'),
 					action: async () => {
 						await services.undo(undo.tag);
-						return {name: 'result', tone: 'success', text: `Đã hoàn tác lần cập nhật lên ${undo.version}.`};
+						return {name: 'result', tone: 'success', text: t(`Đã hoàn tác lần cập nhật lên ${undo.version}.`, `Undid the update to ${undo.version}.`)};
 					},
 					back: home,
 					selected: 1,
@@ -203,16 +213,16 @@ export function useFrameworkConsole(props: FrameworkConsoleProps) {
 	const conflictChoice = (current: Extract<Screen, {name: 'conflict'}>, index: number) => {
 		const state: UpdateState = {draft: current.draft, resolved: current.resolved};
 		const settle = (resolution: Resolution, choice: 'mine' | 'theirs' | {content: string | null}) =>
-			step('Đang ghi lựa chọn vào bản nháp', async () => {
+			step(t('Đang ghi lựa chọn vào bản nháp', 'Writing the choice into the draft'), async () => {
 				await services!.resolve(current.draft, current.conflict.path, choice);
 				return {name: 'update', draft: current.draft, resolved: {...current.resolved, [current.conflict.path]: resolution}, selected: 0};
 			});
 		if (index === 0) settle('mine', 'mine');
 		else if (index === 1) settle('theirs', 'theirs');
 		else if (index === 2) {
-			step('Agent đang gộp hai bản', async () => {
+			step(t('Agent đang gộp hai bản', 'The agent is merging both versions'), async () => {
 				const proposal = await services!.proposeMerge(current.draft, current.conflict, props.config);
-				if (!proposal.ok) return {...current, note: `Agent không gộp được: ${proposal.error}`};
+				if (!proposal.ok) return {...current, note: t(`Agent không gộp được: ${proposal.error}`, `The agent could not merge: ${proposal.error}`)};
 				return {
 					name: 'proposal',
 					...state,
@@ -227,25 +237,28 @@ export function useFrameworkConsole(props: FrameworkConsoleProps) {
 	};
 
 	const apply = (current: Extract<Screen, {name: 'update'}>) =>
-		step('Đang chạy test của framework trên bản nháp', async () => {
+		step(t('Đang chạy test của framework trên bản nháp', 'Running the framework tests on the draft'), async () => {
 			const result = await services!.finishUpdate(current.draft, props.python);
 			if (result.ok) {
 				return {
 					name: 'result',
 					tone: 'success',
-					text: `Đã cập nhật lên ${result.tag}. Test của framework PASS trên bản nháp trước khi áp dụng. Có thể hoàn tác trong /framework.`,
+					text: t(
+						`Đã cập nhật lên ${result.tag}. Test của framework PASS trên bản nháp trước khi áp dụng. Có thể hoàn tác trong /framework.`,
+						`Updated to ${result.tag}. The framework tests passed on the draft before it was applied. You can undo it in /framework.`,
+					),
 				};
 			}
-			if (result.error.startsWith('Còn ')) return {...current, selected: 0};
+			if (result.unresolved) return {...current, selected: 0};
 			return {name: 'result', tone: 'error', text: result.error, detail: result.output?.split('\n').filter(Boolean).slice(-8)};
 		});
 
 	const abort = (back: Screen) =>
 		setScreen({
 			name: 'confirm',
-			title: 'Huỷ cập nhật?',
-			body: ['Bản nháp bị xoá; Hub giữ nguyên như trước khi cập nhật.'],
-			yes: 'Huỷ cập nhật',
+			title: t('Huỷ cập nhật?', 'Cancel the update?'),
+			body: [t('Bản nháp bị xoá; Hub giữ nguyên như trước khi cập nhật.', 'The draft is deleted; the Hub stays as it was before the update.')],
+			yes: t('Huỷ cập nhật', 'Cancel the update'),
 			action: async () => {
 				await services!.abortUpdate();
 				return {name: 'home', selected: 0};
@@ -258,14 +271,14 @@ export function useFrameworkConsole(props: FrameworkConsoleProps) {
 	const content = (columns: number, theme: Theme): {lines: Line[]; focus: number | null} => {
 		const g = theme.glyphs;
 		const current = screen;
-		if (!hub) return {lines: hanging([{text: `${g.fail} `, color: 'danger'}], props.hubError ?? 'Chưa có Hub.', columns), focus: null};
+		if (!hub) return {lines: hanging([{text: `${g.fail} `, color: 'danger'}], props.hubError ?? t('Chưa có Hub.', 'No Hub yet.'), columns), focus: null};
 		const menu = (labels: string[], selected: number, recommended?: number): {lines: Line[]; focus: number} => {
 			let focus = 0;
 			const lines: Line[] = [];
 			labels.forEach((label, index) => {
 				const active = index === selected;
 				if (active) focus = lines.length;
-				const text = index === recommended ? `${label} (khuyến nghị)` : label;
+				const text = index === recommended ? `${label} ${t('(khuyến nghị)', '(recommended)')}` : label;
 				lines.push(...hanging([{text: active ? `${g.pointer} ` : '  ', color: 'accent'}, {text: `${index + 1}. `, color: active ? 'accent' : undefined, bold: active}], text, columns, active ? {color: 'accent', bold: true} : {}));
 			});
 			return {lines, focus};
@@ -278,95 +291,104 @@ export function useFrameworkConsole(props: FrameworkConsoleProps) {
 			case 'home': {
 				const rows = [
 					{term: 'Hub', description: truncateMiddle(displayPath(hub.path), Math.max(12, columns - 22), g.ellipsis)},
-					{term: 'Bản gốc đang dùng', description: hub.upstreamTag ?? 'không rõ'},
-					{term: 'Cải tiến cục bộ', description: `${hub.localImprovements} commit`},
-					{term: 'Chưa commit', description: hub.uncommitted.length === 0 ? 'không có' : `${hub.uncommitted.length} file`},
-					{term: 'Bản đi kèm CLI', description: hub.updateAvailable ? `fw-${hub.bundledVersion}, chưa có trong Hub` : `fw-${hub.bundledVersion}, đang dùng`},
+					{term: t('Bản gốc đang dùng', 'Original in use'), description: hub.upstreamTag ?? t('không rõ', 'unknown')},
+					{term: t('Cải tiến cục bộ', 'Local improvements'), description: t(`${hub.localImprovements} commit`, `${hub.localImprovements} ${plural(hub.localImprovements, 'commit')}`)},
+					{term: t('Chưa commit', 'Uncommitted'), description: hub.uncommitted.length === 0 ? t('không có', 'none') : t(`${hub.uncommitted.length} file`, `${hub.uncommitted.length} ${plural(hub.uncommitted.length, 'file')}`)},
+					{term: t('Bản đi kèm CLI', 'Bundled with the CLI'), description: `fw-${hub.bundledVersion}, ` + (hub.updateAvailable ? t('chưa có trong Hub', 'not in the Hub yet') : t('đang dùng', 'in use'))},
 				];
 				const head: Line[] = [...definitionList(rows, columns, 0), blank];
 				if (hub.updateAvailable) {
-					head.push(...hanging([{text: `${g.warn} `, color: 'warning'}], `Có framework fw-${hub.bundledVersion} đi kèm CLI. Cập nhật làm trên bản nháp, giữ cải tiến của bạn, và chỉ áp dụng khi test của framework PASS.`, columns), blank);
+					head.push(...hanging([{text: `${g.warn} `, color: 'warning'}], t(
+							`Có framework fw-${hub.bundledVersion} đi kèm CLI. Cập nhật làm trên bản nháp, giữ cải tiến của bạn, và chỉ áp dụng khi test của framework PASS.`,
+							`The CLI brings framework fw-${hub.bundledVersion}. The update works on a draft, keeps your improvements, and applies only when the framework tests pass.`,
+						), columns), blank);
 				}
 				return withMenu(head, homeActions().map(action => action.label), current.selected);
 			}
 			case 'busy':
 				return {lines: [[{text: `${g.running} ${current.label}…`, color: 'accent'}]], focus: null};
 			case 'changes': {
-				if (current.items.length === 0) return {lines: hanging([], 'Hub trùng bản gốc: không có cải tiến cục bộ.', columns, {dim: true}), focus: null};
-				const head = hanging([], `${current.items.length} file khác bản gốc ${hub.upstreamTag ?? ''}. Enter xem khác biệt.`, columns, {dim: true});
-				const status = {modified: 'sửa', added: 'thêm', deleted: 'xoá'} as const;
+				if (current.items.length === 0) return {lines: hanging([], t('Hub trùng bản gốc: không có cải tiến cục bộ.', 'The Hub matches the original: no local improvements.'), columns, {dim: true}), focus: null};
+				const head = hanging([], t(`${current.items.length} file khác bản gốc ${hub.upstreamTag ?? ''}. Enter xem khác biệt.`, `Different from the original ${hub.upstreamTag ?? ''}: ${current.items.length} ${plural(current.items.length, 'file')}. Enter shows the difference.`), columns, {dim: true});
+				const status = {modified: t('sửa', 'modified'), added: t('thêm', 'added'), deleted: t('xoá', 'deleted')};
 				return withMenu([...head, blank], current.items.map(item => `${item.path}  (${status[item.status]}, +${item.added} −${item.removed})`), current.selected);
 			}
 			case 'diff':
 				return {
-					lines: [...hanging([], `${current.path}: bản gốc → bản của bạn. Nhấn r để khôi phục file này về bản gốc.`, columns, {dim: true}), blank, ...diffLines(current.text, columns)],
+					lines: [...hanging([], t(`${current.path}: bản gốc → bản của bạn. Nhấn r để khôi phục file này về bản gốc.`, `${current.path}: original → yours. Press r to restore this file to the original.`), columns, {dim: true}), blank, ...diffLines(current.text, columns)],
 					focus: null,
 				};
 			case 'history':
-				if (current.items.length === 0) return {lines: hanging([], 'Chưa có cải tiến nào ngoài bản gốc.', columns, {dim: true}), focus: null};
+				if (current.items.length === 0) return {lines: hanging([], t('Chưa có cải tiến nào ngoài bản gốc.', 'No improvements beyond the original yet.'), columns, {dim: true}), focus: null};
 				return {
 					lines: current.items.flatMap(item => [
 						...hanging([{text: `${shortDate(item.date)}  `, color: 'accent'}], item.subject, columns, {bold: true}),
-						...hanging([{text: '    '}], [item.source && `nguồn: ${item.source}`, item.record && `record: ${item.record}`, item.hash.slice(0, 8)].filter(Boolean).join(' · '), columns, {dim: true}),
+						...hanging([{text: '    '}], [item.source && `${t('nguồn', 'source')}: ${item.source}`, item.record && `record: ${item.record}`, item.hash.slice(0, 8)].filter(Boolean).join(' · '), columns, {dim: true}),
 					]),
 					focus: null,
 				};
 			case 'confirm':
 				return withMenu(
 					[...hanging([], current.title, columns, {bold: true}), blank, ...current.body.flatMap(line => (line ? hanging([], line, columns) : [blank])), blank],
-					[current.yes, ...(current.alt ? [current.alt.label] : []), 'Không'],
+					[current.yes, ...(current.alt ? [current.alt.label] : []), t('Không', 'No')],
 					current.selected,
 				);
 			case 'update': {
 				const {draft, resolved} = current;
 				const auto = draft.changed.filter(path => !draft.conflicts.some(conflict => conflict.path === path));
-				const head: Line[] = hanging([], `Bản nháp: ${draft.tag} gộp vào framework của bạn. Hub chưa thay đổi gì.`, columns, {bold: true});
-				head.push(blank, ...hanging([], `${auto.length} file bản gốc mới thay đổi, nhận tự động${auto.length ? ':' : '.'}`, columns, {dim: true}));
+				const head: Line[] = hanging([], t(`Bản nháp: ${draft.tag} gộp vào framework của bạn. Hub chưa thay đổi gì.`, `Draft: ${draft.tag} merged into your framework. The Hub has not changed.`), columns, {bold: true});
+				head.push(blank, ...hanging([], t(`${auto.length} file bản gốc mới thay đổi, nhận tự động`, `${auto.length} ${plural(auto.length, 'file')} changed in the new original, taken as they are`) + (auto.length ? ':' : '.'), columns, {dim: true}));
 				for (const path of auto.slice(0, 8)) head.push(...hanging([{text: '  '}], path, columns, {dim: true}));
-				if (auto.length > 8) head.push(...hanging([{text: '  '}], `… và ${auto.length - 8} file khác`, columns, {dim: true}));
+				if (auto.length > 8) head.push(...hanging([{text: '  '}], t(`… và ${auto.length - 8} file khác`, `… and ${auto.length - 8} more ${plural(auto.length - 8, 'file')}`), columns, {dim: true}));
 				const open = draft.conflicts.filter(conflict => !resolved[conflict.path]).length;
 				if (draft.conflicts.length > 0) {
-					head.push(...hanging([], `${draft.conflicts.length} file xung đột: cả bản gốc mới và cải tiến của bạn cùng sửa một đoạn. Chọn cách xử lý từng file:`, columns), blank);
+					head.push(...hanging([], t(
+							`${draft.conflicts.length} file xung đột: cả bản gốc mới và cải tiến của bạn cùng sửa một đoạn. Chọn cách xử lý từng file:`,
+							`Conflicts in ${draft.conflicts.length} ${plural(draft.conflicts.length, 'file')}: the new original and your improvements change the same passage. Choose how to handle each file:`,
+						), columns), blank);
 				}
 				const labels = [
-					...draft.conflicts.map(conflict => `${conflict.path}: ${resolved[conflict.path] ? RESOLUTION_LABELS[resolved[conflict.path]!] : 'chưa chọn'}`),
-					open === 0 ? 'Chạy test của framework và áp dụng' : `Chạy test và áp dụng (còn ${open} xung đột)`,
-					'Huỷ cập nhật',
+					...draft.conflicts.map(conflict => `${conflict.path}: ${resolved[conflict.path] ? resolutionLabel(resolved[conflict.path]!) : t('chưa chọn', 'not chosen')}`),
+					open === 0 ? t('Chạy test của framework và áp dụng', 'Run the framework tests and apply') : t(`Chạy test và áp dụng (còn ${open} xung đột)`, `Run the tests and apply (${open} ${plural(open, 'conflict')} open)`),
+					t('Huỷ cập nhật', 'Cancel the update'),
 				];
 				return withMenu([...head, blank], labels, current.selected);
 			}
 			case 'conflict': {
 				const {conflict} = current;
-				const head: Line[] = hanging([], `Xung đột: ${conflict.path}`, columns, {bold: true});
-				head.push(blank, [{text: 'Bản gốc mới đổi:', color: 'accent'}], ...diffLines(current.theirsDiff, columns, 14));
-				head.push(blank, [{text: 'Bản của bạn đổi:', color: 'accent'}], ...diffLines(current.mineDiff, columns, 14));
+				const head: Line[] = hanging([], t(`Xung đột: ${conflict.path}`, `Conflict: ${conflict.path}`), columns, {bold: true});
+				head.push(blank, [{text: t('Bản gốc mới đổi:', 'The new original changes:'), color: 'accent'}], ...diffLines(current.theirsDiff, columns, 14));
+				head.push(blank, [{text: t('Bản của bạn đổi:', 'Your version changes:'), color: 'accent'}], ...diffLines(current.mineDiff, columns, 14));
 				for (const commit of conflict.myCommits.slice(0, 3)) {
-					head.push(...hanging([{text: '  '}], `từ: ${commit.subject}${commit.record ? ` (record ${commit.record})` : ''}`, columns, {dim: true}));
+					head.push(...hanging([{text: '  '}], `${t('từ', 'from')}: ${commit.subject}${commit.record ? ` (record ${commit.record})` : ''}`, columns, {dim: true}));
 				}
-				if (SAFETY_FILES.has(conflict.path)) head.push(blank, ...hanging([{text: `${g.warn} `, color: 'warning'}], 'File này chứa quy tắc lõi và quy tắc an toàn: đọc kỹ rồi tự chọn, không có lựa chọn khuyến nghị.', columns, {color: 'warning'}));
+				if (SAFETY_FILES.has(conflict.path)) head.push(blank, ...hanging([{text: `${g.warn} `, color: 'warning'}], t('File này chứa quy tắc lõi và quy tắc an toàn: đọc kỹ rồi tự chọn, không có lựa chọn khuyến nghị.', 'This file holds the core and safety rules: read carefully and choose yourself; there is no recommended choice.'), columns, {color: 'warning'}));
 				if (current.note) head.push(blank, ...hanging([{text: `${g.fail} `, color: 'danger'}], current.note, columns, {color: 'danger'}));
-				return withMenu([...head, blank], [...CONFLICT_CHOICES], current.selected, SAFETY_FILES.has(conflict.path) ? undefined : 2);
+				return withMenu([...head, blank], conflictChoices(), current.selected, SAFETY_FILES.has(conflict.path) ? undefined : 2);
 			}
 			case 'proposal': {
-				const head: Line[] = hanging([], `Bản gộp của agent cho ${current.conflict.path}`, columns, {bold: true});
+				const head: Line[] = hanging([], t(`Bản gộp của agent cho ${current.conflict.path}`, `The agent's merge of ${current.conflict.path}`), columns, {bold: true});
 				if (current.explanation) head.push(blank, ...hanging([], current.explanation, columns));
-				head.push(blank, [{text: 'So với bản của bạn:', color: 'accent'}], ...diffLines(current.diff, columns, 30), blank);
-				return withMenu(head, ['Dùng bản gộp này', 'Chọn cách khác'], current.selected);
+				head.push(blank, [{text: t('So với bản của bạn:', 'Compared with yours:'), color: 'accent'}], ...diffLines(current.diff, columns, 30), blank);
+				return withMenu(head, [t('Dùng bản gộp này', 'Use this merge'), t('Chọn cách khác', 'Choose another way')], current.selected);
 			}
 			case 'manual': {
 				const path = displayPath(`${current.draft.dir}/${current.conflict.path}`);
 				const head: Line[] = [
-					...hanging([], `Sửa tay ${current.conflict.path}`, columns, {bold: true}),
+					...hanging([], t(`Sửa tay ${current.conflict.path}`, `Edit ${current.conflict.path} by hand`), columns, {bold: true}),
 					blank,
-					...hanging([], `Mở file trong bản nháp: ${path}. Sửa hết các đoạn giữa <<<<<<< và >>>>>>> (đoạn giữa ||||||| là bản gốc cũ), lưu file, rồi chọn "Đã sửa xong".`, columns),
+					...hanging([], t(
+						`Mở file trong bản nháp: ${path}. Sửa hết các đoạn giữa <<<<<<< và >>>>>>> (đoạn giữa ||||||| là bản gốc cũ), lưu file, rồi chọn "Đã sửa xong".`,
+						`Open the file in the draft: ${path}. Resolve every passage between <<<<<<< and >>>>>>> (the part after ||||||| is the old original), save the file, then choose "Done editing".`,
+					), columns),
 				];
 				if (current.note) head.push(blank, ...hanging([{text: `${g.fail} `, color: 'danger'}], current.note, columns, {color: 'danger'}));
-				return withMenu([...head, blank], ['Đã sửa xong', 'Chọn cách khác'], current.selected);
+				return withMenu([...head, blank], [t('Đã sửa xong', 'Done editing'), t('Chọn cách khác', 'Choose another way')], current.selected);
 			}
 			case 'result': {
 				const lines = hanging([{text: `${current.tone === 'success' ? g.ok : g.fail} `, color: current.tone === 'success' ? 'success' : 'danger'}], current.text, columns);
 				for (const line of current.detail ?? []) lines.push(...hanging([{text: '  '}], line, columns, {dim: true}));
-				lines.push(blank, [{text: 'Enter hoặc Esc để quay lại.', dim: true}]);
+				lines.push(blank, [{text: t('Enter hoặc Esc để quay lại.', 'Enter or Esc to go back.'), dim: true}]);
 				return {lines, focus: null};
 			}
 		}
@@ -400,7 +422,7 @@ export function useFrameworkConsole(props: FrameworkConsoleProps) {
 					setScreen({name: 'home', selected: 0});
 					return true;
 				case 'diff':
-					step('Đang đọc khác biệt', async () => ({name: 'changes', items: await services!.changes(), selected: 0}));
+					step(t('Đang đọc khác biệt', 'Reading the difference'), async () => ({name: 'changes', items: await services!.changes(), selected: 0}));
 					return true;
 				case 'confirm':
 					setScreen(current.back);
@@ -432,12 +454,12 @@ export function useFrameworkConsole(props: FrameworkConsoleProps) {
 			if (reason) return setScreen({name: 'result', tone: 'error', text: reason}), true;
 			setScreen({
 				name: 'confirm',
-				title: `Khôi phục ${current.path} về bản gốc?`,
-				body: ['Cải tiến cục bộ của file này được thay bằng bản gốc, trong một commit mới. Lịch sử vẫn giữ commit cũ.'],
-				yes: 'Khôi phục',
+				title: t(`Khôi phục ${current.path} về bản gốc?`, `Restore ${current.path} to the original?`),
+				body: [t('Cải tiến cục bộ của file này được thay bằng bản gốc, trong một commit mới. Lịch sử vẫn giữ commit cũ.', 'The local improvements of this file are replaced by the original in a new commit. The history keeps the old commits.')],
+				yes: t('Khôi phục', 'Restore'),
 				action: async () => {
 					await services!.restore(current.path);
-					return {name: 'result', tone: 'success', text: `Đã khôi phục ${current.path} về bản gốc.`};
+					return {name: 'result', tone: 'success', text: t(`Đã khôi phục ${current.path} về bản gốc.`, `Restored ${current.path} to the original.`)};
 				},
 				back: current,
 				selected: 1,
@@ -453,15 +475,15 @@ export function useFrameworkConsole(props: FrameworkConsoleProps) {
 			}
 			case 'changes': {
 				const item = current.items[current.selected];
-				if (item) step('Đang đọc khác biệt', async () => ({name: 'diff', path: item.path, text: await services!.diff(item.path)}));
+				if (item) step(t('Đang đọc khác biệt', 'Reading the difference'), async () => ({name: 'diff', path: item.path, text: await services!.diff(item.path)}));
 				return true;
 			}
 			case 'result':
 				setScreen({name: 'home', selected: 0});
 				return true;
 			case 'confirm':
-				if (current.selected === 0) step('Đang thực hiện', current.action);
-				else if (current.alt && current.selected === 1) step('Đang thực hiện', current.alt.action);
+				if (current.selected === 0) step(t('Đang thực hiện', 'Working'), current.action);
+				else if (current.alt && current.selected === 1) step(t('Đang thực hiện', 'Working'), current.alt.action);
 				else setScreen(current.back);
 				return true;
 			case 'update': {
@@ -476,7 +498,7 @@ export function useFrameworkConsole(props: FrameworkConsoleProps) {
 				return true;
 			case 'proposal':
 				if (current.selected === 0) {
-					step('Đang ghi bản gộp vào bản nháp', async () => {
+					step(t('Đang ghi bản gộp vào bản nháp', 'Writing the merge into the draft'), async () => {
 						await services!.resolve(current.draft, current.conflict.path, {content: current.content});
 						return {name: 'update', draft: current.draft, resolved: {...current.resolved, [current.conflict.path]: 'merged'}, selected: 0};
 					});
@@ -488,7 +510,7 @@ export function useFrameworkConsole(props: FrameworkConsoleProps) {
 					return true;
 				}
 				const text = services!.readDraft(current.draft, current.conflict.path);
-				step('Đang ghi bản đã sửa', async () => {
+				step(t('Đang ghi bản đã sửa', 'Writing the edited version'), async () => {
 					try {
 						await services!.resolve(current.draft, current.conflict.path, {content: text});
 					} catch (error) {
@@ -513,15 +535,15 @@ export function useFrameworkConsole(props: FrameworkConsoleProps) {
 		const g = theme.glyphs;
 		switch (screen.name) {
 			case 'busy':
-				return ['Đang làm…'];
+				return [t('Đang làm…', 'Working…')];
 			case 'diff':
-				return [`${g.upDown} PgUp/PgDn cuộn`, 'r khôi phục', 'Esc quay lại'];
+				return [`${g.upDown} PgUp/PgDn ${t('cuộn', 'scroll')}`, t('r khôi phục', 'r restore'), t('Esc quay lại', 'Esc back')];
 			case 'history':
-				return [`${g.upDown} PgUp/PgDn cuộn`, 'Esc quay lại'];
+				return [`${g.upDown} PgUp/PgDn ${t('cuộn', 'scroll')}`, t('Esc quay lại', 'Esc back')];
 			case 'result':
-				return ['Enter quay lại'];
+				return [t('Enter quay lại', 'Enter back')];
 			default:
-				return [`${g.upDown} chọn`, 'Enter mở', screen.name === 'home' ? 'Esc đóng' : 'Esc quay lại'];
+				return [`${g.upDown} ${t('chọn', 'choose')}`, t('Enter mở', 'Enter open'), screen.name === 'home' ? t('Esc đóng', 'Esc close') : t('Esc quay lại', 'Esc back')];
 		}
 	};
 
@@ -540,7 +562,7 @@ function optionCount(screen: Screen): number {
 		case 'update':
 			return screen.draft.conflicts.length + 2;
 		case 'conflict':
-			return CONFLICT_CHOICES.length;
+			return conflictChoices().length;
 		default:
 			return 0;
 	}
@@ -550,14 +572,14 @@ function optionCount(screen: Screen): number {
 export function diffLines(text: string, columns: number, limit = Infinity): Line[] {
 	const body = text.split('\n').filter(line => !/^(diff --git|index |--- |\+\+\+ |new file mode|deleted file mode|similarity|rename )/.test(line));
 	while (body.length > 0 && body.at(-1) === '') body.pop();
-	if (body.length === 0) return [[{text: '  (không đổi gì)', dim: true}]];
+	if (body.length === 0) return [[{text: `  ${t('(không đổi gì)', '(no change)')}`, dim: true}]];
 	const lines: Line[] = [];
 	for (const line of body.slice(0, limit)) {
 		const span: Span =
 			line.startsWith('+') ? {text: line, color: 'success'} : line.startsWith('-') ? {text: line, color: 'danger'} : line.startsWith('@@') ? {text: line, color: 'accent'} : {text: line, dim: true};
 		lines.push(...hanging([{text: '  '}], span.text, columns, {color: span.color, dim: span.dim}));
 	}
-	if (body.length > limit) lines.push([{text: `  … còn ${body.length - limit} dòng`, dim: true}]);
+	if (body.length > limit) lines.push([{text: `  ${t(`… còn ${body.length - limit} dòng`, `… ${body.length - limit} more ${plural(body.length - limit, 'line')}`)}`, dim: true}]);
 	return lines;
 }
 

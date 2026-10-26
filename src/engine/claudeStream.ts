@@ -1,3 +1,4 @@
+import {t} from '../core/i18n.js';
 import {costUsd} from './pricing.js';
 import type {ModelTotals, RunEvent, TokenUsage} from './types.js';
 
@@ -20,20 +21,20 @@ export function describeTool(name: string, input: Record<string, unknown> = {}):
 	const path = input['file_path'] ?? input['path'] ?? input['notebook_path'];
 	switch (name) {
 		case 'Read':
-			return `Đọc ${short(path)}`;
+			return t(`Đọc ${short(path)}`, `Read ${short(path)}`);
 		case 'Edit':
 		case 'MultiEdit':
-			return `Sửa ${short(path)}`;
+			return t(`Sửa ${short(path)}`, `Edit ${short(path)}`);
 		case 'Write':
 			return `Ghi ${short(path)}`;
 		case 'Grep':
-			return `Tìm "${short(input['pattern'], 40)}"`;
+			return t(`Tìm "${short(input['pattern'], 40)}"`, `Search "${short(input['pattern'], 40)}"`);
 		case 'Glob':
-			return `Liệt kê ${short(input['pattern'], 60)}`;
+			return t(`Liệt kê ${short(input['pattern'], 60)}`, `List ${short(input['pattern'], 60)}`);
 		case 'Bash':
-			return `Chạy ${short(input['command'])}`;
+			return t(`Chạy ${short(input['command'])}`, `Run ${short(input['command'])}`);
 		case 'TodoWrite':
-			return 'Cập nhật danh sách việc';
+			return t('Cập nhật danh sách việc', 'Update the to-do list');
 		default:
 			return name;
 	}
@@ -104,7 +105,8 @@ function usageTotals(data: Record<string, unknown>): RunEvent | null {
 	return Object.keys(models).length ? {type: 'usage-totals', models} : null;
 }
 
-const WINDOW_LABELS: Record<string, string> = {five_hour: '5 giờ', seven_day: 'Tuần', seven_day_opus: 'Tuần (Opus)', seven_day_sonnet: 'Tuần (Sonnet)'};
+const windowLabel = (kind: string): string | undefined =>
+	({five_hour: t('5 giờ', '5 hours'), seven_day: t('Tuần', 'Week'), seven_day_opus: t('Tuần (Opus)', 'Week (Opus)'), seven_day_sonnet: t('Tuần (Sonnet)', 'Week (Sonnet)')})[kind];
 
 /** The plan's usage windows Claude Code reports with each provider call (`rate_limit_event`). */
 function quotaEvent(data: Record<string, unknown>): RunEvent | null {
@@ -119,7 +121,7 @@ function quotaEvent(data: Record<string, unknown>): RunEvent | null {
 		type: 'quota',
 		rows: entries.map(([kind, value]) => ({
 			kind,
-			label: WINDOW_LABELS[kind] ?? kind,
+			label: windowLabel(kind) ?? kind,
 			percent: (value['utilization'] as number) * 100,
 			resetsAt: typeof value['resetsAt'] === 'number' ? new Date(value['resetsAt'] * 1000).toISOString() : null,
 		})),

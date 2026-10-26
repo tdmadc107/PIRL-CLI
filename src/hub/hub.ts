@@ -1,6 +1,7 @@
 import {cpSync, existsSync, mkdirSync, readdirSync, renameSync, rmSync} from 'node:fs';
 import {dirname, join} from 'node:path';
 import {exec as defaultExec, succeeded, type Exec} from '../core/exec.js';
+import {t} from '../core/i18n.js';
 import {frameworkTag, storedPath, type BundledFramework} from './framework.js';
 
 /**
@@ -55,7 +56,7 @@ export async function ensureHub(path: string, bundle: BundledFramework, exec: Ex
 	if (existsSync(path)) {
 		if (!(await isPirlHub(exec, path))) {
 			if (readdirSync(path).length > 0) {
-				throw new HubError(`${path} đã tồn tại nhưng không phải Hub của PIRL CLI; CLI không thay đổi thư mục này.`);
+				throw new HubError(t(`${path} đã tồn tại nhưng không phải Hub của PIRL CLI; CLI không thay đổi thư mục này.`, `${path} exists but is not a PIRL CLI Hub; the CLI leaves this folder unchanged.`));
 			}
 		} else {
 			return {created: false, status: await hubStatus(path, bundle, exec)};

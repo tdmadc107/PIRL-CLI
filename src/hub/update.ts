@@ -2,6 +2,7 @@ import {mkdtempSync, rmSync, writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {exec as defaultExec, succeeded, type Exec} from '../core/exec.js';
+import {plural, t} from '../core/i18n.js';
 import {frameworkTag, storedPath, type BundledFramework} from './framework.js';
 import {GIT_FLAGS, git, HubError, MAIN, parseLsTree, parsePorcelain, sameFiles, TOOL_AUTHOR, UPSTREAM} from './hub.js';
 
@@ -20,9 +21,9 @@ const run = (exec: Exec, cwd: string, args: string[], extra: string[] = []) => e
 /** The Hub must be on `main` with nothing uncommitted before anything here rewrites its files. */
 export async function assertClean(hub: string, exec: Exec = defaultExec): Promise<void> {
 	const branch = (await git(exec, hub, ['symbolic-ref', '--quiet', '--short', 'HEAD'])).trim();
-	if (branch !== MAIN) throw new HubError(`Hub đang ở nhánh ${branch}, không phải ${MAIN}.`);
+	if (branch !== MAIN) throw new HubError(t(`Hub đang ở nhánh ${branch}, không phải ${MAIN}.`, `The Hub is on branch ${branch}, not ${MAIN}.`));
 	const dirty = parsePorcelain(await git(exec, hub, ['status', '--porcelain', '-z']));
-	if (dirty.length > 0) throw new HubError(`Hub có ${dirty.length} file chưa commit: ${dirty.slice(0, 5).join(', ')}. Commit hoặc bỏ chúng trước.`);
+	if (dirty.length > 0) throw new HubError(t(`Hub có ${dirty.length} file chưa commit: ${dirty.slice(0, 5).join(', ')}. Commit hoặc bỏ chúng trước.`, `The Hub has ${dirty.length} uncommitted ${plural(dirty.length, 'file')}: ${dirty.slice(0, 5).join(', ')}. Commit or discard them first.`));
 }
 
 // ---------- local changes, history, restore ----------
@@ -132,7 +133,7 @@ export async function stageBundle(hub: string, bundle: BundledFramework, exec: E
 		for (const [path, expected] of Object.entries(bundle.manifest.files)) {
 			const stored = await exec('git', ['hash-object', '-w', '--no-filters', join(bundle.filesDir, storedPath(path))], {cwd: hub, timeoutMs: 30_000});
 			const hash = stored.stdout.trim();
-			if (!succeeded(stored) || hash !== expected) throw new HubError(`Framework đi kèm CLI bị hỏng ở ${path}: mã băm không khớp manifest.`);
+			if (!succeeded(stored) || hash !== expected) throw new HubError(t(`Framework đi kèm CLI bị hỏng ở ${path}: mã băm không khớp manifest.`, `The framework bundled with the CLI is damaged at ${path}: the hash does not match the manifest.`));
 			lines.push(`${modes.get(path) ?? '100644'} ${hash}\t${path}`);
 		}
 		const index = await exec('git', ['update-index', '--add', '--index-info'], {cwd: hub, env, input: `${lines.join('\n')}\n`, timeoutMs: 60_000});
@@ -220,7 +221,7 @@ export async function resolveConflict(dir: string, path: string, choice: 'mine' 
 		await git(exec, dir, ['rm', '--quiet', '--force', '--', path]);
 		return;
 	}
-	if (hasConflictMarkers(choice.content)) throw new HubError(`${path} vẫn còn dấu xung đột (<<<<<<<, >>>>>>>).`);
+	if (hasConflictMarkers(choice.content)) throw new HubError(t(`${path} vẫn còn dấu xung đột (<<<<<<<, >>>>>>>).`, `${path} still has conflict markers (<<<<<<<, >>>>>>>).`));
 	writeFileSync(join(dir, path), choice.content, 'utf8');
 	await git(exec, dir, ['add', '--', path]);
 }
@@ -230,7 +231,8 @@ export async function unresolved(dir: string, exec: Exec = defaultExec): Promise
 	return (await git(exec, dir, ['diff', '--name-only', '--diff-filter=U'])).split('\n').filter(Boolean);
 }
 
-export type FinishResult = {ok: true; tag: string; preTag: string} | {ok: false; error: string; output?: string};
+/** `unresolved` lists the conflicts still open; the draft is kept for them, and removed on every other failure. */
+export type FinishResult = {ok: true; tag: string; preTag: string} | {ok: false; error: string; output?: string; unresolved?: string[]};
 
 /**
  * Checks the merged draft with the framework's own tests, then moves `main` onto it and tags the old position.
@@ -248,10 +250,10 @@ export async function finishUpdate(
 	};
 	try {
 		const left = await unresolved(draft.dir, exec);
-		if (left.length > 0) return {ok: false, error: `Còn ${left.length} xung đột chưa giải quyết: ${left.join(', ')}.`};
-		if (!python) return {ok: false, error: 'Không tìm thấy Python để chạy test của framework; cập nhật chưa được áp dụng.'};
+		if (left.length > 0) return {ok: false, unresolved: left, error: t(`Còn ${left.length} xung đột chưa giải quyết: ${left.join(', ')}.`, `Unresolved conflicts (${left.length}): ${left.join(', ')}.`)};
+		if (!python) return {ok: false, error: t('Không tìm thấy Python để chạy test của framework; cập nhật chưa được áp dụng.', 'Python not found to run the framework tests; the update was not applied.')};
 		const tests = await exec(python.command, [...python.args, '-B', '-m', 'unittest', 'discover', '-s', '.agents/evals/tests', '-p', 'test_*.py'], {cwd: draft.dir, timeoutMs: 300_000});
-		if (!succeeded(tests)) return fail('Test của framework không qua trên bản nháp; Hub giữ nguyên.', `${tests.stderr}\n${tests.stdout}`.trim());
+		if (!succeeded(tests)) return fail(t('Test của framework không qua trên bản nháp; Hub giữ nguyên.', 'The framework tests failed on the draft; the Hub is unchanged.'), `${tests.stderr}\n${tests.stdout}`.trim());
 		const message = [`Update framework to ${draft.tag}`, '', 'Pirl-Source: update'].join('\n');
 		await git(exec, draft.dir, ['commit', '--quiet', '--no-verify', '-m', message], TOOL_AUTHOR);
 		await assertClean(hub, exec);

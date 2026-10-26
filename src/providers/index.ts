@@ -1,4 +1,5 @@
 import type {ProviderId} from '../core/config.js';
+import {t} from '../core/i18n.js';
 import {claudeProvider} from './claude.js';
 import type {Provider} from './types.js';
 
@@ -6,7 +7,7 @@ const planned = (id: ProviderId, label: string): Provider => ({
 	id,
 	label,
 	available: false,
-	detect: async () => ({installed: false, loggedIn: null, fix: `${label} sẽ được hỗ trợ ở giai đoạn sau.`}),
+	detect: async () => ({installed: false, loggedIn: null, fix: t(`${label} sẽ được hỗ trợ ở giai đoạn sau.`, `${label} will be supported later.`)}),
 });
 
 /** Claude Code is the pilot provider; the others are listed so /settings can show what is coming. */

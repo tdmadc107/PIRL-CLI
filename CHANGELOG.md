@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file. The format foll
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Choose the interface language in `/settings`: Tiếng Việt (the default) or English. The change applies at once,
+  to the TUI and to `pirl --help` and `pirl update`. Agents still reply in the language of your request.
+  PIRL's own messages to the agent (validator fixes, your answers, /resume) follow the chosen language too.
+
 ## [1.1.1] - 2026-10-25
 
 ### Fixed

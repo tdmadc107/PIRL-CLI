@@ -1,5 +1,6 @@
 import type {Key} from 'ink';
 import {useRef, useState} from 'react';
+import {t} from '../core/i18n.js';
 import {blank, hanging, type Line} from './lines.js';
 import type {Theme} from './theme.js';
 
@@ -99,7 +100,7 @@ export function useListOverlay() {
 	};
 
 	const hints = (theme: Theme, action = 'xem'): string[] =>
-		detail ? [`${theme.glyphs.upDown} PgUp/PgDn cuộn`, 'Esc quay lại'] : [`${theme.glyphs.upDown} chọn`, `Enter ${action}`, 'Esc đóng'];
+		detail ? [`${theme.glyphs.upDown} PgUp/PgDn ${t('cuộn', 'scroll')}`, t('Esc quay lại', 'Esc back')] : [`${theme.glyphs.upDown} ${t('chọn', 'choose')}`, `Enter ${action}`, t('Esc đóng', 'Esc close')];
 
 	return {reset, view, handleKey, wheel, hints, inDetail: detail !== null};
 }

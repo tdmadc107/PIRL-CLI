@@ -2,6 +2,7 @@ import {closeSync, openSync, readdirSync, readFileSync, readSync, statSync} from
 import {homedir} from 'node:os';
 import {isAbsolute, join, relative, resolve, sep, win32} from 'node:path';
 import {exec as defaultExec, succeeded, type Exec} from '../core/exec.js';
+import {plural, t} from '../core/i18n.js';
 
 /**
  * Files and folders the user attaches to a request by writing `@path` (or `@"path with spaces"`).
@@ -245,18 +246,18 @@ export async function attachmentContext(attachments: Attachment[], roots: string
 			parts.push('', `## Folder: ${item.display} (${item.path}, ${files.length >= WALK_LIMIT ? `${WALK_LIMIT}+` : files.length} files)`, '');
 			parts.push(...shown.map(file => `- ${file}`));
 			if (files.length > shown.length) parts.push(`- … and ${files.length - shown.length} more; list them with Glob.`);
-			summary.push({display: item.display, detail: `thư mục, ${files.length} file: gửi danh sách file`});
+			summary.push({display: item.display, detail: t(`thư mục, ${files.length} file: gửi danh sách file`, `folder, ${files.length} ${plural(files.length, 'file')}: sending the file list`)});
 			continue;
 		}
 		const heading = `## File: ${item.display} (${item.path}, ${formatSize(item.size)})`;
 		if (isBinary(item.path)) {
 			parts.push('', heading, '', 'Not text (an image, a PDF or another binary file): read it with Read if it bears on the task.');
-			summary.push({display: item.display, detail: `${formatSize(item.size)}, không phải văn bản: gửi đường dẫn`});
+			summary.push({display: item.display, detail: `${formatSize(item.size)}, ` + t('không phải văn bản: gửi đường dẫn', 'not text: sending the path')});
 			continue;
 		}
 		if (item.size > FILE_LIMIT || total + item.size > TOTAL_LIMIT) {
 			parts.push('', heading, '', 'Too large to include here: read it with Read, in parts where needed.');
-			summary.push({display: item.display, detail: `${formatSize(item.size)}, quá lớn để gửi kèm: gửi đường dẫn`, tone: 'warning'});
+			summary.push({display: item.display, detail: `${formatSize(item.size)}, ` + t('quá lớn để gửi kèm: gửi đường dẫn', 'too large to attach: sending the path'), tone: 'warning'});
 			continue;
 		}
 		const content = readFileSync(item.path, 'utf8');
@@ -264,7 +265,7 @@ export async function attachmentContext(attachments: Attachment[], roots: string
 		const marks = fence(content);
 		const name = basename(item.display);
 		parts.push('', heading, '', `${marks}${name.includes('.') ? name.slice(name.lastIndexOf('.') + 1) : ''}`, content.replace(/\n$/, ''), marks);
-		summary.push({display: item.display, detail: `${formatSize(item.size)}: gửi kèm nội dung`});
+		summary.push({display: item.display, detail: `${formatSize(item.size)}: ` + t('gửi kèm nội dung', 'sending the content')});
 	}
 	return {text: parts.join('\n'), dirs: [...dirs], summary};
 }

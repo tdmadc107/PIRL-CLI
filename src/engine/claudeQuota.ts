@@ -1,4 +1,5 @@
 import spawn from 'cross-spawn';
+import {t} from '../core/i18n.js';
 import type {QuotaRow} from './types.js';
 
 /**
@@ -9,14 +10,15 @@ import type {QuotaRow} from './types.js';
  */
 export type {QuotaRow};
 
-const KIND_LABELS: Record<string, string> = {session: '5 giờ', weekly_all: 'Tuần'};
+const kindLabel = (kind: string): string | undefined => ({session: t('5 giờ', '5 hours'), weekly_all: t('Tuần', 'Week')})[kind];
 
 function labelOf(row: Record<string, unknown>): string {
 	const kind = String(row['kind'] ?? '');
 	const scope = (row['scope'] ?? {}) as Record<string, {display_name?: string} | null | undefined>;
 	const name = scope['model']?.display_name ?? scope['surface']?.display_name;
-	if (KIND_LABELS[kind]) return KIND_LABELS[kind];
-	if (String(row['group'] ?? '') === 'weekly' || kind.startsWith('weekly')) return name ? `Tuần (${name})` : 'Tuần';
+	const label = kindLabel(kind);
+	if (label) return label;
+	if (String(row['group'] ?? '') === 'weekly' || kind.startsWith('weekly')) return name ? t(`Tuần (${name})`, `Week (${name})`) : t('Tuần', 'Week');
 	return name ?? kind;
 }
 

@@ -2,6 +2,7 @@ import {join} from 'node:path';
 import {render} from 'ink';
 import {createClipboard} from '../core/clipboard.js';
 import {loadConfig, saveConfig, type Config} from '../core/config.js';
+import {setLanguage, t} from '../core/i18n.js';
 import {exec} from '../core/exec.js';
 import {checkForUpdate, runUpdate, updateCheckFile} from '../core/selfUpdate.js';
 import {configFile, displayPath, hubDir, packageInfo, packageRoot, pirlHome} from '../core/paths.js';
@@ -28,7 +29,9 @@ export const runModels = (config: Config) => ({
 	effort: config.effort === 'default' ? undefined : config.effort,
 });
 
-const HELP = `PIRL CLI: chạy PIRL framework (Plan – Implement – Review) bằng agent CLI bạn đã đăng nhập.
+const help = () =>
+	t(
+		`PIRL CLI: chạy PIRL framework (Plan – Implement – Review) bằng agent CLI bạn đã đăng nhập.
 
 Cách dùng
   pirl              Mở TUI. Thư mục hiện tại (git repo) là target repo.
@@ -36,18 +39,31 @@ Cách dùng
   pirl --version    In phiên bản CLI và framework đi kèm.
   pirl --help       In hướng dẫn này.
 
-Trong TUI, gõ / để xem lệnh, hoặc /help để xem lệnh và phím tắt.`;
+Trong TUI, gõ / để xem lệnh, hoặc /help để xem lệnh và phím tắt.`,
+		`PIRL CLI: runs the PIRL framework (Plan – Implement – Review) through the agent CLI you are signed in to.
+
+Usage
+  pirl              Open the TUI. The current folder (a git repository) is the target repository.
+  pirl update       Update PIRL to the latest version on npm.
+  pirl --version    Print the version of the CLI and its bundled framework.
+  pirl --help       Print this help.
+
+In the TUI, type / for commands, or /help for commands and shortcuts.`,
+	);
 
 async function main(): Promise<number> {
 	const root = packageRoot();
 	const pkg = packageInfo(root);
 	const args = process.argv.slice(2);
+	const home = pirlHome();
+	const {config, warning} = loadConfig(configFile(home));
+	setLanguage(config.language);
 	if (args.includes('--help') || args.includes('-h')) {
-		console.log(HELP);
+		console.log(help());
 		return 0;
 	}
 	if (args.includes('--version') || args.includes('-v')) {
-		let framework = 'không có';
+		let framework = t('không có', 'none');
 		try {
 			framework = `fw-${loadBundledFramework(root).manifest.version}`;
 		} catch {}
@@ -56,22 +72,24 @@ async function main(): Promise<number> {
 	}
 	if (args[0] === 'update' && args.length === 1) return runUpdate({name: pkg.name, current: pkg.version, root, checkFile: updateCheckFile(pirlHome())});
 	if (args.length > 0) {
-		console.error(`pirl: không nhận tham số "${args[0]}". Lệnh chạy bên trong TUI.\n\n${HELP}`);
+		console.error(t(`pirl: không nhận tham số "${args[0]}". Lệnh chạy bên trong TUI.`, `pirl: unknown argument "${args[0]}". Commands run inside the TUI.`) + `\n\n${help()}`);
 		return 2;
 	}
 	if (!process.stdin.isTTY || !process.stdout.isTTY) {
-		console.error('pirl cần chạy trong một terminal tương tác.');
+		console.error(t('pirl cần chạy trong một terminal tương tác.', 'pirl needs an interactive terminal.'));
 		return 1;
 	}
 
-	const home = pirlHome();
 	const notes: StartupNote[] = [];
-	const {config, warning} = loadConfig(configFile(home));
 	if (warning) notes.push({tone: 'warning', text: warning});
 
 	const target = await detectTargetRepo(process.cwd());
 	if (target.kind === 'none') {
-		notes.push({tone: 'warning', text: `${target.reason}: các layer bị khoá.`, hint: 'Mở `pirl` trong thư mục của một git repo để dùng /pirl-plan, /pirl-implement, /pirl-review.'});
+		notes.push({
+			tone: 'warning',
+			text: t(`${target.reason}: các layer bị khoá.`, `${target.reason}: the layers are locked.`),
+			hint: t('Mở `pirl` trong thư mục của một git repo để dùng /pirl-plan, /pirl-implement, /pirl-review.', 'Open `pirl` in the folder of a git repository to use /pirl-plan, /pirl-implement, /pirl-review.'),
+		});
 	}
 
 	let bundle: BundledFramework | null = null;
@@ -81,10 +99,10 @@ async function main(): Promise<number> {
 		bundle = loadBundledFramework(root);
 		const result = await ensureHub(hubDir(home), bundle);
 		hub = result.status;
-		if (result.created) notes.push({tone: 'success', text: `Đã tạo Hub tại ${displayPath(hub.path)} với framework ${hub.upstreamTag ?? ''}.`});
+		if (result.created) notes.push({tone: 'success', text: t(`Đã tạo Hub tại ${displayPath(hub.path)} với framework ${hub.upstreamTag ?? ''}.`, `Created the Hub at ${displayPath(hub.path)} with framework ${hub.upstreamTag ?? ''}.`)});
 	} catch (error) {
 		hubError = error instanceof Error ? error.message : String(error);
-		notes.push({tone: 'error', text: `Không chuẩn bị được Hub: ${hubError}`});
+		notes.push({tone: 'error', text: t(`Không chuẩn bị được Hub: ${hubError}`, `Could not prepare the Hub: ${hubError}`)});
 	}
 
 	const targetRoot = target.kind === 'git' ? target.root : null;

@@ -3,6 +3,7 @@ import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {dispatch, type Effect, type OverlayKind} from '../commands/dispatch.js';
 import {parseInput, suggestCommands, type CommandSpec} from '../commands/registry.js';
 import type {Config} from '../core/config.js';
+import {plural, setLanguage, t} from '../core/i18n.js';
 import type {DoctorReport} from '../doctor/doctor.js';
 import {findMentions, mentionText, suggestPaths, type AttachedContext, type PathEntry} from '../engine/attachments.js';
 import type {PersistedRun, RunController, RunState} from '../engine/run.js';
@@ -29,7 +30,7 @@ import {useListOverlay, type ListEntry} from './listOverlay.js';
 import {backspace, emptyEditor, insert, mentionAt, move, replaceMention, setValue, type EditorState} from './inputEditor.js';
 import {computeLayout} from './layout.js';
 import type {Line} from './lines.js';
-import {clockSpan, compactTokens, costText, IMPROVEMENT_CHOICES, isActive, spinnerSpan, STATUS_LABELS, type Interaction, type Live} from './runView.js';
+import {clockSpan, compactTokens, costText, IMPROVEMENT_CHOICES, isActive, spinnerSpan, statusLabel, type Interaction, type Live} from './runView.js';
 import {parseTerminalInput, type MouseEvent} from './terminalInput.js';
 import {contains, highlightVisible, isEmpty, pointAt, selectedText, type Point, type SelectArea, type Selection} from './selection.js';
 import {SPINNER_MS, setTickInterval} from './ticker.js';
@@ -48,29 +49,30 @@ export type AppProps = {
 	platform?: NodeJS.Platform;
 };
 
-const OVERLAY_TITLES: Record<OverlayKind, string> = {
-	help: 'Trợ giúp',
-	doctor: 'Kiểm tra môi trường',
-	settings: 'Cài đặt',
-	framework: 'Framework',
-	plans: 'Plan của repo này',
-	records: 'Record tự cải tiến',
-	resume: 'Chạy tiếp run',
-};
+const overlayTitle = (overlay: OverlayKind) =>
+	({
+		help: t('Trợ giúp', 'Help'),
+		doctor: t('Kiểm tra môi trường', 'Environment check'),
+		settings: t('Cài đặt', 'Settings'),
+		framework: 'Framework',
+		plans: t('Plan của repo này', 'Plans of this repository'),
+		records: t('Record tự cải tiến', 'Self-improvement records'),
+		resume: t('Chạy tiếp run', 'Resume a run'),
+	})[overlay];
 
 /** One line after a clean start: the provider is signed in, plus the Python and Git versions found. */
 function readySummary(report: DoctorReport): string {
 	const provider = report.checks.find(check => check.id === 'provider');
 	const git = report.checks.find(check => check.id === 'git');
-	const parts = [provider ? `${provider.label} đã đăng nhập` : null, report.python ? `Python ${report.python.version}` : null, git ? `Git ${git.detail}` : null];
-	return `Sẵn sàng: ${parts.filter(Boolean).join(' · ')}.`;
+	const parts = [provider ? t(`${provider.label} đã đăng nhập`, `${provider.label} signed in`) : null, report.python ? `Python ${report.python.version}` : null, git ? `Git ${git.detail}` : null];
+	return t(`Sẵn sàng: ${parts.filter(Boolean).join(' · ')}.`, `Ready: ${parts.filter(Boolean).join(' · ')}.`);
 }
 
 const ACTIVE: RunState['status'][] = ['running', 'checking'];
 
 /** The run's model settings in one line: "sonnet · effort high", with the roles' model when it differs. */
 export function modelText(config: Config): string {
-	const model = config.model === 'default' ? 'theo Claude Code' : config.model;
+	const model = config.model === 'default' ? t('theo Claude Code', 'Claude Code default') : config.model;
 	const roles = config.roleModel === 'inherit' ? '' : ` · role ${config.roleModel}`;
 	// Claude Code's default effort is medium.
 	const effort = config.effort === 'default' ? 'medium' : config.effort;
@@ -88,6 +90,8 @@ export function App(props: AppProps) {
 	const {exit} = useApp();
 	const {columns, rows} = useWindowSize();
 	const [config, setConfig] = useState(props.initialConfig);
+	// Set before anything below builds text, so every line of this render is in the chosen language.
+	setLanguage(config.language);
 	const theme = useMemo(
 		() => createTheme(config, props.env ?? process.env, props.platform ?? process.platform),
 		[config.theme, config.glyphs, config.colors, props.env, props.platform],
@@ -141,11 +145,15 @@ export function App(props: AppProps) {
 	const [cliUpdate, setCliUpdate] = useState<string | null>(props.info.cliUpdate ?? null);
 	const info = useMemo(() => ({...props.info, hub, cliUpdate}), [props.info, hub, cliUpdate]);
 	const refreshHub = () => void props.services.framework?.status().then(setHub, () => {});
-	// The plan's usage windows: read once at start, then as each run reports them.
+	// The plan's usage windows: read at start, then as each run reports them. Their labels are written in the
+	// language of the moment, so a new language reads them again; the start read never replaces a run's newer rows.
 	const [quota, setQuota] = useState<QuotaRow[] | null>(null);
+	const quotaRead = useRef(false);
 	useEffect(() => {
-		props.services.quota?.().then(rows => rows && setQuota(current => current ?? rows), () => {});
-	}, []);
+		const first = !quotaRead.current;
+		quotaRead.current = true;
+		props.services.quota?.().then(rows => rows && setQuota(current => (first ? (current ?? rows) : rows)), () => {});
+	}, [config.language]);
 	useEffect(() => {
 		props.services.cliUpdate?.().then(
 			version => {
@@ -155,8 +163,8 @@ export function App(props: AppProps) {
 					{
 						kind: 'note',
 						tone: 'info',
-						text: `Có bản PIRL mới: ${version} (đang dùng ${props.info.cliVersion}).`,
-						hint: 'Thoát (/exit) rồi chạy `pirl update` để cập nhật.',
+						text: t(`Có bản PIRL mới: ${version} (đang dùng ${props.info.cliVersion}).`, `A new PIRL is out: ${version} (using ${props.info.cliVersion}).`),
+						hint: t('Thoát (/exit) rồi chạy `pirl update` để cập nhật.', 'Exit (/exit), then run `pirl update` to update.'),
 					},
 				]);
 			},
@@ -194,14 +202,14 @@ export function App(props: AppProps) {
 							: {
 									kind: 'note',
 									tone: problems.some(check => check.state === 'fail') ? 'error' : 'warning',
-									text: `Cần chú ý: ${problems.map(check => `${check.label} (${check.detail})`).join('; ')}.`,
-									hint: 'Gõ /doctor để xem cách xử lý.',
+									text: t('Cần chú ý: ', 'Needs attention: ') + `${problems.map(check => `${check.label} (${check.detail})`).join('; ')}.`,
+									hint: t('Gõ /doctor để xem cách xử lý.', 'Type /doctor to see how to fix it.'),
 								},
 					]);
 				},
 				(error: unknown) => {
 					setDoctor({state: 'idle'});
-					addMessages([{kind: 'note', tone: 'error', text: `Không chạy được bước kiểm tra: ${String(error)}`}]);
+					addMessages([{kind: 'note', tone: 'error', text: t(`Không chạy được bước kiểm tra: ${String(error)}`, `Could not run the checks: ${String(error)}`)}]);
 				},
 			);
 		},
@@ -291,7 +299,7 @@ export function App(props: AppProps) {
 			seen.add(message.id);
 			const run = message.kind === 'run' ? runs[message.runId] : undefined;
 			const ownInteraction = run && interaction?.runId === run.id ? interaction : null;
-			const key: unknown[] = [chatWidth, theme, run, ownInteraction?.kind, ownInteraction?.selected, ownInteraction?.kind === 'question' ? ownInteraction.index : null];
+			const key: unknown[] = [chatWidth, theme, config.language, run, ownInteraction?.kind, ownInteraction?.selected, ownInteraction?.kind === 'question' ? ownInteraction.index : null];
 			if (run && isActive(run)) key.push(live.motion);
 			const cached = lineCache.current.get(message.id);
 			let messageLines = cached && cached.key.length === key.length && cached.key.every((value, index) => value === key[index]) ? cached.lines : null;
@@ -382,13 +390,13 @@ export function App(props: AppProps) {
 
 	/** Python and a ready provider are required before anything is sent; the user gets the reason otherwise. */
 	const runBlocker = (kind: RunKind): string | null => {
-		if (!props.services.startRun) return 'Bản này chưa nối với provider.';
-		if (activeRunId !== null) return 'Đang có run chưa xong. Đợi run xong, trả lời câu hỏi của run, hoặc nhấn Esc để dừng.';
-		if (!hub) return `Không có Hub: ${props.info.hubError ?? 'lỗi không rõ'}.`;
-		if (!report) return 'Đang kiểm tra môi trường; thử lại sau giây lát.';
+		if (!props.services.startRun) return t('Bản này chưa nối với provider.', 'This build is not connected to a provider.');
+		if (activeRunId !== null) return t('Đang có run chưa xong. Đợi run xong, trả lời câu hỏi của run, hoặc nhấn Esc để dừng.', 'A run is still going. Wait for it, answer its questions, or press Esc to stop it.');
+		if (!hub) return t(`Không có Hub: ${props.info.hubError ?? 'lỗi không rõ'}.`, `No Hub: ${props.info.hubError ?? 'unknown error'}.`);
+		if (!report) return t('Đang kiểm tra môi trường; thử lại sau giây lát.', 'Checking the environment; try again in a moment.');
 		const providerCheck = report?.checks.find(check => check.id === 'provider');
-		if (providerCheck?.state === 'fail') return `${providerCheck.label} chưa sẵn sàng (${providerCheck.detail}). Gõ /doctor để xem cách xử lý.`;
-		if (kind !== 'chat' && report && !report.python) return 'Không tìm thấy Python 3.9+; các công cụ của framework cần Python. Gõ /doctor để xem cách xử lý.';
+		if (providerCheck?.state === 'fail') return t(`${providerCheck.label} chưa sẵn sàng (${providerCheck.detail}). Gõ /doctor để xem cách xử lý.`, `${providerCheck.label} is not ready (${providerCheck.detail}). Type /doctor to see how to fix it.`);
+		if (kind !== 'chat' && report && !report.python) return t('Không tìm thấy Python 3.9+; các công cụ của framework cần Python. Gõ /doctor để xem cách xử lý.', 'Python 3.9+ not found; the framework\'s tools need Python. Type /doctor to see how to fix it.');
 		return null;
 	};
 
@@ -401,7 +409,7 @@ export function App(props: AppProps) {
 	/** Starts a run for a submitted request, with the files and folders its `@` mentions name. */
 	const launching = useRef(false);
 	const launch = async (kind: RunKind, request: string) => {
-		const blocker = launching.current ? 'Đang chuẩn bị run trước; thử lại sau giây lát.' : runBlocker(kind);
+		const blocker = launching.current ? t('Đang chuẩn bị run trước; thử lại sau giây lát.', 'Still preparing the previous run; try again in a moment.') : runBlocker(kind);
 		if (blocker) {
 			addMessages([{kind: 'note', tone: 'error', text: blocker}]);
 			return;
@@ -412,7 +420,7 @@ export function App(props: AppProps) {
 			try {
 				attached = await props.services.attach(request);
 			} catch (error) {
-				addMessages([{kind: 'note', tone: 'error', text: `Không đọc được file đính kèm: ${error instanceof Error ? error.message : String(error)}`}]);
+				addMessages([{kind: 'note', tone: 'error', text: t('Không đọc được file đính kèm: ', 'Could not read the attachments: ') + (error instanceof Error ? error.message : String(error))}]);
 				return;
 			} finally {
 				launching.current = false;
@@ -422,7 +430,7 @@ export function App(props: AppProps) {
 					{
 						kind: 'note',
 						tone: attached.summary.some(item => item.tone === 'warning') ? 'warning' : 'info',
-						text: `Đính kèm ${attached.summary.map(item => `${item.display} (${item.detail})`).join(' · ')}`,
+						text: t('Đính kèm ', 'Attached ') + `${attached.summary.map(item => `${item.display} (${item.detail})`).join(' · ')}`,
 					},
 				]);
 			}
@@ -472,27 +480,27 @@ export function App(props: AppProps) {
 			},
 		});
 		watch(controller);
-		return {kind: 'note', tone: 'info', text: `Chạy tiếp ${LAYER_LABELS[last.kind]}: ${last.request}`};
+		return {kind: 'note', tone: 'info', text: t(`Chạy tiếp ${LAYER_LABELS[last.kind]}: ${last.request}`, `Resuming ${LAYER_LABELS[last.kind]}: ${last.request}`)};
 	};
 
 	const copyLatest = async () => {
 		const run = [...Object.values(runs)].reverse().find(item => item.reply);
 		if (!run?.reply) {
-			addMessages([{kind: 'note', tone: 'info', text: 'Chưa có câu trả lời nào để copy.'}]);
+			addMessages([{kind: 'note', tone: 'info', text: t('Chưa có câu trả lời nào để copy.', 'No reply to copy yet.')}]);
 			return;
 		}
 		const how = props.services.clipboard ? await props.services.clipboard.copy(run.reply) : 'failed';
 		addMessages([
 			how === 'failed'
-				? {kind: 'note', tone: 'error', text: 'Không copy được: không tìm thấy công cụ clipboard của hệ thống.'}
-				: {kind: 'note', tone: 'success', text: how === 'native' ? 'Đã copy câu trả lời gần nhất vào clipboard.' : 'Đã gửi câu trả lời gần nhất tới clipboard qua terminal.'},
+				? {kind: 'note', tone: 'error', text: t('Không copy được: không tìm thấy công cụ clipboard của hệ thống.', 'Could not copy: no system clipboard tool found.')}
+				: {kind: 'note', tone: 'success', text: how === 'native' ? t('Đã copy câu trả lời gần nhất vào clipboard.', 'Copied the latest reply to the clipboard.') : t('Đã gửi câu trả lời gần nhất tới clipboard qua terminal.', 'Sent the latest reply to the clipboard through the terminal.')},
 		]);
 	};
 
 	const pasteClipboard = async () => {
 		const text = props.services.clipboard ? await props.services.clipboard.paste() : null;
 		if (text) setEditor(current => insert(current, text));
-		else addMessages([{kind: 'note', tone: 'warning', text: 'Không đọc được clipboard. Dùng phím dán của terminal (chuột phải, Ctrl+Shift+V).'}]);
+		else addMessages([{kind: 'note', tone: 'warning', text: t('Không đọc được clipboard. Dùng phím dán của terminal (chuột phải, Ctrl+Shift+V).', 'Could not read the clipboard. Use the terminal\'s paste key (right click, Ctrl+Shift+V).')}]);
 	};
 
 	const list = useListOverlay();
@@ -501,20 +509,28 @@ export function App(props: AppProps) {
 		const target = props.info.target.kind === 'git' ? props.info.target.root : null;
 		const width = Math.max(20, bodyWidth - 4);
 		const intro = (text: string) => hanging([], text, width, {dim: true});
-		const unreadable = () => hanging([{text: `${theme.glyphs.fail} `, color: 'danger'}], 'Không đọc được Hub.', width);
+		const unreadable = () => hanging([{text: `${theme.glyphs.fail} `, color: 'danger'}], t('Không đọc được Hub.', 'Could not read the Hub.'), width);
 		switch (overlay) {
 			case 'plans': {
 				if (!target || !props.services.plans) return {entries: [], header: unreadable()};
 				const packages = props.services.plans();
-				const header = intro(`Đọc trong Hub${hub ? ` (${displayPath(hub.path)})` : ''}: các Plan package có target_repo là repo hiện tại. Enter để xem một Plan hoặc report.`);
-				if (packages.length === 0) header.push(blank, ...hanging([{text: `${theme.glyphs.pending} `, dim: true}], 'Chưa có Plan nào cho repo này. Gõ /pirl-plan <request> để tạo.', width));
+				const where = hub ? ` (${displayPath(hub.path)})` : '';
+				const header = intro(
+					t(`Đọc trong Hub${where}: các Plan package có target_repo là repo hiện tại. Enter để xem một Plan hoặc report.`, `Read from the Hub${where}: the Plan packages whose target_repo is this repository. Enter opens a Plan or report.`),
+				);
+				if (packages.length === 0) header.push(blank, ...hanging([{text: `${theme.glyphs.pending} `, dim: true}], t('Chưa có Plan nào cho repo này. Gõ /pirl-plan <request> để tạo.', 'No Plans for this repository yet. Type /pirl-plan <request> to create one.'), width));
 				return {entries: planEntries(packages, theme), header};
 			}
 			case 'records': {
 				const records = props.services.records?.() ?? null;
 				if (!records) return {entries: [], header: unreadable()};
-				const header = intro('Record tự đánh giá của các run trên repo này, mới nhất trước (đọc trong Hub, .agents/evals/records/). Enter để xem chi tiết.');
-				if (records.length === 0) header.push(blank, ...hanging([{text: `${theme.glyphs.pending} `, dim: true}], 'Chưa có record nào.', width));
+				const header = intro(
+					t(
+						'Record tự đánh giá của các run trên repo này, mới nhất trước (đọc trong Hub, .agents/evals/records/). Enter để xem chi tiết.',
+						'Self-evaluation records of the runs on this repository, newest first (read from the Hub, .agents/evals/records/). Enter shows the details.',
+					),
+				);
+				if (records.length === 0) header.push(blank, ...hanging([{text: `${theme.glyphs.pending} `, dim: true}], t('Chưa có record nào.', 'No records yet.'), width));
 				return {entries: recordEntries(records, theme), header};
 			}
 			case 'resume':
@@ -523,7 +539,7 @@ export function App(props: AppProps) {
 						setOverlay(null);
 						addMessages([{kind: 'user', text: `/resume ${LAYER_LABELS[run.kind]}: ${run.request.split('\n')[0]!.slice(0, 80)}`}, resumeRun(run)]);
 					}),
-					header: intro('Chọn run muốn chạy tiếp, mới nhất trước. Run chạy tiếp đúng session của provider mà nó đã dừng.'),
+					header: intro(t('Chọn run muốn chạy tiếp, mới nhất trước. Run chạy tiếp đúng session của provider mà nó đã dừng.', 'Choose the run to resume, newest first. It resumes the same provider session it stopped in.')),
 				};
 			default:
 				return null;
@@ -540,7 +556,7 @@ export function App(props: AppProps) {
 			const typed = mention.query.replace(/\\/g, '/').toLowerCase();
 			const items = paths.map(entry => ({
 				label: mentionText(entry),
-				summary: !entry.folder ? '' : typed === `${entry.path.toLowerCase()}/` ? 'Enter: đính kèm cả thư mục' : 'thư mục',
+				summary: !entry.folder ? '' : typed === `${entry.path.toLowerCase()}/` ? t('Enter: đính kèm cả thư mục', 'Enter: attach the whole folder') : t('thư mục', 'folder'),
 			}));
 			return {items, commands: [], paths, mention};
 		}
@@ -595,7 +611,7 @@ export function App(props: AppProps) {
 			if (effect.type === 'copy') afterwards = () => void copyLatest();
 			if (effect.type === 'resume') {
 				afterwards = () => {
-					if (resumableRuns().length === 0) addMessages([{kind: 'note', tone: 'info', text: 'Không có run nào đang dở.'}]);
+					if (resumableRuns().length === 0) addMessages([{kind: 'note', tone: 'info', text: t('Không có run nào đang dở.', 'No unfinished runs.')}]);
 					else if (activeRunId !== null) addMessages([{kind: 'note', tone: 'error', text: runBlocker('plan') ?? ''}]);
 					else {
 						list.reset();
@@ -631,10 +647,10 @@ export function App(props: AppProps) {
 			const number = Number(typed);
 			const index = typed && Number.isInteger(number) && number >= 1 && number <= IMPROVEMENT_CHOICES.length ? number - 1 : typed ? -1 : current.selected;
 			if (index < 0) {
-				addMessages([{kind: 'note', tone: 'warning', text: 'Chọn 1, 2 hoặc 3.'}]);
+				addMessages([{kind: 'note', tone: 'warning', text: t('Chọn 1, 2 hoặc 3.', 'Choose 1, 2 or 3.')}]);
 				return;
 			}
-			void controller.resolveImprovements(IMPROVEMENT_CHOICES[index]!.id);
+			void controller.resolveImprovements(IMPROVEMENT_CHOICES[index]!);
 			return;
 		}
 		const options = current.question.options;
@@ -663,7 +679,7 @@ export function App(props: AppProps) {
 		try {
 			props.services.saveConfig(next);
 		} catch (error) {
-			addMessages([{kind: 'note', tone: 'error', text: `Không lưu được cài đặt: ${String(error)}`}]);
+			addMessages([{kind: 'note', tone: 'error', text: t(`Không lưu được cài đặt: ${String(error)}`, `Could not save the settings: ${String(error)}`)}]);
 		}
 	};
 
@@ -854,7 +870,7 @@ export function App(props: AppProps) {
 		if (!text) return;
 		const how = props.services.clipboard ? await props.services.clipboard.copy(text) : 'failed';
 		const count = text.split('\n').length;
-		showFlash(how === 'failed' ? 'Không copy được: không tìm thấy công cụ clipboard của hệ thống' : `Đã copy ${count} dòng`, how !== 'failed');
+		showFlash(how === 'failed' ? t('Không copy được: không tìm thấy công cụ clipboard của hệ thống', 'Could not copy: no system clipboard tool found') : t(`Đã copy ${count} dòng`, `Copied ${count} ${plural(count, 'line')}`), how !== 'failed');
 	};
 	const handleMouse = (event: MouseEvent) => {
 		if (config.mouse !== 'select') return;
@@ -940,9 +956,9 @@ export function App(props: AppProps) {
 	const shownSelection: Selection | null =
 		config.mouse !== 'select' ? null : drag && drag.area === area.area ? {area: drag.area, anchor: drag.anchor, focus: pointAt(area, drag.x, drag.y).point} : selection;
 	const chatLines: Line[] = [
-		...(chat.above > 0 ? [[{text: `${theme.glyphs.up} ${chat.above} dòng cũ hơn (PgUp)`, dim: true}]] : []),
+		...(chat.above > 0 ? [[{text: `${theme.glyphs.up} ` + t(`${chat.above} dòng cũ hơn (PgUp)`, `${chat.above} older lines (PgUp)`), dim: true}]] : []),
 		...highlightVisible(chat.lines, chat.above, shownSelection, 'chat'),
-		...(chat.below > 0 ? [[{text: `${theme.glyphs.down} ${chat.below} dòng mới hơn (PgDn)`, color: 'accent' as const}]] : []),
+		...(chat.below > 0 ? [[{text: `${theme.glyphs.down} ` + t(`${chat.below} dòng mới hơn (PgDn)`, `${chat.below} newer lines (PgDn)`), color: 'accent' as const}]] : []),
 	];
 
 	const g = theme.glyphs;
@@ -950,21 +966,21 @@ export function App(props: AppProps) {
 	const hints = (
 		overlay
 			? overlay === 'settings'
-				? [`${g.upDown} chọn`, `${g.leftRight} đổi`, 'Esc đóng']
+				? [`${g.upDown} ${t('chọn', 'choose')}`, `${g.leftRight} ${t('đổi', 'change')}`, t('Esc đóng', 'Esc close')]
 				: overlay === 'framework'
 					? framework.hints(theme)
 					: listContent
-						? list.hints(theme, overlay === 'resume' ? 'chạy tiếp' : 'xem')
-					: [`${g.upDown} PgUp/PgDn cuộn`, 'Esc đóng']
+						? list.hints(theme, overlay === 'resume' ? t('chạy tiếp', 'resume') : t('xem', 'open'))
+					: [`${g.upDown} PgUp/PgDn ${t('cuộn', 'scroll')}`, t('Esc đóng', 'Esc close')]
 			: interaction
-				? [`${g.upDown} chọn`, 'Enter xác nhận']
+				? [`${g.upDown} ${t('chọn', 'choose')}`, t('Enter xác nhận', 'Enter confirm')]
 				: running
-					? ['Esc dừng run', 'PgUp/PgDn cuộn']
+					? [t('Esc dừng run', 'Esc stop run'), t('PgUp/PgDn cuộn', 'PgUp/PgDn scroll')]
 					: suggestions.length > 0
 						? palette?.mention
-							? [`${g.upDown} chọn`, 'Tab/Enter chọn', 'Esc ẩn']
-							: [`${g.upDown} chọn`, 'Tab hoàn thành', 'Enter chạy']
-						: ['Enter gửi', 'Shift+Enter xuống dòng', '/help']
+							? [`${g.upDown} ${t('chọn', 'choose')}`, t('Tab/Enter chọn', 'Tab/Enter pick'), t('Esc ẩn', 'Esc hide')]
+							: [`${g.upDown} ${t('chọn', 'choose')}`, t('Tab hoàn thành', 'Tab complete'), t('Enter chạy', 'Enter run')]
+						: [t('Enter gửi', 'Enter send'), t('Shift+Enter xuống dòng', 'Shift+Enter new line'), '/help']
 	).join(` ${g.sep} `);
 	const totals = Object.values(runs).reduce(
 		(sum, run) => ({
@@ -977,8 +993,8 @@ export function App(props: AppProps) {
 	const cost = totals.tokens > 0 ? costText(totals.cost) : null;
 	// Without the side panel, the usage windows go to the status line.
 	const quotaShort = layout.kind === 'ok' && layout.sidePanel === 0 && quota ? quota.map(row => `${row.label} ${Math.round(row.percent)}%`).join(` ${g.sep} `) : null;
-	const usage = [`${totals.calls} lượt gọi`, totals.tokens > 0 && `${compactTokens(totals.tokens)} token`, cost, quotaShort].filter(Boolean).join(` ${g.sep} `);
-	const runText = activeRun ? `${LAYER_LABELS[activeRun.kind]}: ${STATUS_LABELS[activeRun.status]}` : doctor.state === 'running' ? 'đang kiểm tra môi trường' : 'không có run';
+	const usage = [t(`${totals.calls} lượt gọi`, `${totals.calls} ${plural(totals.calls, 'call')}`), totals.tokens > 0 && `${compactTokens(totals.tokens)} token`, cost, quotaShort].filter(Boolean).join(` ${g.sep} `);
+	const runText = activeRun ? `${LAYER_LABELS[activeRun.kind]}: ${statusLabel(activeRun.status)}` : doctor.state === 'running' ? t('đang kiểm tra môi trường', 'checking the environment') : t('không có run', 'no run');
 	const runWorking = activeRun !== null && isActive(activeRun);
 	// Right after a selection is copied, the status line says so at any width, for a moment.
 	const status: Line = flash
@@ -996,8 +1012,8 @@ export function App(props: AppProps) {
 			<Box flexDirection="row" height={bodyHeight}>
 				{overlay ? (
 					<Frame
-						title={OVERLAY_TITLES[overlay]}
-						hint="Esc đóng"
+						title={overlayTitle(overlay)}
+						hint={t('Esc đóng', 'Esc close')}
 						lines={highlightVisible(overlayContent, 0, shownSelection, 'overlay')}
 						width={bodyWidth}
 						height={bodyHeight}
@@ -1014,7 +1030,7 @@ export function App(props: AppProps) {
 					<SidePanel info={info} provider={provider} run={panelRun} live={live} extras={{model: modelText(config), quota}} width={layout.sidePanel} height={bodyHeight} theme={theme} />
 				)}
 			</Box>
-			<InputBox editor={editor} columns={columns} maxLines={layout.inputMaxLines} theme={theme} focused={!overlay} placeholder={interaction ? (interaction.kind === 'question' ? 'Nhập câu trả lời, hoặc Enter để chọn mục đang trỏ' : 'Enter để chọn mục đang trỏ, hoặc gõ 1–3') : undefined} />
+			<InputBox editor={editor} columns={columns} maxLines={layout.inputMaxLines} theme={theme} focused={!overlay} placeholder={interaction ? (interaction.kind === 'question' ? t('Nhập câu trả lời, hoặc Enter để chọn mục đang trỏ', 'Type an answer, or Enter to pick the highlighted item') : t('Enter để chọn mục đang trỏ, hoặc gõ 1–3', 'Enter to pick the highlighted item, or type 1–3')) : undefined} />
 			{paletteShown > 0 && <Lines lines={paletteLines(suggestions, paletteIndex, paletteShown, columns, theme)} theme={theme} />}
 			<Lines lines={[status]} theme={theme} />
 		</Box>

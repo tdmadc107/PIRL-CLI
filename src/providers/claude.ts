@@ -1,10 +1,10 @@
 import {succeeded, type Exec} from '../core/exec.js';
+import {t} from '../core/i18n.js';
 import type {Provider, ProviderDetection} from './types.js';
 
-const AUTH_LABELS: Record<string, string> = {
-	oauth_token: 'tài khoản Claude (subscription)',
-	claude_ai: 'tài khoản Claude (subscription)',
-	api_key: 'API key',
+const authLabel = (method: string): string | undefined => {
+	const subscription = t('tài khoản Claude (subscription)', 'a Claude account (subscription)');
+	return ({oauth_token: subscription, claude_ai: subscription, api_key: 'API key'} as Record<string, string>)[method];
 };
 
 export function parseAuthStatus(stdout: string): Pick<ProviderDetection, 'loggedIn' | 'authMethod'> {
@@ -14,7 +14,7 @@ export function parseAuthStatus(stdout: string): Pick<ProviderDetection, 'logged
 		const viaCloud = typeof data.apiProvider === 'string' && data.apiProvider !== 'firstParty' ? data.apiProvider : undefined;
 		return {
 			loggedIn: data.loggedIn === true,
-			authMethod: viaCloud ?? (method ? (AUTH_LABELS[method] ?? method) : undefined),
+			authMethod: viaCloud ?? (method ? (authLabel(method) ?? method) : undefined),
 		};
 	} catch {
 		return {loggedIn: null};
@@ -43,7 +43,7 @@ export const claudeProvider: Provider = {
 			return {
 				installed: false,
 				loggedIn: null,
-				fix: 'Cài Claude Code theo hướng dẫn tại https://code.claude.com/docs, rồi chạy `claude` một lần để đăng nhập.',
+				fix: t('Cài Claude Code theo hướng dẫn tại https://code.claude.com/docs, rồi chạy `claude` một lần để đăng nhập.', 'Install Claude Code following https://code.claude.com/docs, then run `claude` once to sign in.'),
 			};
 		}
 		// `claude auth status` reports sign-in state as JSON without exposing any credential.
@@ -58,9 +58,9 @@ export const claudeProvider: Provider = {
 			outdated,
 			fix:
 				auth.loggedIn === false
-					? 'Chạy `claude` (hoặc `claude auth login`) để đăng nhập bằng tài khoản của bạn.'
+					? t('Chạy `claude` (hoặc `claude auth login`) để đăng nhập bằng tài khoản của bạn.', 'Run `claude` (or `claude auth login`) to sign in with your account.')
 					: outdated
-						? `PIRL cần Claude Code ${MIN_CLAUDE_VERSION} trở lên. Chạy \`claude update\`.`
+						? t(`PIRL cần Claude Code ${MIN_CLAUDE_VERSION} trở lên. Chạy \`claude update\`.`, `PIRL needs Claude Code ${MIN_CLAUDE_VERSION} or later. Run \`claude update\`.`)
 						: undefined,
 		};
 	},

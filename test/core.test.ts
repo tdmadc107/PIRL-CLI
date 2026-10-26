@@ -38,7 +38,8 @@ describe('config', () => {
 	});
 
 	test('invalid fields fall back one by one; valid ones are kept', () => {
-		expect(normalizeConfig({provider: 'codex', theme: 'neon', colors: 'forest', glyphs: 'ascii', motion: 'yes', maxParallelRoles: 9, model: 'gpt-5', roleModel: 'haiku', effort: 'max'})).toEqual({
+		expect(normalizeConfig({language: 'fr', provider: 'codex', theme: 'neon', colors: 'forest', glyphs: 'ascii', motion: 'yes', maxParallelRoles: 9, model: 'gpt-5', roleModel: 'haiku', effort: 'max'})).toEqual({
+			language: 'vi',
 			provider: 'codex',
 			theme: 'auto',
 			colors: 'forest',
@@ -50,6 +51,11 @@ describe('config', () => {
 			roleModel: 'haiku',
 			effort: 'max',
 		});
+	});
+
+	test('the language is Vietnamese unless English is chosen', () => {
+		expect(normalizeConfig({}).language).toBe('vi');
+		expect(normalizeConfig({language: 'en'}).language).toBe('en');
 	});
 
 	test('the 1.0 mouse setting wheel becomes select, which covers it', () => {

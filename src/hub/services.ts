@@ -1,6 +1,7 @@
 import {readFileSync} from 'node:fs';
 import {join} from 'node:path';
 import type {Config} from '../core/config.js';
+import {t} from '../core/i18n.js';
 import {proposeMerge} from '../engine/agentMerge.js';
 import {discardImprovements} from '../engine/hubData.js';
 import type {AgentRunner} from '../engine/types.js';
@@ -23,7 +24,7 @@ export function frameworkServices(path: string, bundle: BundledFramework, runner
 		commitUncommitted: files => update.commitUncommitted(path, files),
 		discardUncommitted: async files => {
 			const result = await discardImprovements(path, files);
-			if (!result.ok) throw new Error(result.error ?? 'Không bỏ được các thay đổi.');
+			if (!result.ok) throw new Error(result.error ?? t('Không bỏ được các thay đổi.', 'Could not discard the changes.'));
 		},
 		startUpdate: () => update.startUpdate(path, bundle),
 		resolve: (draft, file, choice) => update.resolveConflict(draft.dir, file, choice),
