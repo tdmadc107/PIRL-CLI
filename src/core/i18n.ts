@@ -15,4 +15,4 @@ export const currentLanguage = (): Language => current;
 export const t = (vi: string, en: string): string => (current === 'en' ? en : vi);
 
 /** The English noun for a count: "1 file", "2 files". Vietnamese nouns do not change with the count. */
-export const plural = (count: number, singular: string, many = `${singular}s`): string => (count === 1 ? singular : many);
+export const plural = (count: number, singular: string): string => (count === 1 ? singular : `${singular}s`);

@@ -145,11 +145,15 @@ export function App(props: AppProps) {
 	const [cliUpdate, setCliUpdate] = useState<string | null>(props.info.cliUpdate ?? null);
 	const info = useMemo(() => ({...props.info, hub, cliUpdate}), [props.info, hub, cliUpdate]);
 	const refreshHub = () => void props.services.framework?.status().then(setHub, () => {});
-	// The plan's usage windows: read once at start, then as each run reports them.
+	// The plan's usage windows: read at start, then as each run reports them. Their labels are written in the
+	// language of the moment, so a new language reads them again; the start read never replaces a run's newer rows.
 	const [quota, setQuota] = useState<QuotaRow[] | null>(null);
+	const quotaRead = useRef(false);
 	useEffect(() => {
-		props.services.quota?.().then(rows => rows && setQuota(current => current ?? rows), () => {});
-	}, []);
+		const first = !quotaRead.current;
+		quotaRead.current = true;
+		props.services.quota?.().then(rows => rows && setQuota(current => (first ? (current ?? rows) : rows)), () => {});
+	}, [config.language]);
 	useEffect(() => {
 		props.services.cliUpdate?.().then(
 			version => {
