@@ -4,6 +4,25 @@ All notable changes to this project are documented in this file. The format foll
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Esc stops a run again on Windows. Claude Code installed by npm runs under a `claude.cmd` shim, and stopping only
+  ended the shim: the agent kept working, its output stayed open and the run never left "running". PIRL now ends the
+  whole process tree. Elsewhere a provider that ignores the stop is ended after a few seconds, and a run always ends
+  once the process is gone, even if something it started keeps the output open.
+- Esc says the run is stopping, and a second Esc forces it at once.
+- Esc also stops a run that waits for answers to its questions, as the hint promised; it can be resumed later.
+- A run stopped while PIRL checked its results no longer comes back to ask about framework improvements.
+- Closing PIRL ends the agent and everything it started on Windows too.
+
+### Changed
+
+- Choosing a run in `/resume` no longer continues it by itself. PIRL waits for your message: "continue", or a
+  related problem for the run to solve, which is sent to the run's agent session. Esc cancels the choice. A run that
+  was waiting for answers shows its questions again.
+
 ## [1.1.2] - 2026-10-26
 
 ### Added

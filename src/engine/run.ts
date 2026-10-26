@@ -187,12 +187,15 @@ export class RunController {
 		this.resumedBefore = resume?.before;
 		this.providerTotals = resume?.providerTotals ?? {};
 		this.firstPrompt = resume ? resume.prompt ?? t('Tiếp tục run bị dừng từ chỗ đã dừng.', 'Continue the stopped run from where it stopped.') : request;
+		// What the user typed to continue a layer run from /resume; a chat message is already the request.
+		this.resumePrompt = resume?.prompt && resume.prompt !== request ? resume.prompt : null;
 		// Attachments go with the user's own words: a new request or a chat message, not a "continue".
 		if (deps.attachments?.text && (!resume || resume.prompt)) this.firstPrompt = `${this.firstPrompt}\n\n${deps.attachments.text}`;
 	}
 
 	/** What the first call sends: the request, a chat message into an existing session, or "continue". */
 	private firstPrompt: string;
+	private resumePrompt: string | null;
 
 	/** What /resume needs to continue this run after PIRL CLI was closed. */
 	persisted(): PersistedRun {
@@ -270,6 +273,7 @@ export class RunController {
 
 	async start(): Promise<void> {
 		this.update({}, {who: 'pirl', text: `${this.state.sessionId ? t('Chạy tiếp', 'Resuming') : t('Bắt đầu', 'Starting')} ${LAYER_LABELS[this.state.kind]}: ${this.state.request.split('\n')[0]!.slice(0, 120)}`});
+		if (this.resumePrompt) this.update({}, {who: 'pirl', text: t(`Yêu cầu khi chạy tiếp: ${this.resumePrompt.split('\n')[0]!.slice(0, 200)}`, `Request on resume: ${this.resumePrompt.split('\n')[0]!.slice(0, 200)}`)});
 		await this.guard(async () => {
 			await this.snapshot();
 			if (this.state.status === 'waiting') return; // resumed with unanswered questions: wait for the user
@@ -296,10 +300,22 @@ export class RunController {
 		await this.guard(() => this.send(answersMessage(questions, answers)));
 	}
 
+	/**
+	 * Stops the run. With a provider working, the first call asks it to stop and each later one forces it
+	 * (src/engine/claudeRunner.ts); the run ends once the process does. Otherwise (preparing, waiting for answers,
+	 * running the checks) it ends at once, and the steps still under way see `stopped` and change nothing.
+	 */
 	stop() {
+		if (TERMINAL.includes(this.state.status)) return;
+		const again = this.stopped;
 		this.stopped = true;
-		this.handle?.stop();
-		if (!this.handle) this.update({status: 'stopped'}, {who: 'pirl', text: t('Đã dừng', 'Stopped')});
+		if (this.handle) {
+			const text = again ? t('Buộc dừng provider', 'Forcing the provider to stop') : t('Đang dừng provider…', 'Stopping the provider…');
+			this.update({}, {who: 'pirl', text, tone: 'warning'});
+			this.handle.stop();
+			return;
+		}
+		this.update({status: 'stopped'}, {who: 'pirl', text: t('Đã dừng', 'Stopped')});
 	}
 
 	private async send(prompt: string): Promise<void> {
@@ -481,6 +497,7 @@ export class RunController {
 		if (this.layer) {
 			this.update({status: 'checking'}, {who: 'pirl', text: t('Coordinator xong; kiểm tra kết quả', 'Coordinator done; checking the results')});
 			const repair = await this.checkLayer();
+			if (this.stopped) return;
 			if (repair && this.repairs < (this.deps.maxRepairs ?? MAX_REPAIRS)) {
 				this.repairs += 1;
 				this.update({}, {who: 'pirl', text: t(`Gửi coordinator sửa (lần ${this.repairs})`, `Sent back to the coordinator to fix (attempt ${this.repairs})`), tone: 'warning'});
@@ -571,6 +588,7 @@ export class RunController {
 		// The run's temporary files (.tmp/pirl-run/) are removed here, as the host instructions promise the coordinator.
 		rmSync(join(this.deps.hub, '.tmp', 'pirl-run'), {recursive: true, force: true});
 		const now = await changedPaths(this.deps.hub, this.exec);
+		if (this.stopped) return;
 		const files = now.filter(path => !this.before.hubChanges.includes(path));
 		if (files.length === 0) {
 			this.update({status: 'done'}, {who: 'pirl', text: t('Xong', 'Done'), tone: 'success'});
@@ -578,6 +596,7 @@ export class RunController {
 		}
 		this.update({status: 'checking', activity: t('Chạy test của framework trên các cải tiến', 'Running the framework tests on the improvements')}, {who: 'pirl', text: t(`${files.length} file framework thay đổi; chạy test của framework`, `${files.length} framework ${plural(files.length, 'file')} changed; running the framework tests`)});
 		const tests = await this.frameworkTests();
+		if (this.stopped) return;
 		const firstLine = tests.detail?.split('\n')[0]?.slice(0, 120) ?? '';
 		this.update(
 			{status: 'improvements', improvements: {files, state: 'pending', tests}},

@@ -485,6 +485,35 @@ describe('RunController', () => {
 		expect(run.state.status).toBe('stopped');
 	});
 
+	test('stop() while the results are checked: the run stays stopped and asks nothing about improvements', async () => {
+		const {hub, target} = await hubAndTarget();
+		const {runner} = fakeRunner([
+			() => {
+				const {planSet} = writePlan(hub, target);
+				const recordId = writeRecord(hub, target, planSet);
+				appendFileSync(join(hub, '.agents/roles/code-analyst.role.md'), '\n- Check every caller.\n');
+				return [result('Xong.' + outputsBlock({plan_set: planSet, plan_file: null, report: null, record_id: recordId}))];
+			},
+		]);
+		const run = new RunController(deps(hub, target, runner), 1, 'plan', 'Email');
+		// Stopped while the framework's tests run on the improvements.
+		run.subscribe(state => state.status === 'checking' && state.activity !== null && run.stop());
+		await run.start();
+		expect(run.state.status).toBe('stopped');
+		expect(run.state.improvements).toBeNull();
+	});
+
+	test('a run resumed with what the user typed sends it as the first message and logs it', async () => {
+		const {hub, target} = await hubAndTarget();
+		const logDir = tempDir();
+		const {runner, calls} = fakeRunner([() => [result('Đã chạy tiếp.', 's-1')]]);
+		const run = new RunController({...deps(hub, target, runner), logDir}, 2, 'plan', 'Email huỷ đơn', {sessionId: 's-1', status: 'stopped', prompt: 'thêm email cho admin'});
+		await run.start();
+		expect(calls[0]!.prompt).toBe('thêm email cho admin');
+		expect(calls[0]!.resumeSessionId).toBe('s-1');
+		expect(readFileSync(run.state.logFile!, 'utf8')).toContain('Yêu cầu khi chạy tiếp: thêm email cho admin');
+	});
+
 	test('the log file has every entry, the run its duration, and a refusal reported twice counts once', async () => {
 		const {hub, target} = await hubAndTarget();
 		const logDir = tempDir();

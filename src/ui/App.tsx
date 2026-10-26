@@ -69,6 +69,8 @@ function readySummary(report: DoctorReport): string {
 }
 
 const ACTIVE: RunState['status'][] = ['running', 'checking'];
+/** Esc stops these: a working run, or one waiting for answers (it stays resumable). */
+const STOPPABLE: RunState['status'][] = [...ACTIVE, 'waiting'];
 
 /** The run's model settings in one line: "sonnet · effort high", with the roles' model when it differs. */
 export function modelText(config: Config): string {
@@ -178,6 +180,8 @@ export function App(props: AppProps) {
 	const [activeRunId, setActiveRunId] = useState<number | null>(null);
 	const [lastRunId, setLastRunId] = useState<number | null>(null);
 	const chatSession = useRef<string | null>(null);
+	// The run chosen in /resume: it continues only with what the user types next, never by itself.
+	const [resumeTarget, setResumeTarget] = useState<PersistedRun | null>(null);
 	const [answers, setAnswers] = useState<string[]>([]);
 	// The option the pointer is on, remembered per question; a new question starts at its recommended option.
 	const [choiceState, setChoiceState] = useState<{key: string; index: number}>({key: '', index: 0});
@@ -409,34 +413,40 @@ export function App(props: AppProps) {
 	/** Starts a run for a submitted request, with the files and folders its `@` mentions name. */
 	const launching = useRef(false);
 	const launch = async (kind: RunKind, request: string) => {
+		const attached = await prepare(kind, request);
+		if (attached === false) return;
+		const failed = startRun(kind, request, attached);
+		if (failed) addMessages([{kind: 'note', tone: 'error', text: failed}]);
+	};
+
+	/** Checks that a run can start and reads what the text's `@` mentions attach; false (with a note) when it cannot. */
+	const prepare = async (kind: RunKind, text: string): Promise<AttachedContext | null | false> => {
 		const blocker = launching.current ? t('Đang chuẩn bị run trước; thử lại sau giây lát.', 'Still preparing the previous run; try again in a moment.') : runBlocker(kind);
 		if (blocker) {
 			addMessages([{kind: 'note', tone: 'error', text: blocker}]);
-			return;
+			return false;
 		}
-		let attached: AttachedContext | null = null;
-		if (findMentions(request).length > 0 && props.services.attach) {
-			launching.current = true;
-			try {
-				attached = await props.services.attach(request);
-			} catch (error) {
-				addMessages([{kind: 'note', tone: 'error', text: t('Không đọc được file đính kèm: ', 'Could not read the attachments: ') + (error instanceof Error ? error.message : String(error))}]);
-				return;
-			} finally {
-				launching.current = false;
-			}
-			if (attached.summary.length > 0) {
-				addMessages([
-					{
-						kind: 'note',
-						tone: attached.summary.some(item => item.tone === 'warning') ? 'warning' : 'info',
-						text: t('Đính kèm ', 'Attached ') + `${attached.summary.map(item => `${item.display} (${item.detail})`).join(' · ')}`,
-					},
-				]);
-			}
+		if (findMentions(text).length === 0 || !props.services.attach) return null;
+		let attached: AttachedContext;
+		launching.current = true;
+		try {
+			attached = await props.services.attach(text);
+		} catch (error) {
+			addMessages([{kind: 'note', tone: 'error', text: t('Không đọc được file đính kèm: ', 'Could not read the attachments: ') + (error instanceof Error ? error.message : String(error))}]);
+			return false;
+		} finally {
+			launching.current = false;
 		}
-		const failed = startRun(kind, request, attached);
-		if (failed) addMessages([{kind: 'note', tone: 'error', text: failed}]);
+		if (attached.summary.length > 0) {
+			addMessages([
+				{
+					kind: 'note',
+					tone: attached.summary.some(item => item.tone === 'warning') ? 'warning' : 'info',
+					text: t('Đính kèm ', 'Attached ') + `${attached.summary.map(item => `${item.display} (${item.detail})`).join(' · ')}`,
+				},
+			]);
+		}
+		return attached;
 	};
 
 	const startRun = (kind: RunKind, request: string, attached: AttachedContext | null = null): string | null => {
@@ -460,7 +470,8 @@ export function App(props: AppProps) {
 	/** The runs /resume offers: stopped, failed or waiting ones that have a provider session. */
 	const resumableRuns = () => (props.services.runs?.() ?? []).filter(run => resumable(run));
 
-	const resumeRun = (last: PersistedRun): NewMessage => {
+	/** Continues a saved run's provider session; `prompt` is what the user typed for it, sent as the first message. */
+	const resumeRun = (last: PersistedRun, prompt?: string, attached: AttachedContext | null = null): NewMessage => {
 		const blocker = runBlocker(last.kind);
 		if (blocker) return {kind: 'note', tone: 'error', text: blocker};
 		const controller = props.services.startRun!({
@@ -474,13 +485,50 @@ export function App(props: AppProps) {
 				status: last.status,
 				questions: last.questions,
 				before: last.before,
+				prompt,
 				providerTotals: last.providerTotals,
 				key: last.key,
 				startedAt: last.startedAt,
 			},
+			attachments: attached?.text ? {text: attached.text, dirs: attached.dirs} : undefined,
 		});
 		watch(controller);
 		return {kind: 'note', tone: 'info', text: t(`Chạy tiếp ${LAYER_LABELS[last.kind]}: ${last.request}`, `Resuming ${LAYER_LABELS[last.kind]}: ${last.request}`)};
+	};
+
+	/**
+	 * A run chosen in /resume. One waiting for answers shows its questions again, which wait for the user. Any other
+	 * one starts nothing yet: the user's next message (continue, or a related problem to solve) is what resumes it.
+	 */
+	const pickResume = (run: PersistedRun) => {
+		setOverlay(null);
+		const echo: NewMessage = {kind: 'user', text: `/resume ${LAYER_LABELS[run.kind]}: ${run.request.split('\n')[0]!.slice(0, 80)}`};
+		if (run.status === 'waiting' && run.questions.length > 0) {
+			setResumeTarget(null);
+			addMessages([echo, resumeRun(run)]);
+			return;
+		}
+		setResumeTarget(run);
+		addMessages([
+			echo,
+			{
+				kind: 'note',
+				tone: 'info',
+				text: t(`Đã chọn ${LAYER_LABELS[run.kind]}: ${run.request.split('\n')[0]!.slice(0, 120)}`, `Chose ${LAYER_LABELS[run.kind]}: ${run.request.split('\n')[0]!.slice(0, 120)}`),
+				hint: t(
+					'Run chưa chạy. Nhập yêu cầu để chạy tiếp (ví dụ "tiếp tục", hoặc một vấn đề liên quan cần giải quyết) rồi Enter; Esc để huỷ.',
+					'The run has not started. Type what it should do (for example "continue", or a related problem to solve) and press Enter; Esc cancels.',
+				),
+			},
+		]);
+	};
+
+	/** Sends what the user typed to the run chosen in /resume. */
+	const continueResume = async (last: PersistedRun, prompt: string) => {
+		const attached = await prepare(last.kind, prompt);
+		if (attached === false) return;
+		setResumeTarget(null);
+		addMessages([resumeRun(last, prompt, attached)]);
 	};
 
 	const copyLatest = async () => {
@@ -535,11 +583,13 @@ export function App(props: AppProps) {
 			}
 			case 'resume':
 				return {
-					entries: resumeEntries(resumableRuns(), theme, run => {
-						setOverlay(null);
-						addMessages([{kind: 'user', text: `/resume ${LAYER_LABELS[run.kind]}: ${run.request.split('\n')[0]!.slice(0, 80)}`}, resumeRun(run)]);
-					}),
-					header: intro(t('Chọn run muốn chạy tiếp, mới nhất trước. Run chạy tiếp đúng session của provider mà nó đã dừng.', 'Choose the run to resume, newest first. It resumes the same provider session it stopped in.')),
+					entries: resumeEntries(resumableRuns(), theme, pickResume),
+					header: intro(
+						t(
+							'Chọn run muốn chạy tiếp, mới nhất trước. Run chạy tiếp đúng session của provider mà nó đã dừng, sau khi bạn nhập yêu cầu cho nó.',
+							'Choose the run to resume, newest first. It resumes the same provider session it stopped in, once you type what it should do.',
+						),
+					),
 				};
 			default:
 				return null;
@@ -591,6 +641,7 @@ export function App(props: AppProps) {
 
 	const applyEffects = (effects: Effect[], echo: string) => {
 		if (effects.some(effect => effect.type === 'clear')) {
+			setResumeTarget(null);
 			setMessages([{id: newId(), kind: 'welcome'}]);
 			setScroll(0);
 			return;
@@ -620,6 +671,7 @@ export function App(props: AppProps) {
 				};
 			}
 			if (effect.type === 'run') {
+				setResumeTarget(null);
 				const kind = effect.kind;
 				const request = effect.request;
 				afterwards = () => void launch(kind, request);
@@ -635,6 +687,11 @@ export function App(props: AppProps) {
 		setHistory(current => (current.at(-1) === raw ? current : [...current, raw]));
 		setHistoryIndex(null);
 		setEditor(emptyEditor);
+		if (resumeTarget && parsed.kind === 'text') {
+			addMessages([{kind: 'user', text: raw.trim()}]);
+			void continueResume(resumeTarget, parsed.text);
+			return;
+		}
 		applyEffects(dispatch(parsed, {target: props.info.target}), raw.trim());
 	};
 
@@ -703,11 +760,19 @@ export function App(props: AppProps) {
 		if (spec) setEditor(setValue(`/${spec.name}${spec.takesRequest ? ' ' : ''}`));
 	};
 
-	// The run Ctrl+C has already asked to stop; a second Ctrl+C while it is still stopping closes the TUI.
+	// The run already asked to stop: a second Ctrl+C while it is still stopping closes the TUI, a second Esc forces it.
 	const stopRequested = useRef<number | null>(null);
-	const stopActive = () => {
-		if (activeRunId === null || stopRequested.current === activeRunId) return false;
+	const stopActive = (again = false) => {
+		if (activeRunId === null || (stopRequested.current === activeRunId && !again)) return false;
+		const forcing = stopRequested.current === activeRunId;
 		stopRequested.current = activeRunId;
+		if (runs[activeRunId]?.status === 'running') {
+			addMessages([
+				forcing
+					? {kind: 'note', tone: 'warning', text: t('Đang buộc dừng provider.', 'Forcing the provider to stop.')}
+					: {kind: 'note', tone: 'warning', text: t('Đang dừng run…', 'Stopping the run…'), hint: t('Nhấn Esc lần nữa để buộc dừng ngay.', 'Press Esc again to force it.')},
+			]);
+		}
 		controllers.current.get(activeRunId)?.stop();
 		return true;
 	};
@@ -820,8 +885,13 @@ export function App(props: AppProps) {
 				setHiddenMention(offered!.mention.start);
 				return;
 			}
-			if (editor.value === '' && activeRun && ACTIVE.includes(activeRun.status)) {
-				stopActive();
+			if (editor.value === '' && activeRun && STOPPABLE.includes(activeRun.status)) {
+				stopActive(true);
+				return;
+			}
+			if (editor.value === '' && resumeTarget) {
+				setResumeTarget(null);
+				addMessages([{kind: 'note', tone: 'info', text: t('Đã huỷ chạy tiếp; run vẫn còn trong /resume.', 'Resume cancelled; the run is still in /resume.')}]);
 				return;
 			}
 			setEditor(emptyEditor);
@@ -970,12 +1040,14 @@ export function App(props: AppProps) {
 				: overlay === 'framework'
 					? framework.hints(theme)
 					: listContent
-						? list.hints(theme, overlay === 'resume' ? t('chạy tiếp', 'resume') : t('xem', 'open'))
+						? list.hints(theme, overlay === 'resume' ? t('chọn', 'choose') : t('xem', 'open'))
 					: [`${g.upDown} PgUp/PgDn ${t('cuộn', 'scroll')}`, t('Esc đóng', 'Esc close')]
 			: interaction
-				? [`${g.upDown} ${t('chọn', 'choose')}`, t('Enter xác nhận', 'Enter confirm')]
+				? [`${g.upDown} ${t('chọn', 'choose')}`, t('Enter xác nhận', 'Enter confirm'), ...(interaction.kind === 'question' ? [t('Esc dừng run', 'Esc stop run')] : [])]
 				: running
 					? [t('Esc dừng run', 'Esc stop run'), t('PgUp/PgDn cuộn', 'PgUp/PgDn scroll')]
+					: resumeTarget && suggestions.length === 0
+						? [t('Enter chạy tiếp', 'Enter resume'), t('Esc huỷ chạy tiếp', 'Esc cancel resume')]
 					: suggestions.length > 0
 						? palette?.mention
 							? [`${g.upDown} ${t('chọn', 'choose')}`, t('Tab/Enter chọn', 'Tab/Enter pick'), t('Esc ẩn', 'Esc hide')]
@@ -1030,7 +1102,7 @@ export function App(props: AppProps) {
 					<SidePanel info={info} provider={provider} run={panelRun} live={live} extras={{model: modelText(config), quota}} width={layout.sidePanel} height={bodyHeight} theme={theme} />
 				)}
 			</Box>
-			<InputBox editor={editor} columns={columns} maxLines={layout.inputMaxLines} theme={theme} focused={!overlay} placeholder={interaction ? (interaction.kind === 'question' ? t('Nhập câu trả lời, hoặc Enter để chọn mục đang trỏ', 'Type an answer, or Enter to pick the highlighted item') : t('Enter để chọn mục đang trỏ, hoặc gõ 1–3', 'Enter to pick the highlighted item, or type 1–3')) : undefined} />
+			<InputBox editor={editor} columns={columns} maxLines={layout.inputMaxLines} theme={theme} focused={!overlay} placeholder={interaction ? (interaction.kind === 'question' ? t('Nhập câu trả lời, hoặc Enter để chọn mục đang trỏ', 'Type an answer, or Enter to pick the highlighted item') : t('Enter để chọn mục đang trỏ, hoặc gõ 1–3', 'Enter to pick the highlighted item, or type 1–3')) : resumeTarget ? t('Nhập yêu cầu để chạy tiếp run đã chọn', 'Type what the chosen run should do') : undefined} />
 			{paletteShown > 0 && <Lines lines={paletteLines(suggestions, paletteIndex, paletteShown, columns, theme)} theme={theme} />}
 			<Lines lines={[status]} theme={theme} />
 		</Box>

@@ -22,7 +22,7 @@ The interface is in Vietnamese or English, chosen in `/settings`; agents reply i
 | `/pirl-plan <request>` | Create or adjust a Plan |
 | `/pirl-implement <request>` | Implement a task of a Plan, or fix it according to a review report |
 | `/pirl-review <request>` | Review the implementation of a task |
-| `/resume` | Continue a stopped run, chosen from a list |
+| `/resume` | Choose a stopped run to continue; it continues with the next message you type |
 | `/plans` | Browse the Plans, tasks and review reports of this repository |
 | `/records` | Browse the framework's self-evaluation records |
 | `/framework` | Framework version, local improvements and updates |
@@ -48,7 +48,7 @@ PIRL suggests the matching command instead of running it.
 | PgUp / PgDn, mouse wheel | Scroll the chat or the open panel |
 | `@` | Attach a file or folder |
 | Ctrl+V | Paste |
-| Esc | Clear the input, close a panel, or stop the running run |
+| Esc | Clear the input, close a panel, or stop the running run (also one waiting for answers); a second Esc forces it |
 | Ctrl+C | Stop the running run; quit when nothing runs |
 
 ### Selecting and copying text
@@ -88,8 +88,11 @@ On Windows, network shares and device paths are never read unless your repositor
 5. PIRL suggests the next layer as a command. It never opens a layer on its own.
 
 A run never commits, pushes or switches branches in your repository. Commands outside a run's permissions are
-refused and listed in the run's summary; the run carries on. Esc or Ctrl+C stops a run, and `/resume` continues
-it later in the same agent session, even after PIRL was closed.
+refused and listed in the run's summary; the run carries on. Esc or Ctrl+C stops a run, together with every
+process the agent started; if it does not stop within a few seconds, a second Esc forces it. `/resume` continues it
+later in the same agent session, even after PIRL was closed. Choosing a run in `/resume` starts nothing: type what
+it should do next (for example "continue", or a related problem to solve) and press Enter; Esc cancels. A run that
+was waiting for your answers shows its questions again.
 
 ## Usage and limits
 

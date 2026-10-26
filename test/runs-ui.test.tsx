@@ -108,7 +108,7 @@ describe('layer runs in the TUI', () => {
 		expect(calls[1]!.prompt).toContain('Q2 (Ngôn ngữ email?): Tiếng Việt');
 	});
 
-	test('Esc stops a running run; /resume continues the same provider session', async () => {
+	test('Esc stops a running run; /resume continues the same provider session with what the user types', async () => {
 		const {terminal, calls} = await startWithRuns([
 			(_call, emit) => {
 				emit({type: 'session', sessionId: 'session-7'});
@@ -131,9 +131,96 @@ describe('layer runs in the TUI', () => {
 		expect(terminal.frame()).toMatch(/Plan đã dừng \d{2}\/\d{2} \d{2}:\d{2}/);
 		expect(terminal.frame()).toContain('Email huỷ đơn');
 		await terminal.press(KEYS.enter);
+		// Choosing the run starts nothing: it waits for what the user types.
+		await until(terminal, 'Run chưa chạy. Nhập yêu cầu để chạy tiếp');
+		expect(terminal.frame()).toContain('Esc huỷ chạy tiếp');
+		await tick(300);
+		expect(calls).toHaveLength(1);
+		await terminal.type('tiếp tục, thêm cả email cho admin');
+		await terminal.press(KEYS.enter);
 		await until(terminal, 'Đã chạy tiếp.');
-		expect(calls[1]!.prompt).toBe('Tiếp tục run bị dừng từ chỗ đã dừng.');
+		expect(calls[1]!.prompt).toBe('tiếp tục, thêm cả email cho admin');
 		expect(calls[1]!.resumeSessionId).toBe('session-7');
+	});
+
+	test('a run chosen in /resume never starts by itself; Esc cancels it and later text is a new chat', async () => {
+		const {terminal, calls} = await startWithRuns([
+			(_call, emit) => {
+				emit({type: 'session', sessionId: 'session-8'});
+				return new Promise(() => {});
+			},
+			() => [result('Trả lời chat.', 'chat-1')],
+		]);
+		await terminal.type('/pirl-plan Email huỷ đơn');
+		await terminal.press(KEYS.enter);
+		for (const end = Date.now() + 120_000; calls.length === 0 && Date.now() < end; ) await tick(40);
+		await tick(100);
+		await terminal.press(KEYS.escape);
+		await until(terminal, 'Đã dừng. Gõ /resume để chạy tiếp.');
+		await terminal.type('/resume');
+		await terminal.press(KEYS.enter);
+		await until(terminal, 'Chọn run muốn chạy tiếp');
+		await terminal.press(KEYS.enter);
+		await until(terminal, 'Run chưa chạy.');
+		await terminal.press(KEYS.enter); // Enter with nothing typed does nothing
+		await tick(300);
+		expect(calls).toHaveLength(1);
+		await terminal.press(KEYS.escape);
+		await until(terminal, 'Đã huỷ chạy tiếp; run vẫn còn trong /resume.');
+		await terminal.type('một câu hỏi');
+		await terminal.press(KEYS.enter);
+		await until(terminal, 'Trả lời chat.');
+		expect(calls[1]!.resumeSessionId).toBeUndefined();
+		expect(calls[1]!.prompt).toBe('một câu hỏi');
+	});
+
+	test('Esc stops a run that waits for answers; it can be resumed later', async () => {
+		const {terminal, calls} = await startWithRuns([
+			() => [{type: 'session', sessionId: 'session-q'}, result('Thiếu quyết định.\n```pirl-questions\n[{"id":"Q1","question":"Gửi email khi admin huỷ?","options":["Có","Không"]}]\n```', 'session-q')],
+		]);
+		await terminal.type('/pirl-plan Email huỷ đơn');
+		await terminal.press(KEYS.enter);
+		await until(terminal, 'Cần quyết định (1/1)');
+		expect(terminal.frame()).toContain('Esc dừng run');
+		await terminal.press(KEYS.escape);
+		await until(terminal, 'Đã dừng. Gõ /resume để chạy tiếp.');
+		expect(calls).toHaveLength(1);
+		await terminal.type('/pirl-review khác');
+		await terminal.press(KEYS.enter);
+		expect(terminal.frame()).not.toContain('Đang có run chưa xong');
+	});
+
+	test('Esc says the run is stopping, and a second Esc forces the provider', async () => {
+		const {hub, target} = await hubAndTarget();
+		let started = false;
+		let stops = 0;
+		let end: (value: {code: number | null; stderr: string}) => void = () => {};
+		const slow = {
+			start: () => ((started = true), {
+				done: new Promise<{code: number | null; stderr: string}>(resolve => (end = resolve)),
+				stop: () => {
+					stops += 1;
+					if (stops === 2) end({code: null, stderr: ''});
+				},
+			}),
+		};
+		const base = appProps({info: sessionInfo({target: {kind: 'git', root: target, name: 'shop', branch: 'main'}, hub: {path: hub, upstreamTag: 'fw-1.0.0', localImprovements: 0, uncommitted: [], updateAvailable: false, bundledVersion: '1.0.0', branch: 'main'}})});
+		const services: Services = {...base.props.services, startRun: options => new RunController({runner: slow, hub, target, python: PYTHON, maxParallelRoles: 1}, options.id, options.kind, options.request)};
+		const terminal = renderTerminal(<App {...base.props} services={services} />, 100, 30);
+		open.push(terminal);
+		await tick(60);
+		await terminal.type('/pirl-plan A');
+		await terminal.press(KEYS.enter);
+		await until(terminal, 'Plan · đang chạy');
+		// The provider starts after the run's snapshot of the Hub and the target.
+		for (const end = Date.now() + 120_000; !started && Date.now() < end; ) await tick(40);
+		await terminal.press(KEYS.escape);
+		await until(terminal, 'Nhấn Esc lần nữa để buộc dừng ngay.');
+		expect(stops).toBe(1);
+		expect(terminal.frame()).toContain('Plan · đang chạy');
+		await terminal.press(KEYS.escape);
+		await until(terminal, 'Plan · đã dừng');
+		expect(stops).toBe(2);
 	});
 
 	test('Esc before the provider starts: nothing to resume, and the run block says so', async () => {
@@ -255,8 +342,12 @@ describe('layer runs in the TUI', () => {
 		expect(picker.indexOf('Việc B')).toBeLessThan(picker.indexOf('Việc A')); // newest first
 		await terminal.press(KEYS.down);
 		await terminal.press(KEYS.enter);
+		await until(terminal, 'Đã chọn Plan: Việc A');
+		await terminal.type('tiếp tục');
+		await terminal.press(KEYS.enter);
 		await until(terminal, 'Chạy tiếp A.');
 		expect(calls[2]!.resumeSessionId).toBe('s-a');
+		expect(calls[2]!.prompt).toBe('tiếp tục');
 	});
 });
 
