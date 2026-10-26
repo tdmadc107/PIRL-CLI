@@ -1,4 +1,5 @@
 import type {ColorScheme, GlyphSetting, ThemeSetting} from '../core/config.js';
+import {t} from '../core/i18n.js';
 
 /**
  * Design tokens (proposal 5.7). Components take every color and symbol from here and never write a color directly.
@@ -68,13 +69,13 @@ const LIGHT: Palette = {
  * success, warning and danger keep their colors in every scheme because they carry meaning.
  */
 type SchemeColors = Pick<Palette, 'accent' | 'user' | 'border'>;
-export const COLOR_SCHEMES: Record<ColorScheme, {label: string; dark: SchemeColors; light: SchemeColors}> = {
-	pirl: {label: 'PIRL (mặc định)', dark: {accent: '#7aa2f7', user: '#bb9af7', border: '#565f89'}, light: {accent: '#2e5bd8', user: '#7c3aed', border: '#9ca3af'}},
-	ocean: {label: 'Đại dương', dark: {accent: '#4fd6be', user: '#7dcfff', border: '#3b6e78'}, light: {accent: '#0f766e', user: '#0369a1', border: '#94b8bd'}},
-	forest: {label: 'Rừng', dark: {accent: '#9ece6a', user: '#e0af68', border: '#4f6b3a'}, light: {accent: '#3f7d20', user: '#9a6700', border: '#a3b899'}},
-	sunset: {label: 'Hoàng hôn', dark: {accent: '#ff9e64', user: '#f7768e', border: '#7a5040'}, light: {accent: '#c2410c', user: '#be185d', border: '#c4a79a'}},
-	grape: {label: 'Tím', dark: {accent: '#c099ff', user: '#ff79c6', border: '#5d4a7a'}, light: {accent: '#7c3aed', user: '#c026d3', border: '#b3a3c9'}},
-	mono: {label: 'Đơn sắc', dark: {accent: '#d4d4d4', user: '#ffffff', border: '#5c5c5c'}, light: {accent: '#262626', user: '#000000', border: '#a3a3a3'}},
+export const COLOR_SCHEMES: Record<ColorScheme, {label: () => string; dark: SchemeColors; light: SchemeColors}> = {
+	pirl: {label: () => t('PIRL (mặc định)', 'PIRL (default)'), dark: {accent: '#7aa2f7', user: '#bb9af7', border: '#565f89'}, light: {accent: '#2e5bd8', user: '#7c3aed', border: '#9ca3af'}},
+	ocean: {label: () => t('Đại dương', 'Ocean'), dark: {accent: '#4fd6be', user: '#7dcfff', border: '#3b6e78'}, light: {accent: '#0f766e', user: '#0369a1', border: '#94b8bd'}},
+	forest: {label: () => t('Rừng', 'Forest'), dark: {accent: '#9ece6a', user: '#e0af68', border: '#4f6b3a'}, light: {accent: '#3f7d20', user: '#9a6700', border: '#a3b899'}},
+	sunset: {label: () => t('Hoàng hôn', 'Sunset'), dark: {accent: '#ff9e64', user: '#f7768e', border: '#7a5040'}, light: {accent: '#c2410c', user: '#be185d', border: '#c4a79a'}},
+	grape: {label: () => t('Tím', 'Grape'), dark: {accent: '#c099ff', user: '#ff79c6', border: '#5d4a7a'}, light: {accent: '#7c3aed', user: '#c026d3', border: '#b3a3c9'}},
+	mono: {label: () => t('Đơn sắc', 'Mono'), dark: {accent: '#d4d4d4', user: '#ffffff', border: '#5c5c5c'}, light: {accent: '#262626', user: '#000000', border: '#a3a3a3'}},
 };
 
 export type Glyphs = {

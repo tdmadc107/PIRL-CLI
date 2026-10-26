@@ -1,3 +1,4 @@
+import {t} from '../core/i18n.js';
 import type {TargetRepo} from '../core/targetRepo.js';
 import type {RunKind} from '../engine/types.js';
 import {commandUsage, type ParsedInput} from './registry.js';
@@ -26,7 +27,7 @@ export function dispatch(input: ParsedInput, context: DispatchContext): Effect[]
 		case 'empty':
 			return [];
 		case 'unknown-command':
-			return [{type: 'note', tone: 'error', text: `Không có lệnh /${input.name}.`, hint: 'Gõ /help để xem danh sách lệnh.'}];
+			return [{type: 'note', tone: 'error', text: t(`Không có lệnh /${input.name}.`, `There is no /${input.name} command.`), hint: t('Gõ /help để xem danh sách lệnh.', 'Type /help to see the commands.')}];
 		case 'text':
 			// The coordinator classifies free text (question, standalone task, framework maintenance) per AGENTS.md.
 			return [{type: 'run', kind: 'chat', request: input.text}];
@@ -41,12 +42,12 @@ export function dispatch(input: ParsedInput, context: DispatchContext): Effect[]
 				{
 					type: 'note',
 					tone: 'error',
-					text: `Layer ${LABELS[kind]} bị khoá: ${context.target.reason.toLowerCase()}.`,
-					hint: 'Thoát (/exit), chuyển tới thư mục của một git repo rồi gõ lại `pirl`.',
+					text: t(`Layer ${LABELS[kind]} bị khoá: ${context.target.reason.toLowerCase()}.`, `The ${LABELS[kind]} layer is locked: ${context.target.reason.toLowerCase()}.`),
+					hint: t('Thoát (/exit), chuyển tới thư mục của một git repo rồi gõ lại `pirl`.', 'Exit (/exit), go to the folder of a git repository and type `pirl` again.'),
 				},
 			];
 		}
-		if (!request) return [{type: 'note', tone: 'warning', text: 'Thiếu nội dung request.', hint: `Cú pháp: ${commandUsage(spec)}`}];
+		if (!request) return [{type: 'note', tone: 'warning', text: t('Thiếu nội dung request.', 'The request is missing.'), hint: t(`Cú pháp: ${commandUsage(spec)}`, `Usage: ${commandUsage(spec)}`)}];
 		return [{type: 'run', kind, request}];
 	}
 	switch (spec.name) {

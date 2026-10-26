@@ -1,15 +1,16 @@
 import {Box} from 'ink';
 import {commandUsage, type CommandSpec} from '../../commands/registry.js';
+import {t} from '../../core/i18n.js';
 import {layoutEditor, type EditorState} from '../inputEditor.js';
 import type {Line} from '../lines.js';
 import {graphemes, padEnd, truncateEnd, width} from '../text.js';
 import type {Theme} from '../theme.js';
 import {Lines} from './Lines.js';
 
-export const PLACEHOLDER = 'Gõ / để xem lệnh, @ để đính kèm file, hoặc nhập yêu cầu';
+const placeholderText = () => t('Gõ / để xem lệnh, @ để đính kèm file, hoặc nhập yêu cầu', 'Type / for commands, @ to attach a file, or type a request');
 
 /** Lines inside the input box: the prompt, the wrapped text and the cursor as an inverse cell. */
-export function inputLines(editor: EditorState, columns: number, maxLines: number, theme: Theme, focused: boolean, placeholder = PLACEHOLDER): Line[] {
+export function inputLines(editor: EditorState, columns: number, maxLines: number, theme: Theme, focused: boolean, placeholder = placeholderText()): Line[] {
 	const prompt = `${theme.glyphs.prompt} `;
 	const room = Math.max(1, columns - width(prompt));
 	if (editor.value === '') {
@@ -70,7 +71,7 @@ export function InputBox(props: {editor: EditorState; columns: number; maxLines:
 /** One row of the palette under the input box: a command, or a path for an `@` mention. */
 export type PaletteItem = {label: string; summary: string};
 
-export const commandItem = (spec: CommandSpec): PaletteItem => ({label: commandUsage(spec), summary: spec.summary});
+export const commandItem = (spec: CommandSpec): PaletteItem => ({label: commandUsage(spec), summary: spec.summary()});
 
 /** Suggestions under the input box while a command name or an `@` mention is being typed. */
 export function paletteLines(items: PaletteItem[], selected: number, max: number, columns: number, theme: Theme): Line[] {

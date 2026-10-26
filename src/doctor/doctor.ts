@@ -1,4 +1,5 @@
 import {succeeded, type Exec} from '../core/exec.js';
+import {plural, t} from '../core/i18n.js';
 import type {TargetRepo} from '../core/targetRepo.js';
 import type {HubStatus} from '../hub/hub.js';
 import type {Provider} from '../providers/types.js';
@@ -24,14 +25,14 @@ export function nodeCheck(version: string = process.versions.node): Check {
 	const major = Number(version.split('.')[0]);
 	return major >= MIN_NODE_MAJOR
 		? {id: 'node', label: 'Node.js', state: 'ok', detail: `v${version}`}
-		: {id: 'node', label: 'Node.js', state: 'fail', detail: `v${version}`, fix: `Cài Node.js ${MIN_NODE_MAJOR} trở lên.`};
+		: {id: 'node', label: 'Node.js', state: 'fail', detail: `v${version}`, fix: t(`Cài Node.js ${MIN_NODE_MAJOR} trở lên.`, `Install Node.js ${MIN_NODE_MAJOR} or later.`)};
 }
 
 export async function gitCheck(exec: Exec): Promise<Check> {
 	const result = await exec('git', ['--version'], {timeoutMs: 10_000});
 	return succeeded(result)
 		? {id: 'git', label: 'Git', state: 'ok', detail: result.stdout.trim().replace(/^git version\s*/, '')}
-		: {id: 'git', label: 'Git', state: 'fail', detail: 'Không tìm thấy', fix: 'Cài Git và đảm bảo lệnh `git` chạy được trong terminal.'};
+		: {id: 'git', label: 'Git', state: 'fail', detail: t('Không tìm thấy', 'Not found'), fix: t('Cài Git và đảm bảo lệnh `git` chạy được trong terminal.', 'Install Git and make sure the `git` command runs in a terminal.')};
 }
 
 /** The Windows `py` launcher comes first there; the Microsoft Store `python3` stub fails the version parse and is skipped. */
@@ -68,40 +69,40 @@ export async function findPython(exec: Exec, platform: NodeJS.Platform = process
 			id: 'python',
 			label: 'Python',
 			state: 'fail',
-			detail: tooOld ? `${tooOld} quá cũ` : 'Không tìm thấy',
-			fix: `Cài Python ${need} trở lên; các công cụ của framework (validator, record) chạy bằng Python.`,
+			detail: tooOld ? t(`${tooOld} quá cũ`, `${tooOld} is too old`) : t('Không tìm thấy', 'Not found'),
+			fix: t(`Cài Python ${need} trở lên; các công cụ của framework (validator, record) chạy bằng Python.`, `Install Python ${need} or later; the framework's tools (validator, record) run on Python.`),
 		},
 	};
 }
 
 export async function providerCheck(provider: Provider, exec: Exec): Promise<Check> {
 	const base = {id: 'provider' as const, label: provider.label};
-	if (!provider.available) return {...base, state: 'fail', detail: 'Chưa được hỗ trợ', fix: 'Chọn Claude Code trong /settings.'};
+	if (!provider.available) return {...base, state: 'fail', detail: t('Chưa được hỗ trợ', 'Not supported yet'), fix: t('Chọn Claude Code trong /settings.', 'Choose Claude Code in /settings.')};
 	const found = await provider.detect(exec);
-	if (!found.installed) return {...base, state: 'fail', detail: 'Chưa cài', fix: found.fix};
+	if (!found.installed) return {...base, state: 'fail', detail: t('Chưa cài', 'Not installed'), fix: found.fix};
 	const version = found.version ? `${found.version} · ` : '';
-	if (found.loggedIn === false) return {...base, state: 'fail', detail: `${version}chưa đăng nhập`, fix: found.fix};
-	if (found.outdated) return {...base, state: 'fail', detail: `${version}cần bản mới hơn`, fix: found.fix};
-	if (found.loggedIn === null) return {...base, state: 'warn', detail: `${version}không xác định được trạng thái đăng nhập`};
-	return {...base, state: 'ok', detail: `${version}đã đăng nhập${found.authMethod ? ` bằng ${found.authMethod}` : ''}`};
+	if (found.loggedIn === false) return {...base, state: 'fail', detail: version + t('chưa đăng nhập', 'not signed in'), fix: found.fix};
+	if (found.outdated) return {...base, state: 'fail', detail: version + t('cần bản mới hơn', 'needs a newer version'), fix: found.fix};
+	if (found.loggedIn === null) return {...base, state: 'warn', detail: version + t('không xác định được trạng thái đăng nhập', 'sign-in state unknown')};
+	return {...base, state: 'ok', detail: version + (found.authMethod ? t(`đã đăng nhập bằng ${found.authMethod}`, `signed in with ${found.authMethod}`) : t('đã đăng nhập', 'signed in'))};
 }
 
 export function hubCheck(status: HubStatus | null, error: string | null): Check {
 	const base = {id: 'hub' as const, label: 'Hub'};
-	if (!status) return {...base, state: 'fail', detail: error ?? 'Chưa tạo được Hub'};
+	if (!status) return {...base, state: 'fail', detail: error ?? t('Chưa tạo được Hub', 'The Hub could not be created')};
 	if (status.branch !== 'main') {
-		return {...base, state: 'warn', detail: `Đang ở nhánh ${status.branch ?? '(không có)'}`, fix: `Chuyển Hub (${status.path}) về nhánh main.`};
+		return {...base, state: 'warn', detail: t(`Đang ở nhánh ${status.branch ?? '(không có)'}`, `On branch ${status.branch ?? '(none)'}`), fix: t(`Chuyển Hub (${status.path}) về nhánh main.`, `Switch the Hub (${status.path}) back to the main branch.`)};
 	}
-	const parts = [status.upstreamTag ?? 'không rõ phiên bản', `${status.localImprovements} cải tiến cục bộ`];
-	if (status.uncommitted.length > 0) parts.push(`${status.uncommitted.length} thay đổi chưa commit`);
-	if (status.updateAvailable) parts.push(`có framework ${status.bundledVersion} mới`);
+	const parts = [status.upstreamTag ?? t('không rõ phiên bản', 'unknown version'), t(`${status.localImprovements} cải tiến cục bộ`, `${status.localImprovements} local ${plural(status.localImprovements, 'improvement')}`)];
+	if (status.uncommitted.length > 0) parts.push(t(`${status.uncommitted.length} thay đổi chưa commit`, `${status.uncommitted.length} uncommitted ${plural(status.uncommitted.length, 'change')}`));
+	if (status.updateAvailable) parts.push(t(`có framework ${status.bundledVersion} mới`, `framework ${status.bundledVersion} available`));
 	return {...base, state: status.uncommitted.length > 0 ? 'warn' : 'ok', detail: parts.join(' · ')};
 }
 
 export function targetCheck(target: TargetRepo): Check {
 	return target.kind === 'git'
 		? {id: 'target', label: 'Target repo', state: 'ok', detail: `${target.root}${target.branch ? ` (${target.branch})` : ''}`}
-		: {id: 'target', label: 'Target repo', state: 'warn', detail: target.reason, fix: 'Mở `pirl` trong thư mục của một git repo để dùng các layer.'};
+		: {id: 'target', label: 'Target repo', state: 'warn', detail: target.reason, fix: t('Mở `pirl` trong thư mục của một git repo để dùng các layer.', 'Open `pirl` in the folder of a git repository to use the layers.')};
 }
 
 export async function runDoctor(input: {

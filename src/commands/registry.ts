@@ -1,5 +1,10 @@
+import {t} from '../core/i18n.js';
+
 /** The confirmed command list (proposal section 6), plus /copy. Every command typed in the TUI comes from here. */
-export type CommandGroup = 'Layer' | 'Run' | 'Tra cứu' | 'Cấu hình' | 'Framework' | 'Phiên';
+export type CommandGroup = 'layer' | 'run' | 'lookup' | 'config' | 'framework' | 'session';
+
+export const groupLabel = (group: CommandGroup) =>
+	({layer: 'Layer', run: 'Run', lookup: t('Tra cứu', 'Lookup'), config: t('Cấu hình', 'Configuration'), framework: 'Framework', session: t('Phiên', 'Session')})[group];
 
 export type CommandName =
 	| 'pirl-plan'
@@ -19,25 +24,26 @@ export type CommandName =
 export type CommandSpec = {
 	name: CommandName;
 	group: CommandGroup;
-	summary: string;
+	/** Read when shown, so it follows the language chosen in /settings. */
+	summary: () => string;
 	/** Whether the text after the command name is the request. */
 	takesRequest: boolean;
 };
 
 export const COMMANDS: readonly CommandSpec[] = [
-	{name: 'pirl-plan', group: 'Layer', summary: 'Tạo hoặc điều chỉnh Plan', takesRequest: true},
-	{name: 'pirl-implement', group: 'Layer', summary: 'Thực hiện một task của Plan, hoặc sửa theo report', takesRequest: true},
-	{name: 'pirl-review', group: 'Layer', summary: 'Review kết quả implement của một task', takesRequest: true},
-	{name: 'resume', group: 'Run', summary: 'Chạy tiếp run bị dừng', takesRequest: false},
-	{name: 'plans', group: 'Tra cứu', summary: 'Danh sách Plan, task, report của repo này', takesRequest: false},
-	{name: 'records', group: 'Tra cứu', summary: 'Tra cứu record tự cải tiến', takesRequest: false},
-	{name: 'settings', group: 'Cấu hình', summary: 'Provider, giao diện, số role chạy song song', takesRequest: false},
-	{name: 'doctor', group: 'Cấu hình', summary: 'Kiểm tra provider, Python, Git, Hub', takesRequest: false},
-	{name: 'framework', group: 'Framework', summary: 'Phiên bản framework, cải tiến cục bộ, cập nhật', takesRequest: false},
-	{name: 'copy', group: 'Phiên', summary: 'Copy câu trả lời gần nhất của PIRL', takesRequest: false},
-	{name: 'clear', group: 'Phiên', summary: 'Xoá khung chat, bắt đầu hội thoại mới', takesRequest: false},
-	{name: 'help', group: 'Phiên', summary: 'Danh sách lệnh và phím tắt', takesRequest: false},
-	{name: 'exit', group: 'Phiên', summary: 'Thoát PIRL', takesRequest: false},
+	{name: 'pirl-plan', group: 'layer', summary: () => t('Tạo hoặc điều chỉnh Plan', 'Create or adjust a Plan'), takesRequest: true},
+	{name: 'pirl-implement', group: 'layer', summary: () => t('Thực hiện một task của Plan, hoặc sửa theo report', 'Implement a Plan task, or fix per a report'), takesRequest: true},
+	{name: 'pirl-review', group: 'layer', summary: () => t('Review kết quả implement của một task', 'Review the implementation of a task'), takesRequest: true},
+	{name: 'resume', group: 'run', summary: () => t('Chạy tiếp run bị dừng', 'Resume a stopped run'), takesRequest: false},
+	{name: 'plans', group: 'lookup', summary: () => t('Danh sách Plan, task, report của repo này', 'Plans, tasks and reports of this repository'), takesRequest: false},
+	{name: 'records', group: 'lookup', summary: () => t('Tra cứu record tự cải tiến', 'Browse the self-improvement records'), takesRequest: false},
+	{name: 'settings', group: 'config', summary: () => t('Ngôn ngữ, provider, giao diện, số role chạy song song', 'Language, provider, appearance, parallel roles'), takesRequest: false},
+	{name: 'doctor', group: 'config', summary: () => t('Kiểm tra provider, Python, Git, Hub', 'Check the provider, Python, Git, Hub'), takesRequest: false},
+	{name: 'framework', group: 'framework', summary: () => t('Phiên bản framework, cải tiến cục bộ, cập nhật', 'Framework version, local improvements, updates'), takesRequest: false},
+	{name: 'copy', group: 'session', summary: () => t('Copy câu trả lời gần nhất của PIRL', 'Copy the latest PIRL reply'), takesRequest: false},
+	{name: 'clear', group: 'session', summary: () => t('Xoá khung chat, bắt đầu hội thoại mới', 'Clear the chat and start a new conversation'), takesRequest: false},
+	{name: 'help', group: 'session', summary: () => t('Danh sách lệnh và phím tắt', 'Commands and shortcuts'), takesRequest: false},
+	{name: 'exit', group: 'session', summary: () => t('Thoát PIRL', 'Quit PIRL'), takesRequest: false},
 ];
 
 export const commandUsage = (spec: CommandSpec) => `/${spec.name}${spec.takesRequest ? ' <request>' : ''}`;

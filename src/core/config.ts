@@ -1,5 +1,6 @@
 import {mkdirSync, readFileSync, renameSync, writeFileSync} from 'node:fs';
 import {dirname} from 'node:path';
+import {LANGUAGE_IDS, t, type Language} from './i18n.js';
 
 export const PROVIDER_IDS = ['claude', 'codex', 'gemini', 'copilot'] as const;
 export type ProviderId = (typeof PROVIDER_IDS)[number];
@@ -27,6 +28,8 @@ export const EFFORT_IDS = ['default', 'low', 'medium', 'high', 'xhigh', 'max'] a
 export type EffortSetting = (typeof EFFORT_IDS)[number];
 
 export type Config = {
+	/** Language of the CLI's own text (src/core/i18n.ts). */
+	language: Language;
 	provider: ProviderId;
 	theme: ThemeSetting;
 	/** Accent, prompt and border colors (src/ui/theme.ts, COLOR_SCHEMES). */
@@ -46,6 +49,7 @@ export type Config = {
 };
 
 export const DEFAULT_CONFIG: Config = {
+	language: 'vi',
 	provider: 'claude',
 	theme: 'auto',
 	colors: 'pirl',
@@ -68,6 +72,7 @@ export function normalizeConfig(raw: unknown): Config {
 	const data = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
 	const parallel = data['maxParallelRoles'];
 	return {
+		language: oneOf(data['language'], LANGUAGE_IDS, DEFAULT_CONFIG.language),
 		provider: oneOf(data['provider'], PROVIDER_IDS, DEFAULT_CONFIG.provider),
 		theme: oneOf(data['theme'], ['auto', 'dark', 'light'] as const, DEFAULT_CONFIG.theme),
 		colors: oneOf(data['colors'], COLOR_SCHEME_IDS, DEFAULT_CONFIG.colors),
@@ -97,7 +102,7 @@ export function loadConfig(file: string): LoadedConfig {
 	try {
 		return {config: normalizeConfig(JSON.parse(text))};
 	} catch {
-		return {config: {...DEFAULT_CONFIG}, warning: `Không đọc được ${file}; đang dùng cài đặt mặc định`};
+		return {config: {...DEFAULT_CONFIG}, warning: t(`Không đọc được ${file}; đang dùng cài đặt mặc định`, `Could not read ${file}; using the default settings`)};
 	}
 }
 

@@ -1,3 +1,4 @@
+import {t} from '../core/i18n.js';
 import type {Question, RunKind} from './types.js';
 
 /**
@@ -133,8 +134,8 @@ export const parseSuggestion = (text: string) => lastBlock(text, 'pirl-suggest')
 /** The message that resumes the session once the user has answered every question. */
 export function answersMessage(questions: Question[], answers: string[]): string {
 	return [
-		'Câu trả lời của người dùng cho các câu hỏi trong khối pirl-questions:',
-		...questions.map((question, index) => `- ${question.id} (${question.question}): ${answers[index] ?? '(không trả lời)'}`),
-		'Ghi các câu trả lời này đúng nguyên văn vào output của run như AGENTS.md yêu cầu, rồi tiếp tục.',
+		t('Câu trả lời của người dùng cho các câu hỏi trong khối pirl-questions:', 'The user\'s answers to the questions in the pirl-questions block:'),
+		...questions.map((question, index) => `- ${question.id} (${question.question}): ${answers[index] ?? t('(không trả lời)', '(no answer)')}`),
+		t('Ghi các câu trả lời này đúng nguyên văn vào output của run như AGENTS.md yêu cầu, rồi tiếp tục.', 'Record these answers verbatim in the run\'s output as AGENTS.md requires, then continue.'),
 	].join('\n');
 }

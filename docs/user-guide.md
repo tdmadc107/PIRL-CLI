@@ -13,7 +13,7 @@ This guide covers everything after installation. For requirements and installati
 - [Where your data lives](#where-your-data-lives)
 - [Updating PIRL](#updating-pirl)
 
-The interface is in Vietnamese; agents reply in the language of your request.
+The interface is in Vietnamese or English, chosen in `/settings`; agents reply in the language of your request.
 
 ## Commands
 
@@ -26,7 +26,7 @@ The interface is in Vietnamese; agents reply in the language of your request.
 | `/plans` | Browse the Plans, tasks and review reports of this repository |
 | `/records` | Browse the framework's self-evaluation records |
 | `/framework` | Framework version, local improvements and updates |
-| `/settings` | Models, reasoning effort, mouse, appearance, parallel roles |
+| `/settings` | Language, models, reasoning effort, mouse, appearance, parallel roles |
 | `/doctor` | Check Claude Code, Python, Git and the Hub |
 | `/copy` | Copy PIRL's latest reply |
 | `/clear` | Clear the chat and start a new conversation |
@@ -109,6 +109,7 @@ servers, so each request carries less context.
 
 | Setting | Options |
 | --- | --- |
+| Language | Tiếng Việt (default) or English: the language of PIRL's own text, including `pirl --help` and `pirl update` |
 | Coordinator model | Sonnet (default), Opus, Fable, Haiku, or the agent's default |
 | Role model | Same as the coordinator (default), or a specific model |
 | Reasoning effort | Agent default, low, medium, high, xhigh, max; applies to the coordinator and every role |

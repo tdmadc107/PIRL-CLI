@@ -22,7 +22,7 @@ exports[`snapshots > palette open at 100x24 1`] = `
    /resume                    Chạy tiếp run bị dừng
    /plans                     Danh sách Plan, task, report của repo này
    /records                   Tra cứu record tự cải tiến
-   /settings                  Provider, giao diện, số role chạy song song
+   /settings                  Ngôn ngữ, provider, giao diện, số role chạy song song
    /doctor                    Kiểm tra provider, Python, Git, Hub
 0 lượt gọi · không có run                                      ↑↓ chọn · Tab hoàn thành · Enter chạy"
 `;
@@ -104,4 +104,31 @@ exports[`snapshots > welcome screen at 140x30 1`] = `
 │ ›  Gõ / để xem lệnh, @ để đính kèm file, hoặc nhập yêu cầu                                                                               │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 0 lượt gọi · không có run                                                                         Enter gửi · Shift+Enter xuống dòng · /help"
+`;
+
+exports[`snapshots > welcome screen in English at 100x24 1`] = `
+"PIRL · shop-web (main) · ✓ Claude Code · fw-1.0.0 (+2 improvements)
+
+
+
+
+
+
+
+
+
+
+ PIRL · Plan · Implement · Review
+ Type / for commands, or type a request. Type @ to attach a file or folder.
+
+   /pirl-plan <request>       Create or adjust a Plan
+   /pirl-implement <request>  Implement a Plan task, or fix per a report
+   /pirl-review <request>     Review the implementation of a task
+   /help                      Commands and shortcuts
+
+ ✓ Ready: Claude Code signed in · Python 3.12.4 · Git 2.43.0.
+╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ›  Type / for commands, @ to attach a file, or type a request                                    │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+0 calls · no run                                           Enter send · Shift+Enter new line · /help"
 `;
