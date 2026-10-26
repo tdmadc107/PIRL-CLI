@@ -4,6 +4,20 @@ All notable changes to this project are documented in this file. The format foll
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.2] - 2026-10-26
+
+### Added
+
+- Choose the interface language in `/settings`: Tiếng Việt (the default) or English. The change applies at once,
+  to the TUI and to `pirl --help` and `pirl update`. Agents still reply in the language of your request.
+  PIRL's own messages to the agent (validator fixes, your answers, /resume) follow the chosen language too.
+
+### Framework fw-1.2.0
+
+- Implement roles finish a clean-code check before handing over to the verification roles: they write only the
+  code the required logic needs, reuse existing logic, and check that the new code is clean, free of potential
+  bugs and maintainable, and that every line has a purpose.
+
 ## [1.1.1] - 2026-10-25
 
 ### Fixed
@@ -106,6 +120,7 @@ fw-1.1.0.
 - The validator reads quoted frontmatter strings literally. Before, a Windows path in `target_repo`
   (`"C:\Users\..."`) was rejected, and the `\n` in `"D:\new-app"` became a line break.
 
+[1.1.2]: https://github.com/tdmadc107/PIRL-CLI/releases/tag/v1.1.2
 [1.1.1]: https://github.com/tdmadc107/PIRL-CLI/releases/tag/v1.1.1
 [1.1.0]: https://github.com/tdmadc107/PIRL-CLI/releases/tag/v1.1.0
 [1.0.1]: https://github.com/tdmadc107/PIRL-CLI/releases/tag/v1.0.1

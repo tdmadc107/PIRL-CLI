@@ -1,5 +1,6 @@
 import {mkdirSync, readFileSync, rmSync, writeFileSync} from 'node:fs';
 import {join} from 'node:path';
+import {t} from '../core/i18n.js';
 import {hasConflictMarkers, type Conflict} from '../hub/update.js';
 import {ruleRoot, WAITING_TOOLS} from './permissions.js';
 import type {AgentRunner, RunEvent} from './types.js';
@@ -20,7 +21,7 @@ const SYSTEM_PROMPT = (dir: string, path: string) =>
 		'Keep every change of `theirs` and every local improvement of `mine`. Where both change the same passage, write one passage that carries both intentions. When they contradict, prefer `theirs`, unless the local change makes a rule stricter.',
 		'Never loosen, narrow or remove a safety rule (AGENTS.md, "Safety rules and self-improvement", defines them); where a safety rule differs between the versions, keep the stricter wording.',
 		'The merged file holds only the file content: no conflict markers, no comments about the merge.',
-		'Then reply in the language of the file\'s user, Vietnamese, in at most four short sentences: what each side changed and how you combined them.',
+		`Then reply in the language of the file's user, ${t('Vietnamese', 'English')}, in at most four short sentences: what each side changed and how you combined them.`,
 	].join('\n');
 
 /**
@@ -61,14 +62,14 @@ export async function proposeMerge(runner: AgentRunner, draftDir: string, confli
 		);
 		const exit = await handle.done;
 		const result = reply as Extract<RunEvent, {type: 'result'}> | null;
-		if (!result || result.isError) return {ok: false, error: result?.text || exit.stderr.trim().split('\n').slice(-2).join(' ') || `mã thoát ${exit.code}`};
+		if (!result || result.isError) return {ok: false, error: result?.text || exit.stderr.trim().split('\n').slice(-2).join(' ') || t(`mã thoát ${exit.code}`, `exit code ${exit.code}`)};
 		let content: string;
 		try {
 			content = readFileSync(merged, 'utf8');
 		} catch {
-			return {ok: false, error: 'Agent không ghi bản gộp.'};
+			return {ok: false, error: t('Agent không ghi bản gộp.', 'The agent did not write a merged version.')};
 		}
-		if (hasConflictMarkers(content)) return {ok: false, error: 'Bản gộp của agent vẫn còn dấu xung đột.'};
+		if (hasConflictMarkers(content)) return {ok: false, error: t('Bản gộp của agent vẫn còn dấu xung đột.', 'The agent\'s merged version still has conflict markers.')};
 		return {ok: true, content, explanation: result.text.trim()};
 	} finally {
 		rmSync(work, {recursive: true, force: true});

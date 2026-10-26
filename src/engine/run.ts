@@ -1,6 +1,7 @@
 import {createWriteStream, existsSync, mkdirSync, readFileSync, rmSync, type WriteStream} from 'node:fs';
 import {dirname, isAbsolute, join, relative} from 'node:path';
 import {exec as defaultExec, succeeded, type Exec} from '../core/exec.js';
+import {plural, t} from '../core/i18n.js';
 import {roleAgents} from './agents.js';
 import {
 	allowedPaths,
@@ -106,8 +107,11 @@ const MAX_REPAIRS = 2;
 /** One line for the log: the run's tokens so far by kind, and their price at the Claude API list price. */
 function usageDetail(usage: Usage): string | null {
 	if (usage.cacheReadTokens + usage.cacheWriteTokens + usage.inputTokens + usage.outputTokens === 0) return null;
-	const cost = usage.costUsd === null ? '' : `, ≈ $${usage.costUsd.toFixed(3)} theo giá API`;
-	return `Token đến giờ: ${usage.cacheReadTokens} đọc cache, ${usage.cacheWriteTokens} ghi cache, ${usage.outputTokens} ra, ${usage.inputTokens} vào mới${cost} (${usage.models.join(', ')})`;
+	const cost = usage.costUsd === null ? '' : `, ≈ $${usage.costUsd.toFixed(3)} ${t('theo giá API', 'at API prices')}`;
+	return t(
+		`Token đến giờ: ${usage.cacheReadTokens} đọc cache, ${usage.cacheWriteTokens} ghi cache, ${usage.outputTokens} ra, ${usage.inputTokens} vào mới${cost} (${usage.models.join(', ')})`,
+		`Tokens so far: ${usage.cacheReadTokens} cache read, ${usage.cacheWriteTokens} cache write, ${usage.outputTokens} out, ${usage.inputTokens} new in${cost} (${usage.models.join(', ')})`,
+	);
 }
 
 /**
@@ -182,7 +186,7 @@ export class RunController {
 		if (resume?.status === 'waiting' && resume.questions?.length) this.state.status = 'waiting';
 		this.resumedBefore = resume?.before;
 		this.providerTotals = resume?.providerTotals ?? {};
-		this.firstPrompt = resume ? resume.prompt ?? 'Tiếp tục run bị dừng từ chỗ đã dừng.' : request;
+		this.firstPrompt = resume ? resume.prompt ?? t('Tiếp tục run bị dừng từ chỗ đã dừng.', 'Continue the stopped run from where it stopped.') : request;
 		// Attachments go with the user's own words: a new request or a chat message, not a "continue".
 		if (deps.attachments?.text && (!resume || resume.prompt)) this.firstPrompt = `${this.firstPrompt}\n\n${deps.attachments.text}`;
 	}
@@ -265,7 +269,7 @@ export class RunController {
 	}
 
 	async start(): Promise<void> {
-		this.update({}, {who: 'pirl', text: `${this.state.sessionId ? 'Chạy tiếp' : 'Bắt đầu'} ${LAYER_LABELS[this.state.kind]}: ${this.state.request.split('\n')[0]!.slice(0, 120)}`});
+		this.update({}, {who: 'pirl', text: `${this.state.sessionId ? t('Chạy tiếp', 'Resuming') : t('Bắt đầu', 'Starting')} ${LAYER_LABELS[this.state.kind]}: ${this.state.request.split('\n')[0]!.slice(0, 120)}`});
 		await this.guard(async () => {
 			await this.snapshot();
 			if (this.state.status === 'waiting') return; // resumed with unanswered questions: wait for the user
@@ -280,7 +284,7 @@ export class RunController {
 		} catch (error) {
 			this.handle = null;
 			const message = error instanceof Error ? error.message : String(error);
-			this.update({status: 'failed', error: message}, {who: 'pirl', text: `Lỗi: ${message}`, tone: 'error'});
+			this.update({status: 'failed', error: message}, {who: 'pirl', text: t(`Lỗi: ${message}`, `Error: ${message}`), tone: 'error'});
 		}
 	}
 
@@ -295,13 +299,13 @@ export class RunController {
 	stop() {
 		this.stopped = true;
 		this.handle?.stop();
-		if (!this.handle) this.update({status: 'stopped'}, {who: 'pirl', text: 'Đã dừng'});
+		if (!this.handle) this.update({status: 'stopped'}, {who: 'pirl', text: t('Đã dừng', 'Stopped')});
 	}
 
 	private async send(prompt: string): Promise<void> {
 		// Stopped while the run was still preparing (the snapshot can take a moment): start no provider at all.
 		if (this.stopped) {
-			if (this.state.status !== 'stopped') this.update({status: 'stopped'}, {who: 'pirl', text: 'Đã dừng'});
+			if (this.state.status !== 'stopped') this.update({status: 'stopped'}, {who: 'pirl', text: t('Đã dừng', 'Stopped')});
 			return;
 		}
 		const deps = this.deps;
@@ -338,13 +342,13 @@ export class RunController {
 		const spent = usageDetail(this.state.usage);
 		if (spent) this.update({}, {who: 'pirl', text: spent});
 		if (this.stopped) {
-			this.update({status: 'stopped', roles: this.state.roles.map(role => (role.state === 'running' ? {...role, state: 'failed'} : role))}, {who: 'pirl', text: 'Đã dừng theo yêu cầu', tone: 'warning'});
+			this.update({status: 'stopped', roles: this.state.roles.map(role => (role.state === 'running' ? {...role, state: 'failed'} : role))}, {who: 'pirl', text: t('Đã dừng theo yêu cầu', 'Stopped on request'), tone: 'warning'});
 			return;
 		}
 		const final = result as Extract<RunEvent, {type: 'result'}> | null;
 		if (!final || final.isError) {
-			const detail = final?.text || exit.stderr.trim().split('\n').slice(-3).join(' ') || `mã thoát ${exit.code}`;
-			this.update({status: 'failed', error: detail, reply: final?.text ? stripBlocks(final.text) : this.state.reply}, {who: 'pirl', text: `Lỗi: ${detail.slice(0, 200)}`, tone: 'error'});
+			const detail = final?.text || exit.stderr.trim().split('\n').slice(-3).join(' ') || t(`mã thoát ${exit.code}`, `exit code ${exit.code}`);
+			this.update({status: 'failed', error: detail, reply: final?.text ? stripBlocks(final.text) : this.state.reply}, {who: 'pirl', text: t(`Lỗi: ${detail.slice(0, 200)}`, `Error: ${detail.slice(0, 200)}`), tone: 'error'});
 			return;
 		}
 		await this.afterReply(final.text);
@@ -392,7 +396,7 @@ export class RunController {
 			case 'role-start':
 				this.update(
 					{roles: [...this.state.roles, {toolUseId: event.toolUseId, role: event.role, description: event.description, state: 'running', activity: null}]},
-					{who: event.role, text: `bắt đầu: ${event.description}`},
+					{who: event.role, text: t(`bắt đầu: ${event.description}`, `started: ${event.description}`)},
 				);
 				break;
 			case 'role-end': {
@@ -400,7 +404,7 @@ export class RunController {
 				if (role) {
 					this.update(
 						{roles: this.state.roles.map(item => (item.toolUseId === event.toolUseId ? {...item, state: event.ok ? 'done' : 'failed'} : item))},
-						{who: role, text: event.ok ? 'xong' : 'kết thúc với lỗi', tone: event.ok ? 'success' : 'error'},
+						{who: role, text: event.ok ? t('xong', 'done') : t('kết thúc với lỗi', 'ended with an error'), tone: event.ok ? 'success' : 'error'},
 					);
 				}
 				break;
@@ -415,7 +419,7 @@ export class RunController {
 				break;
 			}
 			case 'retry': {
-				const text = `Provider lỗi tạm thời (${event.error}), thử lại lần ${event.attempt}`;
+				const text = t(`Provider lỗi tạm thời (${event.error}), thử lại lần ${event.attempt}`, `Temporary provider error (${event.error}), retry ${event.attempt}`);
 				this.update({activity: text}, {who: 'pirl', text, tone: 'warning'});
 				break;
 			}
@@ -423,7 +427,7 @@ export class RunController {
 				// Claude Code reports a refusal while it happens and again in the result: count it once.
 				if (event.id ? this.deniedIds.has(event.id) : this.state.denials.includes(event.detail)) break;
 				if (event.id) this.deniedIds.add(event.id);
-				this.update({denials: [...this.state.denials, event.detail]}, {who: 'pirl', text: `Chặn (ngoài quyền của run): ${event.detail}`, tone: 'warning'});
+				this.update({denials: [...this.state.denials, event.detail]}, {who: 'pirl', text: t(`Chặn (ngoài quyền của run): ${event.detail}`, `Blocked (outside the run's permissions): ${event.detail}`), tone: 'warning'});
 				break;
 			case 'usage': {
 				const usage = this.state.usage;
@@ -471,15 +475,15 @@ export class RunController {
 			roles: this.state.roles.map(role => (role.state === 'running' ? {...role, state: 'done'} : role)),
 		});
 		if (questions.length > 0) {
-			this.update({status: 'waiting', questions, answers: []}, {who: 'pirl', text: `Chờ bạn trả lời ${questions.length} câu hỏi`, tone: 'warning'});
+			this.update({status: 'waiting', questions, answers: []}, {who: 'pirl', text: t(`Chờ bạn trả lời ${questions.length} câu hỏi`, `Waiting for your answers to ${questions.length} ${plural(questions.length, 'question')}`), tone: 'warning'});
 			return;
 		}
 		if (this.layer) {
-			this.update({status: 'checking'}, {who: 'pirl', text: 'Coordinator xong; kiểm tra kết quả'});
+			this.update({status: 'checking'}, {who: 'pirl', text: t('Coordinator xong; kiểm tra kết quả', 'Coordinator done; checking the results')});
 			const repair = await this.checkLayer();
 			if (repair && this.repairs < (this.deps.maxRepairs ?? MAX_REPAIRS)) {
 				this.repairs += 1;
-				this.update({}, {who: 'pirl', text: `Gửi coordinator sửa (lần ${this.repairs})`, tone: 'warning'});
+				this.update({}, {who: 'pirl', text: t(`Gửi coordinator sửa (lần ${this.repairs})`, `Sent back to the coordinator to fix (attempt ${this.repairs})`), tone: 'warning'});
 				await this.send(repair);
 				return;
 			}
@@ -495,7 +499,7 @@ export class RunController {
 
 	private async python(args: string[]) {
 		const python = this.deps.python;
-		if (!python) return {code: null, stdout: '', stderr: '', error: 'Không tìm thấy Python'};
+		if (!python) return {code: null, stdout: '', stderr: '', error: t('Không tìm thấy Python', 'Python not found')};
 		return this.exec(python.command, [...python.args, '-B', ...args], {cwd: this.deps.hub, timeoutMs: 120_000});
 	}
 
@@ -514,14 +518,14 @@ export class RunController {
 					? this.resolveHubPath(this.state.outputs.planFile)
 					: this.resolveHubPath(this.state.outputs.report);
 		if (!target) {
-			checks.validator = {state: 'skipped', detail: 'không xác định được file kết quả của run'};
+			checks.validator = {state: 'skipped', detail: t('không xác định được file kết quả của run', 'could not tell which file the run produced')};
 		} else {
 			const result = await this.python(['.agents/evals/validate_layer_artifact.py', '--kind', layer === 'review' ? 'review' : 'plan', '--path', target]);
 			if (succeeded(result)) checks.validator = {state: 'pass', detail: relative(this.deps.hub, target) || target};
 			else {
 				const detail = (result.stdout || result.stderr || result.error || '').trim().slice(0, 1500);
 				checks.validator = {state: 'fail', detail};
-				repairs.push(`Validator báo lỗi cho ${target}:\n${detail}\nSửa các lỗi này rồi chạy lại validator cho tới khi PASS.`);
+				repairs.push(t(`Validator báo lỗi cho ${target}:\n${detail}\nSửa các lỗi này rồi chạy lại validator cho tới khi PASS.`, `The validator reports errors for ${target}:\n${detail}\nFix these errors, then run the validator again until it passes.`));
 			}
 			if (layer === 'plan' && !this.state.outputs.planSet) this.update({outputs: {...this.state.outputs, planSet: target}});
 		}
@@ -530,13 +534,13 @@ export class RunController {
 		const added = countRecords(this.deps.hub, layer) - this.before.records;
 		const check = await this.python(['.agents/evals/layer_record.py', 'check']);
 		if (added < 1) {
-			checks.record = {state: 'fail', detail: 'process-auditor chưa ghi record cho run này'};
-			repairs.push('Bước tự đánh giá chưa xong: process-auditor chưa ghi record nào cho run này. Hoàn tất bước đó theo skill của layer.');
+			checks.record = {state: 'fail', detail: t('process-auditor chưa ghi record cho run này', 'process-auditor has not written a record for this run')};
+			repairs.push(t('Bước tự đánh giá chưa xong: process-auditor chưa ghi record nào cho run này. Hoàn tất bước đó theo skill của layer.', 'The self-evaluation step is not finished: process-auditor has not written a record for this run. Complete that step per the layer\'s skill.'));
 		} else if (!succeeded(check)) {
 			checks.record = {state: 'fail', detail: (check.stdout || check.stderr).trim().slice(0, 800)};
-			repairs.push(`\`layer_record.py check\` báo lỗi:\n${checks.record.detail}\nSửa record cho đúng.`);
+			repairs.push(t(`\`layer_record.py check\` báo lỗi:\n${checks.record.detail}\nSửa record cho đúng.`, `\`layer_record.py check\` reports errors:\n${checks.record.detail}\nCorrect the record.`));
 		} else {
-			checks.record = {state: 'pass', detail: added > 1 ? `${added} record mới` : '1 record mới'};
+			checks.record = {state: 'pass', detail: t(`${added} record mới`, added > 1 ? `${added} new records` : '1 new record')};
 		}
 
 		// Implement may change only the Plan's Allowed paths in the target repository.
@@ -547,15 +551,15 @@ export class RunController {
 			const outside = outsideAllowed(changed, allowed);
 			checks.paths =
 				allowed.length === 0
-					? {state: 'skipped', detail: 'Plan không có dòng Allowed paths'}
+					? {state: 'skipped', detail: t('Plan không có dòng Allowed paths', 'the Plan has no Allowed paths line')}
 					: outside.length === 0
-						? {state: 'pass', detail: `${changed.length} file thay đổi, đều trong Allowed paths`}
-						: {state: 'fail', detail: `Ngoài Allowed paths: ${outside.join(', ')}`};
+						? {state: 'pass', detail: t(`${changed.length} file thay đổi, đều trong Allowed paths`, `${changed.length} ${plural(changed.length, 'file')} changed, all within Allowed paths`)}
+						: {state: 'fail', detail: t(`Ngoài Allowed paths: ${outside.join(', ')}`, `Outside Allowed paths: ${outside.join(', ')}`)};
 		}
 
 		const labels: Record<string, string> = {validator: 'Validator', record: 'Record', paths: 'Allowed paths'};
 		for (const [key, check] of Object.entries(checks)) {
-			const verdict = check.state === 'pass' ? 'PASS' : check.state === 'fail' ? 'FAIL' : 'bỏ qua';
+			const verdict = check.state === 'pass' ? 'PASS' : check.state === 'fail' ? 'FAIL' : t('bỏ qua', 'skipped');
 			this.update({}, {who: 'pirl', text: `${labels[key]}: ${verdict}${check.detail ? ` (${check.detail.split('\n')[0]!.slice(0, 120)})` : ''}`, tone: check.state === 'pass' ? 'success' : check.state === 'fail' ? 'error' : undefined});
 		}
 		this.update({checks});
@@ -569,27 +573,28 @@ export class RunController {
 		const now = await changedPaths(this.deps.hub, this.exec);
 		const files = now.filter(path => !this.before.hubChanges.includes(path));
 		if (files.length === 0) {
-			this.update({status: 'done'}, {who: 'pirl', text: 'Xong', tone: 'success'});
+			this.update({status: 'done'}, {who: 'pirl', text: t('Xong', 'Done'), tone: 'success'});
 			return;
 		}
-		this.update({status: 'checking', activity: 'Chạy test của framework trên các cải tiến'}, {who: 'pirl', text: `${files.length} file framework thay đổi; chạy test của framework`});
+		this.update({status: 'checking', activity: t('Chạy test của framework trên các cải tiến', 'Running the framework tests on the improvements')}, {who: 'pirl', text: t(`${files.length} file framework thay đổi; chạy test của framework`, `${files.length} framework ${plural(files.length, 'file')} changed; running the framework tests`)});
 		const tests = await this.frameworkTests();
+		const firstLine = tests.detail?.split('\n')[0]?.slice(0, 120) ?? '';
 		this.update(
 			{status: 'improvements', improvements: {files, state: 'pending', tests}},
 			tests.state === 'fail'
-				? {who: 'pirl', text: `Test framework: FAIL; cải tiến này không được commit (${tests.detail?.split('\n')[0]?.slice(0, 120) ?? ''})`, tone: 'error'}
-				: {who: 'pirl', text: `Test framework: ${tests.state === 'pass' ? 'PASS' : 'bỏ qua'}; chờ bạn quyết định commit`, tone: 'warning'},
+				? {who: 'pirl', text: t(`Test framework: FAIL; cải tiến này không được commit (${firstLine})`, `Framework tests: FAIL; these improvements cannot be committed (${firstLine})`), tone: 'error'}
+				: {who: 'pirl', text: tests.state === 'pass' ? t('Test framework: PASS; chờ bạn quyết định commit', 'Framework tests: PASS; waiting for your commit decision') : t('Test framework: bỏ qua; chờ bạn quyết định commit', 'Framework tests: skipped; waiting for your commit decision'), tone: 'warning'},
 		);
 	}
 
 	/** The framework's own tests on the Hub as the run left it: a broken framework must never be committed to main. */
 	private async frameworkTests(): Promise<CheckResult> {
-		if (!this.deps.python) return {state: 'skipped', detail: 'Không tìm thấy Python'};
+		if (!this.deps.python) return {state: 'skipped', detail: t('Không tìm thấy Python', 'Python not found')};
 		const result = await this.python(['-m', 'unittest', 'discover', '-s', '.agents/evals/tests', '-p', 'test_*.py']);
 		if (succeeded(result)) return {state: 'pass'};
 		const output = `${result.stderr}\n${result.stdout}`.trim().split('\n');
 		const failures = output.filter(line => /^(FAIL|ERROR):/.test(line));
-		return {state: 'fail', detail: (failures.length ? failures : output.slice(-5)).join('\n') || result.error || `mã thoát ${result.code}`};
+		return {state: 'fail', detail: (failures.length ? failures : output.slice(-5)).join('\n') || result.error || t(`mã thoát ${result.code}`, `exit code ${result.code}`)};
 	}
 
 	/** The user's decision on this run's framework improvements. */
@@ -597,11 +602,11 @@ export class RunController {
 		const pending = this.state.improvements;
 		if (!pending || pending.state !== 'pending') return;
 		if (choice === 'commit' && pending.tests?.state === 'fail') {
-			this.update({improvements: {...pending, error: 'Test của framework đang lỗi: không commit một framework hỏng vào Hub. Chọn bỏ cải tiến, hoặc giữ để sửa tay.'}});
+			this.update({improvements: {...pending, error: t('Test của framework đang lỗi: không commit một framework hỏng vào Hub. Chọn bỏ cải tiến, hoặc giữ để sửa tay.', 'The framework tests fail: a broken framework is not committed to the Hub. Discard the improvements, or keep them to fix by hand.')}});
 			return;
 		}
 		if (choice === 'keep') {
-			this.update({status: 'done', improvements: {...pending, state: 'kept'}}, {who: 'pirl', text: 'Giữ cải tiến, chưa commit. Xong', tone: 'success'});
+			this.update({status: 'done', improvements: {...pending, state: 'kept'}}, {who: 'pirl', text: t('Giữ cải tiến, chưa commit. Xong', 'Kept the improvements, not committed. Done'), tone: 'success'});
 			return;
 		}
 		const result =
@@ -609,12 +614,12 @@ export class RunController {
 				? await commitImprovements(this.deps.hub, pending.files, {kind: this.state.kind, recordId: this.state.outputs.recordId, summary: this.state.request.slice(0, 200)}, this.exec)
 				: await discardImprovements(this.deps.hub, pending.files, this.exec);
 		if (!result.ok) {
-			this.update({improvements: {...pending, error: result.error ?? 'lỗi không rõ'}});
+			this.update({improvements: {...pending, error: result.error ?? t('lỗi không rõ', 'unknown error')}});
 			return;
 		}
 		this.update(
 			{status: 'done', improvements: {files: pending.files, state: choice === 'commit' ? 'committed' : 'discarded'}},
-			{who: 'pirl', text: `${choice === 'commit' ? 'Đã commit' : 'Đã bỏ'} ${pending.files.length} file cải tiến. Xong`, tone: 'success'},
+			{who: 'pirl', text: choice === 'commit' ? t(`Đã commit ${pending.files.length} file cải tiến. Xong`, `Committed ${pending.files.length} improved ${plural(pending.files.length, 'file')}. Done`) : t(`Đã bỏ ${pending.files.length} file cải tiến. Xong`, `Discarded ${pending.files.length} improved ${plural(pending.files.length, 'file')}. Done`), tone: 'success'},
 		);
 	}
 

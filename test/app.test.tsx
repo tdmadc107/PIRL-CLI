@@ -1,5 +1,6 @@
 import {afterEach, describe, expect, test} from 'vitest';
 import {DEFAULT_CONFIG} from '../src/core/config.js';
+import {t} from '../src/core/i18n.js';
 import {App} from '../src/ui/App.js';
 import {width} from '../src/ui/text.js';
 import {appProps, READY_REPORT, sessionInfo} from './helpers/fixtures.js';
@@ -308,7 +309,7 @@ describe('startup check and panels', () => {
 		const {terminal, saved} = await start(100, 30);
 		await terminal.type('/settings');
 		await terminal.press(KEYS.enter);
-		for (let i = 0; i < 6; i++) await terminal.press(KEYS.down);
+		for (let i = 0; i < 7; i++) await terminal.press(KEYS.down);
 		await terminal.press(KEYS.right);
 		await terminal.press(KEYS.right);
 		expect(saved.at(-1)).toMatchObject({glyphs: 'ascii'});
@@ -332,7 +333,7 @@ describe('startup check and panels', () => {
 			await tick(60);
 			await terminal.type('/settings');
 			await terminal.press(KEYS.enter);
-			for (let i = 0; i < 7; i++) await terminal.press(KEYS.down);
+			for (let i = 0; i < 8; i++) await terminal.press(KEYS.down);
 			for (let i = 0; i < 3; i++) await terminal.press(KEYS.right);
 			await tick(60);
 			expect(errors).toEqual([]);
@@ -351,9 +352,41 @@ describe('startup check and panels', () => {
 		const {terminal, saved} = await start(100, 30);
 		await terminal.type('/settings');
 		await terminal.press(KEYS.enter);
+		await terminal.press(KEYS.down);
 		await terminal.press(KEYS.right);
 		expect(saved.at(-1)).toMatchObject({provider: 'claude'});
 		expect(terminal.frame()).toContain('Giai đoạn sau: Codex CLI, Gemini CLI, Copilot CLI');
+	});
+
+	test('/settings switches the interface to English at once and saves it', async () => {
+		const {terminal, saved} = await start(100, 30);
+		await terminal.type('/settings');
+		await terminal.press(KEYS.enter);
+		await terminal.press(KEYS.right);
+		expect(saved.at(-1)).toMatchObject({language: 'en'});
+		expect(terminal.frame()).toMatch(/Language \(Ngôn ngữ\) +‹ English ›/);
+		expect(terminal.frame()).toContain('↑↓ choose · ←→ change · Esc close');
+		await terminal.press(KEYS.escape);
+		expect(terminal.frame()).toContain('Type / for commands, or type a request.');
+		expect(terminal.frame()).toContain('0 calls · no run');
+		await terminal.type('/settings');
+		await terminal.press(KEYS.enter);
+		await terminal.press(KEYS.left);
+		expect(saved.at(-1)).toMatchObject({language: 'vi'});
+		expect(terminal.frame()).toMatch(/Ngôn ngữ \(Language\) +‹ Tiếng Việt ›/);
+	});
+
+	test('the usage limits in the side panel follow a new language', async () => {
+		const {props} = appProps();
+		const quota = async () => [{kind: 'five_hour', label: t('5 giờ', '5 hours'), percent: 42, resetsAt: null}];
+		const terminal = renderTerminal(<App {...props} services={{...props.services, quota}} />, 160, 40);
+		open.push(terminal);
+		await waitFor(terminal, '5 giờ');
+		await terminal.type('/settings');
+		await terminal.press(KEYS.enter);
+		await terminal.press(KEYS.right);
+		await waitFor(terminal, '5 hours');
+		expect(terminal.frame()).toMatch(/5 hours\s+█+░+ 42%/);
 	});
 
 	test('/framework shows the Hub without changing it', async () => {
@@ -407,6 +440,11 @@ describe('snapshots', () => {
 			expect(terminal.frame()).toMatchSnapshot();
 		});
 	}
+
+	test('welcome screen in English at 100x24', async () => {
+		const {terminal} = await start(100, 24, {initialConfig: {...DEFAULT_CONFIG, language: 'en'}});
+		expect(terminal.frame()).toMatchSnapshot();
+	});
 
 	test('palette open at 100x24', async () => {
 		const {terminal} = await start(100, 24);

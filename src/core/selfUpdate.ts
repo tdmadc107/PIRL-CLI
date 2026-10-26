@@ -2,6 +2,7 @@ import {mkdirSync, readFileSync, realpathSync, writeFileSync} from 'node:fs';
 import {dirname, join, relative, isAbsolute} from 'node:path';
 import spawn from 'cross-spawn';
 import {exec as defaultExec, succeeded, type Exec} from './exec.js';
+import {t} from './i18n.js';
 
 /**
  * Keeping PIRL itself up to date: `pirl update` installs the newest version from npm, and the TUI says when one
@@ -133,43 +134,48 @@ export async function runUpdate(options: {
 	const log = options.log ?? (line => console.log(line));
 	const exec = options.exec ?? defaultExec;
 	const install = `npm install -g ${options.name}`;
-	log(`Đang kiểm tra bản mới của ${options.name}…`);
+	log(t(`Đang kiểm tra bản mới của ${options.name}…`, `Checking for a new ${options.name}…`));
 	const latest = await latestVersion(options.name, exec);
 	if (latest && options.checkFile) writeCheck(options.checkFile, {checkedAt: new Date().toISOString(), latest});
 	if (!latest) {
-		log('Không lấy được bản mới nhất từ npm: mất mạng, hoặc npm vẫn đang xử lý một bản vừa đăng. Thử lại sau ít phút.');
-		log(`Hoặc tự cập nhật: ${install}`);
+		log(t('Không lấy được bản mới nhất từ npm: mất mạng, hoặc npm vẫn đang xử lý một bản vừa đăng. Thử lại sau ít phút.', 'Could not get the latest version from npm: no network, or npm is still processing a version just published. Try again in a few minutes.'));
+		log(t(`Hoặc tự cập nhật: ${install}`, `Or update it yourself: ${install}`));
 		return 1;
 	}
 	if (compareVersions(latest, options.current) <= 0) {
-		log(`Đang dùng bản mới nhất (${options.current}).`);
+		log(t(`Đang dùng bản mới nhất (${options.current}).`, `Already on the latest version (${options.current}).`));
 		return 0;
 	}
 	const globalRoot = await exec('npm', ['root', '-g'], {timeoutMs: 20_000});
 	if (!succeeded(globalRoot) || !inside(options.root, globalRoot.stdout.trim())) {
-		log(`Có bản mới ${latest} (đang dùng ${options.current}), nhưng PIRL này chạy từ ${options.root}, không phải bản cài bằng npm install -g.`);
-		log('- Cài bằng pnpm, yarn hoặc bun: cập nhật bằng chính trình đó (ví dụ pnpm add -g pirl-framework-cli).');
-		log('- Chạy từ mã nguồn: trong thư mục đó, chạy git pull rồi npm run setup.');
+		log(t(`Có bản mới ${latest} (đang dùng ${options.current}), nhưng PIRL này chạy từ ${options.root}, không phải bản cài bằng npm install -g.`, `${latest} is out (using ${options.current}), but this PIRL runs from ${options.root}, not from npm install -g.`));
+		log(t('- Cài bằng pnpm, yarn hoặc bun: cập nhật bằng chính trình đó (ví dụ pnpm add -g pirl-framework-cli).', '- Installed with pnpm, yarn or bun: update with that tool (for example pnpm add -g pirl-framework-cli).'));
+		log(t('- Chạy từ mã nguồn: trong thư mục đó, chạy git pull rồi npm run setup.', '- Running from source: in that folder, run git pull, then npm run setup.'));
 		return 1;
 	}
 	const framework = readPackage(options.root)?.pirl?.frameworkVersion ?? null;
-	log(`Cập nhật ${options.current} → ${latest}…`);
+	log(t(`Cập nhật ${options.current} → ${latest}…`, `Updating ${options.current} → ${latest}…`));
 	const code = await (options.run ?? runInTerminal)('npm', ['install', '-g', `${options.name}@${latest}`]);
 	if (code !== 0) {
-		log('Cập nhật không thành công; xem lỗi của npm ở trên.');
+		log(t('Cập nhật không thành công; xem lỗi của npm ở trên.', 'The update failed; see npm\'s error above.'));
 		if ((options.platform ?? process.platform) === 'win32') {
-			log(`Nếu npm báo EPERM hoặc EBUSY: đóng các cửa sổ đang chạy pirl rồi chạy lại ${install}@${latest}. Vẫn lỗi quyền thì mở terminal bằng "Run as administrator".`);
+			log(
+				t(
+					`Nếu npm báo EPERM hoặc EBUSY: đóng các cửa sổ đang chạy pirl rồi chạy lại ${install}@${latest}. Vẫn lỗi quyền thì mở terminal bằng "Run as administrator".`,
+					`If npm reports EPERM or EBUSY: close the windows running pirl, then run ${install}@${latest} again. If permissions still fail, open the terminal with "Run as administrator".`,
+				),
+			);
 		} else {
-			log(`Nếu npm báo lỗi quyền (EACCES): sudo ${install}@${latest}`);
+			log(t(`Nếu npm báo lỗi quyền (EACCES): sudo ${install}@${latest}`, `If npm reports a permission error (EACCES): sudo ${install}@${latest}`));
 		}
 		return 1;
 	}
 	// npm replaced the package in place, so its package.json is now the new one.
 	const updated = readPackage(options.root);
-	log(`Đã cập nhật lên ${updated?.version ?? latest}.`);
+	log(t(`Đã cập nhật lên ${updated?.version ?? latest}.`, `Updated to ${updated?.version ?? latest}.`));
 	const newFramework = updated?.pirl?.frameworkVersion;
 	if (newFramework && newFramework !== framework) {
-		log(`Bản này kèm framework mới (fw-${newFramework}). Mở pirl và vào /framework để cập nhật Hub khi bạn muốn.`);
+		log(t(`Bản này kèm framework mới (fw-${newFramework}). Mở pirl và vào /framework để cập nhật Hub khi bạn muốn.`, `This version brings a new framework (fw-${newFramework}). Open pirl and go to /framework to update the Hub when you want.`));
 	}
 	return 0;
 }
