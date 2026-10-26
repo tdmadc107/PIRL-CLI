@@ -1,6 +1,6 @@
 {
   "name": "pirl-framework-cli",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "PIRL CLI: a terminal UI that runs the PIRL framework (Plan – Implement – Review Layer) through the AI agent CLI you are already signed in to.",
   "keywords": [
     "pirl",
