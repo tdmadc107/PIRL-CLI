@@ -653,6 +653,7 @@ CI chỉ chạy test với provider giả lập.
 
 - Giai đoạn 4: Codex CLI, Gemini CLI, Copilot CLI; provider và model theo role.
 - Agent đối chiếu cải tiến cục bộ đã thừa sau mỗi lần cập nhật framework (mục 9.4).
+- Cho agent dùng trình duyệt (Playwright) để điều tra lỗi và chụp layout: [đề xuất riêng](browser-proposal.md).
 
 ## Nguồn tham khảo
 
