@@ -135,6 +135,8 @@ export class RunController {
 	private readonly firstStartedAt: string;
 	private providerTotals: Record<string, ModelTotals> = {};
 	private deniedIds = new Set<string>();
+	/** Why the layer has no result after its checks (no Plan package, Plan file or report); null once it has one. */
+	private missingResult: string | null = null;
 	private logStream: WriteStream | null = null;
 	private now: () => number;
 
@@ -187,12 +189,15 @@ export class RunController {
 		this.resumedBefore = resume?.before;
 		this.providerTotals = resume?.providerTotals ?? {};
 		this.firstPrompt = resume ? resume.prompt ?? t('Tiếp tục run bị dừng từ chỗ đã dừng.', 'Continue the stopped run from where it stopped.') : request;
+		// What the user typed to continue a layer run from /resume; a chat message is already the request.
+		this.resumePrompt = resume?.prompt && resume.prompt !== request ? resume.prompt : null;
 		// Attachments go with the user's own words: a new request or a chat message, not a "continue".
 		if (deps.attachments?.text && (!resume || resume.prompt)) this.firstPrompt = `${this.firstPrompt}\n\n${deps.attachments.text}`;
 	}
 
 	/** What the first call sends: the request, a chat message into an existing session, or "continue". */
 	private firstPrompt: string;
+	private resumePrompt: string | null;
 
 	/** What /resume needs to continue this run after PIRL CLI was closed. */
 	persisted(): PersistedRun {
@@ -270,6 +275,7 @@ export class RunController {
 
 	async start(): Promise<void> {
 		this.update({}, {who: 'pirl', text: `${this.state.sessionId ? t('Chạy tiếp', 'Resuming') : t('Bắt đầu', 'Starting')} ${LAYER_LABELS[this.state.kind]}: ${this.state.request.split('\n')[0]!.slice(0, 120)}`});
+		if (this.resumePrompt) this.update({}, {who: 'pirl', text: t(`Yêu cầu khi chạy tiếp: ${this.resumePrompt.split('\n')[0]!.slice(0, 200)}`, `Request on resume: ${this.resumePrompt.split('\n')[0]!.slice(0, 200)}`)});
 		await this.guard(async () => {
 			await this.snapshot();
 			if (this.state.status === 'waiting') return; // resumed with unanswered questions: wait for the user
@@ -296,10 +302,22 @@ export class RunController {
 		await this.guard(() => this.send(answersMessage(questions, answers)));
 	}
 
+	/**
+	 * Stops the run. With a provider working, the first call asks it to stop and each later one forces it
+	 * (src/engine/claudeRunner.ts); the run ends once the process does. Otherwise (preparing, waiting for answers,
+	 * running the checks) it ends at once, and the steps still under way see `stopped` and change nothing.
+	 */
 	stop() {
+		if (TERMINAL.includes(this.state.status)) return;
+		const again = this.stopped;
 		this.stopped = true;
-		this.handle?.stop();
-		if (!this.handle) this.update({status: 'stopped'}, {who: 'pirl', text: t('Đã dừng', 'Stopped')});
+		if (this.handle) {
+			const text = again ? t('Buộc dừng provider', 'Forcing the provider to stop') : t('Đang dừng provider…', 'Stopping the provider…');
+			this.update({}, {who: 'pirl', text, tone: 'warning'});
+			this.handle.stop();
+			return;
+		}
+		this.update({status: 'stopped'}, {who: 'pirl', text: t('Đã dừng', 'Stopped')});
 	}
 
 	private async send(prompt: string): Promise<void> {
@@ -481,6 +499,7 @@ export class RunController {
 		if (this.layer) {
 			this.update({status: 'checking'}, {who: 'pirl', text: t('Coordinator xong; kiểm tra kết quả', 'Coordinator done; checking the results')});
 			const repair = await this.checkLayer();
+			if (this.stopped) return;
 			if (repair && this.repairs < (this.deps.maxRepairs ?? MAX_REPAIRS)) {
 				this.repairs += 1;
 				this.update({}, {who: 'pirl', text: t(`Gửi coordinator sửa (lần ${this.repairs})`, `Sent back to the coordinator to fix (attempt ${this.repairs})`), tone: 'warning'});
@@ -517,8 +536,16 @@ export class RunController {
 				: layer === 'implement'
 					? this.resolveHubPath(this.state.outputs.planFile)
 					: this.resolveHubPath(this.state.outputs.report);
+		this.missingResult = null;
 		if (!target) {
-			checks.validator = {state: 'skipped', detail: t('không xác định được file kết quả của run', 'could not tell which file the run produced')};
+			this.missingResult = t(`Run kết thúc mà không có ${RESULT[layer]} và không hỏi bạn câu nào.`, `The run ended without a ${RESULT[layer]} and asked you nothing.`);
+			checks.validator = {state: 'fail', detail: this.missingResult};
+			repairs.push(
+				t(
+					`Run chưa có kết quả: không tìm thấy ${RESULT[layer]} nào. Hoàn tất nó theo skill của layer và ghi đường dẫn vào khối pirl-result. Nếu còn thiếu quyết định hoặc nội dung mà chỉ người dùng đưa được, kết thúc bằng khối pirl-questions để hỏi.`,
+					`The run has no result: no ${RESULT[layer]} was found. Complete it per the layer's skill and give its path in the pirl-result block. If a decision or content only the user can give is missing, end with a pirl-questions block that asks for it.`,
+				),
+			);
 		} else {
 			const result = await this.python(['.agents/evals/validate_layer_artifact.py', '--kind', layer === 'review' ? 'review' : 'plan', '--path', target]);
 			if (succeeded(result)) checks.validator = {state: 'pass', detail: relative(this.deps.hub, target) || target};
@@ -571,13 +598,15 @@ export class RunController {
 		// The run's temporary files (.tmp/pirl-run/) are removed here, as the host instructions promise the coordinator.
 		rmSync(join(this.deps.hub, '.tmp', 'pirl-run'), {recursive: true, force: true});
 		const now = await changedPaths(this.deps.hub, this.exec);
+		if (this.stopped) return;
 		const files = now.filter(path => !this.before.hubChanges.includes(path));
 		if (files.length === 0) {
-			this.update({status: 'done'}, {who: 'pirl', text: t('Xong', 'Done'), tone: 'success'});
+			this.finish({}, null);
 			return;
 		}
 		this.update({status: 'checking', activity: t('Chạy test của framework trên các cải tiến', 'Running the framework tests on the improvements')}, {who: 'pirl', text: t(`${files.length} file framework thay đổi; chạy test của framework`, `${files.length} framework ${plural(files.length, 'file')} changed; running the framework tests`)});
 		const tests = await this.frameworkTests();
+		if (this.stopped) return;
 		const firstLine = tests.detail?.split('\n')[0]?.slice(0, 120) ?? '';
 		this.update(
 			{status: 'improvements', improvements: {files, state: 'pending', tests}},
@@ -601,12 +630,14 @@ export class RunController {
 	async resolveImprovements(choice: 'commit' | 'keep' | 'discard'): Promise<void> {
 		const pending = this.state.improvements;
 		if (!pending || pending.state !== 'pending') return;
+		// The run still waits for a decision: the error is shown with the choices, and logged for tracing.
+		const refuse = (error: string) => this.update({improvements: {...pending, error}}, {who: 'pirl', text: t(`Cải tiến chưa xử lý được: ${error}`, `Could not handle the improvements: ${error}`), tone: 'error'});
 		if (choice === 'commit' && pending.tests?.state === 'fail') {
-			this.update({improvements: {...pending, error: t('Test của framework đang lỗi: không commit một framework hỏng vào Hub. Chọn bỏ cải tiến, hoặc giữ để sửa tay.', 'The framework tests fail: a broken framework is not committed to the Hub. Discard the improvements, or keep them to fix by hand.')}});
+			refuse(t('Test của framework đang lỗi: không commit một framework hỏng vào Hub. Chọn bỏ cải tiến, hoặc giữ để sửa tay.', 'The framework tests fail: a broken framework is not committed to the Hub. Discard the improvements, or keep them to fix by hand.'));
 			return;
 		}
 		if (choice === 'keep') {
-			this.update({status: 'done', improvements: {...pending, state: 'kept'}}, {who: 'pirl', text: t('Giữ cải tiến, chưa commit. Xong', 'Kept the improvements, not committed. Done'), tone: 'success'});
+			this.finish({improvements: {...pending, state: 'kept'}}, t('Giữ cải tiến, chưa commit', 'Kept the improvements, not committed'));
 			return;
 		}
 		const result =
@@ -614,12 +645,25 @@ export class RunController {
 				? await commitImprovements(this.deps.hub, pending.files, {kind: this.state.kind, recordId: this.state.outputs.recordId, summary: this.state.request.slice(0, 200)}, this.exec)
 				: await discardImprovements(this.deps.hub, pending.files, this.exec);
 		if (!result.ok) {
-			this.update({improvements: {...pending, error: result.error ?? t('lỗi không rõ', 'unknown error')}});
+			refuse(result.error ?? t('lỗi không rõ', 'unknown error'));
 			return;
 		}
+		const count = pending.files.length;
+		this.finish(
+			{improvements: {files: pending.files, state: choice === 'commit' ? 'committed' : 'discarded'}},
+			choice === 'commit' ? t(`Đã commit ${count} file cải tiến`, `Committed ${count} improved ${plural(count, 'file')}`) : t(`Đã bỏ ${count} file cải tiến`, `Discarded ${count} improved ${plural(count, 'file')}`),
+		);
+	}
+
+	/**
+	 * Ends the run after its last step (`what`, for the log). A layer run that never produced its result ends failed
+	 * with the reason, not done, so the user sees it had no result and /resume can continue it.
+	 */
+	private finish(patch: Partial<RunState>, what: string | null) {
+		const outcome = this.missingResult ? t('Không có kết quả', 'No result') : t('Xong', 'Done');
 		this.update(
-			{status: 'done', improvements: {files: pending.files, state: choice === 'commit' ? 'committed' : 'discarded'}},
-			{who: 'pirl', text: choice === 'commit' ? t(`Đã commit ${pending.files.length} file cải tiến. Xong`, `Committed ${pending.files.length} improved ${plural(pending.files.length, 'file')}. Done`) : t(`Đã bỏ ${pending.files.length} file cải tiến. Xong`, `Discarded ${pending.files.length} improved ${plural(pending.files.length, 'file')}. Done`), tone: 'success'},
+			{...patch, ...(this.missingResult ? {status: 'failed', error: this.missingResult} : {status: 'done'})},
+			{who: 'pirl', text: what ? `${what}. ${outcome}` : outcome, tone: this.missingResult ? 'warning' : 'success'},
 		);
 	}
 
@@ -633,6 +677,9 @@ export class RunController {
 }
 
 const TERMINAL: RunStatus[] = ['done', 'failed', 'stopped'];
+
+/** What each layer hands off; a layer run without it has no result. */
+const RESULT: Record<LayerKind, string> = {plan: 'Plan package', implement: 'Plan file', review: 'Review report'};
 
 /** mm:ss since the run started, or h:mm:ss after an hour. */
 export function formatElapsed(ms: number): string {

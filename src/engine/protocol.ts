@@ -65,6 +65,7 @@ export function hostInstructions(context: HostContext): string {
 		'```pirl-questions',
 		'[{"id": "Q1", "question": "…", "options": ["…", "…"], "recommended": 0}]',
 		'```',
+		'- A question whose answer is content only the user has (text, data, values) has `"options": []`, so the user types that content.',
 		'- Do not commit, push or switch branches anywhere. Leave framework improvements uncommitted in the Hub: PIRL CLI shows them and asks the user whether to commit.',
 		'- Some commands are refused by the run\'s permissions. When one is refused, do not retry it; say what could not be done.',
 	);

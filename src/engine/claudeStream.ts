@@ -26,7 +26,7 @@ export function describeTool(name: string, input: Record<string, unknown> = {}):
 		case 'MultiEdit':
 			return t(`Sửa ${short(path)}`, `Edit ${short(path)}`);
 		case 'Write':
-			return `Ghi ${short(path)}`;
+			return t(`Ghi ${short(path)}`, `Write ${short(path)}`);
 		case 'Grep':
 			return t(`Tìm "${short(input['pattern'], 40)}"`, `Search "${short(input['pattern'], 40)}"`);
 		case 'Glob':

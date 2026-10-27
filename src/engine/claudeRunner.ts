@@ -1,7 +1,7 @@
 import {mkdtempSync, rmSync, writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import type {ChildProcess} from 'node:child_process';
+import {spawn as spawnPlain, spawnSync, type ChildProcess} from 'node:child_process';
 import spawn from 'cross-spawn';
 import {createStreamParser} from './claudeStream.js';
 import type {AgentRunner, AgentRunRequest, RunEvent, RunHandle} from './types.js';
@@ -48,13 +48,47 @@ export function claudeArgs(request: AgentRunRequest, files: {systemPrompt: strin
 	];
 }
 
+/**
+ * How long a stopping provider gets before the next, harder step: SIGINT ends the turn cleanly so the session can be
+ * resumed, SIGTERM follows, then SIGKILL. Once the last step is sent the run ends after `settleMs` even if the
+ * process never reports that it closed, so Esc always gives the TUI back.
+ */
+export type StopTimings = {graceMs: number; settleMs: number};
+const STOP_TIMINGS: StopTimings = {graceMs: 3_000, settleMs: 2_000};
+const STOP_SIGNALS: NodeJS.Signals[] = ['SIGINT', 'SIGTERM', 'SIGKILL'];
+
+/**
+ * Ends `child` and every process it started. On Windows there are no signals, and Claude Code installed by npm is a
+ * `claude.cmd` shim: the child is cmd.exe and Claude Code runs under it. Killing the child alone leaves Claude Code
+ * working with the output pipes still open, so the run would never end; `taskkill /T` ends the whole tree.
+ */
+export function killTree(child: ChildProcess, signal: NodeJS.Signals, platform: NodeJS.Platform = process.platform, sync = false): void {
+	if (child.pid === undefined) return;
+	if (platform === 'win32') {
+		const args = ['/pid', String(child.pid), '/T', '/F'];
+		try {
+			if (sync) spawnSync('taskkill', args, {stdio: 'ignore', windowsHide: true});
+			else spawnPlain('taskkill', args, {stdio: 'ignore', windowsHide: true}).on('error', () => child.kill());
+		} catch {
+			child.kill();
+		}
+		return;
+	}
+	if (child.exitCode !== null || child.signalCode !== null) return;
+	try {
+		child.kill(signal);
+	} catch {}
+}
+
 /** Provider processes still running; ended when PIRL CLI exits so none keeps working unseen. */
 const running = new Set<ChildProcess>();
 process.once('exit', () => {
-	for (const child of running) child.kill('SIGTERM');
+	for (const child of running) killTree(child, 'SIGTERM', process.platform, true);
 });
 
-export function createClaudeRunner(command = 'claude'): AgentRunner {
+export function createClaudeRunner(command = 'claude', options: {platform?: NodeJS.Platform; timings?: StopTimings} = {}): AgentRunner {
+	const platform = options.platform ?? process.platform;
+	const timings = options.timings ?? STOP_TIMINGS;
 	return {
 		start(request, onEvent): RunHandle {
 			const dir = mkdtempSync(join(tmpdir(), 'pirl-run-'));
@@ -70,7 +104,6 @@ export function createClaudeRunner(command = 'claude'): AgentRunner {
 			});
 			const parseStreamLine = createStreamParser();
 			running.add(child);
-			child.once('close', () => running.delete(child));
 			let buffer = '';
 			let stderr = '';
 			const emit = (event: RunEvent) => {
@@ -91,25 +124,44 @@ export function createClaudeRunner(command = 'claude'): AgentRunner {
 			child.stderr?.setEncoding('utf8').on('data', (chunk: string) => (stderr += chunk));
 			child.stdin?.on('error', () => {});
 			child.stdin?.end(request.prompt);
-			const done = new Promise<{code: number | null; stderr: string}>(resolve => {
-				const finish = (code: number | null, error?: string) => {
-					if (buffer.trim()) for (const event of parseStreamLine(buffer.trim())) emit(event);
-					buffer = '';
-					rmSync(dir, {recursive: true, force: true});
-					resolve({code, stderr: error ?? stderr});
-				};
-				child.on('error', error => finish(null, error.message));
-				child.on('close', code => finish(code));
-			});
-			let stopping = false;
+			let resolveDone: (exit: {code: number | null; stderr: string}) => void = () => {};
+			const done = new Promise<{code: number | null; stderr: string}>(resolve => (resolveDone = resolve));
+			let finished = false;
+			const finish = (code: number | null, error?: string) => {
+				if (finished) return;
+				finished = true;
+				running.delete(child);
+				if (buffer.trim()) for (const event of parseStreamLine(buffer.trim())) emit(event);
+				buffer = '';
+				rmSync(dir, {recursive: true, force: true});
+				resolveDone({code, stderr: error ?? stderr});
+			};
+			child.on('error', error => finish(null, error.message));
+			child.on('close', code => finish(code));
+			/** Ends the run without waiting for 'close': a process left holding the pipes (a grandchild, a hung shim) must not keep it open. */
+			const settle = () => {
+				child.stdout?.destroy();
+				child.stderr?.destroy();
+				finish(child.exitCode);
+			};
+
+			const timers: NodeJS.Timeout[] = [];
+			void done.then(() => timers.forEach(clearTimeout));
+			const later = (ms: number, step: () => void) => timers.push(setTimeout(step, ms).unref());
+			const last = STOP_SIGNALS.length - 1;
+			/** The stop signal sent last, as an index into STOP_SIGNALS; -1 before the first stop. */
+			let sent = -1;
+			/** Sends the next stop signal; a forced stop (a second Esc), and Windows, which has no signals, send the last one. */
+			const escalate = (force: boolean) => {
+				sent = force || platform === 'win32' ? last : sent + 1;
+				killTree(child, STOP_SIGNALS[sent]!, platform);
+				if (sent === last) later(timings.settleMs, settle);
+				else later(timings.graceMs, () => sent < last && escalate(false));
+			};
 			return {
 				done,
 				stop() {
-					if (stopping) return;
-					stopping = true;
-					// SIGINT ends the turn cleanly so the session can be resumed; SIGTERM follows if it hangs.
-					child.kill('SIGINT');
-					setTimeout(() => child.exitCode === null && child.kill('SIGTERM'), 5_000).unref();
+					if (sent < last) escalate(sent >= 0);
 				},
 			};
 		},

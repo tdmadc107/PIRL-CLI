@@ -1,6 +1,7 @@
 import {appendFileSync, readFileSync, writeFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {afterEach, describe, expect, test} from 'vitest';
+import {setLanguage} from '../src/core/i18n.js';
 import {readRoleCatalog, roleAgents} from '../src/engine/agents.js';
 import {claudeArgs} from '../src/engine/claudeRunner.js';
 import {createStreamParser, describeTool, parseStreamLine} from '../src/engine/claudeStream.js';
@@ -117,6 +118,24 @@ describe('Claude Code stream-json', () => {
 		]);
 		expect(describeTool('Bash', {command: 'git log --oneline -5'})).toBe('Chạy git log --oneline -5');
 	});
+
+	test('with English chosen, every tool line is in English', () => {
+		setLanguage('en');
+		try {
+			const calls: Array<[string, Record<string, unknown>]> = [
+				['Read', {file_path: 'a.ts'}],
+				['Edit', {file_path: 'a.ts'}],
+				['Write', {file_path: 'a.ts'}],
+				['Grep', {pattern: 'x'}],
+				['Glob', {pattern: '*.ts'}],
+				['Bash', {command: 'git status'}],
+				['TodoWrite', {}],
+			];
+			expect(calls.map(([name, input]) => describeTool(name, input))).toEqual(['Read a.ts', 'Edit a.ts', 'Write a.ts', 'Search "x"', 'List *.ts', 'Run git status', 'Update the to-do list']);
+		} finally {
+			setLanguage('vi');
+		}
+	});
 });
 
 describe('permissions', () => {
@@ -194,6 +213,7 @@ describe('host protocol', () => {
 		expect(text).toContain('`py -3 -B ...`');
 		expect(text).toContain('at most 2 role subagents');
 		expect(text).toContain('Do not commit');
+		expect(text).toContain('content only the user has (text, data, values) has `"options": []`');
 		const chat = hostInstructions({kind: 'chat', hub: '/h', target: null, python: null, maxParallelRoles: 1});
 		expect(chat).toContain('pirl-suggest');
 		expect(chat).not.toContain('pirl-result');
@@ -271,7 +291,12 @@ describe('run store', () => {
 });
 
 describe('RunController', () => {
-	const deps = (hub: string, target: string, runner: ReturnType<typeof fakeRunner>['runner']) => ({runner, hub, target, python: PYTHON, maxParallelRoles: 2});
+	const deps = (hub: string, target: string, runner: ReturnType<typeof fakeRunner>['runner']) => ({runner, hub, target, python: PYTHON, maxParallelRoles: 2, logDir: tempDir()});
+	/** The run's log file as `<who> <text>` lines, once the writes queued so far are on disk. */
+	const logOf = async (run: RunController) => {
+		await new Promise(resolve => setTimeout(resolve, 50));
+		return readFileSync(run.state.logFile!, 'utf8').trim().split('\n').map(line => line.replace(/^[\d:]+ (\S+)\s+/, '$1 '));
+	};
 
 	test('a Plan run: roles, a valid package, a record, then the commit question for improvements', async () => {
 		const {hub, target} = await hubAndTarget();
@@ -303,10 +328,57 @@ describe('RunController', () => {
 		expect(seen).toContain('checking');
 		await run.resolveImprovements('commit');
 		expect(run.state.status).toBe('done');
+		expect((await logOf(run)).at(-1)).toBe('pirl Đã commit 1 file cải tiến. Xong');
 		const log = git(hub, 'log', '-1', '--format=%B');
 		expect(log).toContain('Pirl-Source: auditor');
 		expect(log).toMatch(/Pirl-Record: plan-/);
 		expect(git(hub, 'status', '--porcelain')).toBe('');
+	});
+
+	test('keeping the improvements ends the run done and says so in the log', async () => {
+		const {hub, target} = await hubAndTarget();
+		const {runner} = fakeRunner([
+			() => {
+				const {planSet} = writePlan(hub, target);
+				const recordId = writeRecord(hub, target, planSet);
+				appendFileSync(join(hub, '.agents/roles/code-analyst.role.md'), '\n- Check every caller.\n');
+				return [result('Plan đã sẵn sàng.' + outputsBlock({plan_set: planSet, plan_file: null, report: null, record_id: recordId}))];
+			},
+		]);
+		const run = new RunController(deps(hub, target, runner), 1, 'plan', 'Email huỷ đơn');
+		await run.start();
+		await run.resolveImprovements('keep');
+		expect(run.state.status).toBe('done');
+		expect(run.state.improvements?.state).toBe('kept');
+		expect((await logOf(run)).at(-1)).toBe('pirl Giữ cải tiến, chưa commit. Xong');
+	});
+
+	test('with English chosen, the run\'s log is in English', async () => {
+		const {hub, target} = await hubAndTarget();
+		const {runner} = fakeRunner([
+			(_call, emit) => {
+				emit({type: 'activity', agent: null, text: describeTool('Write', {file_path: '.tmp/pirl-run/brief.md'})});
+				const {planSet} = writePlan(hub, target);
+				const recordId = writeRecord(hub, target, planSet);
+				appendFileSync(join(hub, '.agents/roles/code-analyst.role.md'), '\n- Check every caller.\n');
+				return [result('Plan ready.' + outputsBlock({plan_set: planSet, plan_file: null, report: null, record_id: recordId}))];
+			},
+		]);
+		setLanguage('en');
+		try {
+			const run = new RunController(deps(hub, target, runner), 1, 'plan', 'Cancellation email');
+			await run.start();
+			await run.resolveImprovements('commit');
+			const log = await logOf(run);
+			expect(log[0]).toBe('pirl Starting Plan: Cancellation email');
+			expect(log).toContain('coordinator Write .tmp/pirl-run/brief.md');
+			expect(log).toContain('pirl Coordinator done; checking the results');
+			expect(log.at(-1)).toBe('pirl Committed 1 improved file. Done');
+			// No line PIRL or a tool description writes is left in Vietnamese.
+			expect(log.filter(line => /[À-ỹđĐ]/.test(line))).toEqual([]);
+		} finally {
+			setLanguage('vi');
+		}
 	});
 
 	test('an improvement that breaks the framework\'s tests cannot be committed', async () => {
@@ -326,9 +398,11 @@ describe('RunController', () => {
 		await run.resolveImprovements('commit');
 		expect(run.state.status).toBe('improvements');
 		expect(run.state.improvements?.error).toContain('không commit một framework hỏng');
+		expect((await logOf(run)).at(-1)).toMatch(/^pirl Cải tiến chưa xử lý được: Test của framework đang lỗi: không commit một framework hỏng/);
 		expect(git(hub, 'log', '-1', '--format=%s')).not.toContain('Framework improvement');
 		await run.resolveImprovements('discard');
 		expect(run.state.status).toBe('done');
+		expect((await logOf(run)).at(-1)).toBe('pirl Đã bỏ 1 file cải tiến. Xong');
 		expect(git(hub, 'status', '--porcelain')).toBe('');
 	});
 
@@ -485,6 +559,72 @@ describe('RunController', () => {
 		expect(run.state.status).toBe('stopped');
 	});
 
+	test('a Plan run that ends without a Plan and without questions is sent back, then ends with no result', async () => {
+		const {hub, target} = await hubAndTarget();
+		const {runner, calls} = fakeRunner([
+			() => [result('Chưa đủ dữ liệu để lập Plan.' + outputsBlock({plan_set: null, plan_file: null, report: null, record_id: writeRecord(hub, target, 'none')}))],
+			() => [result('Vẫn chưa có Plan.')],
+		]);
+		const run = new RunController({...deps(hub, target, runner), maxRepairs: 1}, 1, 'plan', 'Cập nhật dữ liệu portfolio');
+		await run.start();
+		expect(calls[1]!.prompt).toContain('Run chưa có kết quả: không tìm thấy Plan package nào.');
+		expect(calls[1]!.prompt).toContain('kết thúc bằng khối pirl-questions để hỏi');
+		expect(run.state.checks.validator).toEqual({state: 'fail', detail: 'Run kết thúc mà không có Plan package và không hỏi bạn câu nào.'});
+		expect(run.state.status).toBe('failed');
+		expect(run.state.error).toBe('Run kết thúc mà không có Plan package và không hỏi bạn câu nào.');
+		expect(resumable(run.persisted())).toBe(true);
+		const log = await logOf(run);
+		expect(log).toContain('pirl Validator: FAIL (Run kết thúc mà không có Plan package và không hỏi bạn câu nào.)');
+		expect(log).toContain('pirl Gửi coordinator sửa (lần 1)');
+		expect(log.at(-1)).toBe('pirl Không có kết quả');
+	});
+
+	test('a repair that produces the missing Plan ends the run done', async () => {
+		const {hub, target} = await hubAndTarget();
+		const {runner} = fakeRunner([
+			() => [result('Chưa có Plan.')],
+			() => {
+				const {planSet} = writePlan(hub, target);
+				const recordId = writeRecord(hub, target, planSet);
+				return [result('Plan đã sẵn sàng.' + outputsBlock({plan_set: planSet, plan_file: null, report: null, record_id: recordId}))];
+			},
+		]);
+		const run = new RunController(deps(hub, target, runner), 1, 'plan', 'Email');
+		await run.start();
+		expect(run.state.checks.validator).toMatchObject({state: 'pass'});
+		expect(run.state.status).toBe('done');
+		expect(run.state.error).toBeNull();
+	});
+
+	test('stop() while the results are checked: the run stays stopped and asks nothing about improvements', async () => {
+		const {hub, target} = await hubAndTarget();
+		const {runner} = fakeRunner([
+			() => {
+				const {planSet} = writePlan(hub, target);
+				const recordId = writeRecord(hub, target, planSet);
+				appendFileSync(join(hub, '.agents/roles/code-analyst.role.md'), '\n- Check every caller.\n');
+				return [result('Xong.' + outputsBlock({plan_set: planSet, plan_file: null, report: null, record_id: recordId}))];
+			},
+		]);
+		const run = new RunController(deps(hub, target, runner), 1, 'plan', 'Email');
+		// Stopped while the framework's tests run on the improvements.
+		run.subscribe(state => state.status === 'checking' && state.activity !== null && run.stop());
+		await run.start();
+		expect(run.state.status).toBe('stopped');
+		expect(run.state.improvements).toBeNull();
+	});
+
+	test('a run resumed with what the user typed sends it as the first message and logs it', async () => {
+		const {hub, target} = await hubAndTarget();
+		const logDir = tempDir();
+		const {runner, calls} = fakeRunner([() => [result('Đã chạy tiếp.', 's-1')]]);
+		const run = new RunController({...deps(hub, target, runner), logDir}, 2, 'plan', 'Email huỷ đơn', {sessionId: 's-1', status: 'stopped', prompt: 'thêm email cho admin'});
+		await run.start();
+		expect(calls[0]!.prompt).toBe('thêm email cho admin');
+		expect(calls[0]!.resumeSessionId).toBe('s-1');
+		expect(readFileSync(run.state.logFile!, 'utf8')).toContain('Yêu cầu khi chạy tiếp: thêm email cho admin');
+	});
+
 	test('the log file has every entry, the run its duration, and a refusal reported twice counts once', async () => {
 		const {hub, target} = await hubAndTarget();
 		const logDir = tempDir();
@@ -505,7 +645,9 @@ describe('RunController', () => {
 		await run.start();
 		expect(run.state.denials).toEqual(['Chạy mkdir -p /tmp/x']);
 		expect(run.state.lastAt).toBe(250_000);
-		await new Promise(resolve => setTimeout(resolve, 50));
+		// The log stream flushes after the run ends; a busy runner can take longer than a fixed wait, so wait for the last line.
+		const end = Date.now() + 10_000;
+		while (!/pirl\s+Xong\n$/.test(readFileSync(run.state.logFile!, 'utf8')) && Date.now() < end) await new Promise(resolve => setTimeout(resolve, 20));
 		const file = readFileSync(run.state.logFile!, 'utf8').trim().split('\n');
 		expect(file.length).toBeGreaterThan(250);
 		expect(file[0]).toMatch(/^00:00 pirl\s+Bắt đầu Chat: Hỏi$/);
