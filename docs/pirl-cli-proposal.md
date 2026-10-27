@@ -1,26 +1,22 @@
 # Đề xuất: biến PIRL framework thành PIRL CLI
 
-Trạng thái: giai đoạn 0, 1, 2 (pilot Claude Code) đã triển khai, xem mục 14. Cập nhật: 2026-10-24 (lần 6).
+Trạng thái:
+giai đoạn 0, 1, 2 (pilot Claude Code) đã triển khai, xem mục 14.
+Cập nhật:
+2026-10-24 (lần 6).
 
 ## 1. Kết luận
 
-PIRL CLI là một ứng dụng TUI viết bằng TypeScript + Ink, cài trên máy từng
-người dùng. Người dùng mở terminal (PowerShell, Git Bash, Terminal…) tại thư
-mục project, gõ `pirl`, và làm việc trong một khung chat:
+PIRL CLI là một ứng dụng TUI viết bằng TypeScript + Ink, cài trên máy từng người dùng.
+Người dùng mở terminal (PowerShell, Git Bash, Terminal…) tại thư mục project, gõ `pirl`, và làm việc trong một khung chat:
 
-- `/pirl-plan <request>`, `/pirl-implement <request>`, `/pirl-review <request>`
-  chạy layer tương ứng của PIRL framework.
-- Nhập request không có dấu `/` là câu hỏi, standalone task hoặc bảo trì
-  framework.
+- `/pirl-plan <request>`, `/pirl-implement <request>`, `/pirl-review <request>` chạy layer tương ứng của PIRL framework.
+- Nhập request không có dấu `/` là câu hỏi, standalone task hoặc bảo trì framework.
 
-PIRL CLI **điều khiển các agent CLI chính chủ** mà người dùng đã cài và tự đăng
-nhập bằng subscription của họ. Bản pilot dùng Claude Code. PIRL CLI **không**
-tự làm màn hình đăng nhập, không đọc hay lưu token subscription, không gọi API
-thay người dùng bằng token đó. Anthropic cấm bên thứ ba đưa "Claude.ai login"
-vào ứng dụng của mình và cấm trung chuyển credential gói Free/Pro/Max, nhưng
-cho phép người dùng cuối tự đăng nhập vào binary Claude Code không sửa đổi
-bằng subscription của chính họ
-([Legal and compliance](https://code.claude.com/docs/en/legal-and-compliance)).
+PIRL CLI **điều khiển các agent CLI chính chủ** mà người dùng đã cài và tự đăng nhập bằng subscription của họ.
+Bản pilot dùng Claude Code.
+PIRL CLI **không** tự làm màn hình đăng nhập, không đọc hay lưu token subscription, không gọi API thay người dùng bằng token đó.
+Anthropic cấm bên thứ ba đưa "Claude.ai login" vào ứng dụng của mình và cấm trung chuyển credential gói Free/Pro/Max, nhưng cho phép người dùng cuối tự đăng nhập vào binary Claude Code không sửa đổi bằng subscription của chính họ ([Legal and compliance](https://code.claude.com/docs/en/legal-and-compliance)).
 
 ## 2. Quyết định đã chốt
 
@@ -40,23 +36,23 @@ bằng subscription của chính họ
 Hệ quả của phạm vi dùng cá nhân:
 
 - Không có server, không có tài khoản PIRL, không dùng chung subscription.
-- PIRL CLI không đọc file credential của provider. Kiểm tra đăng nhập bằng
-  lệnh trạng thái của chính provider đó.
+- PIRL CLI không đọc file credential của provider.
+  Kiểm tra đăng nhập bằng lệnh trạng thái của chính provider đó.
 - Plan, report, record và framework đã tự cải tiến chỉ nằm trên máy người dùng.
 - Không dùng tên hay logo "Claude Code" trong tên sản phẩm.
 
 ## 3. Hiện trạng PIRL framework (đã đọc trong repo)
 
-- Framework chạy hoàn toàn bằng file chỉ dẫn: `AGENTS.md`, `CONTEXT.md`,
-  router `.agents/instructions/layered-task-execution.instructions.md`, 3 layer
-  contract, 9 role, 3 skill `pirl-plan|pirl-implement|pirl-review`.
-- Công cụ Python 3.9+: `new_plan.py`, `new_review.py`,
-  `add_implementation_record.py`, `new_layout_run.py`,
-  `validate_layer_artifact.py`, `layer_record.py`. 24 test đều PASS
-  (`python3 -B -m unittest discover -s .agents/evals/tests -p "test_*.py"`).
+- Framework chạy hoàn toàn bằng file chỉ dẫn:
+  `AGENTS.md`, `CONTEXT.md`, router `.agents/instructions/layered-task-execution.instructions.md`, 3 layer contract, 9 role, 3 skill `pirl-plan|pirl-implement|pirl-review`.
+- Công cụ Python 3.9+:
+  `new_plan.py`, `new_review.py`, `add_implementation_record.py`, `new_layout_run.py`, `validate_layer_artifact.py`, `layer_record.py`.
+  24 test đều PASS (`python3 -B -m unittest discover -s .agents/evals/tests -p "test_*.py"`).
 - Framework phụ thuộc vào "host" ở 4 điểm mà CLI làm chắc chắn hơn (mục 4):
-  host tự suy ra layer; sub-agent cho từng role tuỳ host; độc lập giữa role chỉ
-  là lời dặn; các bước quy trình do LLM tự nhớ.
+  host tự suy ra layer;
+  sub-agent cho từng role tuỳ host;
+  độc lập giữa role chỉ là lời dặn;
+  các bước quy trình do LLM tự nhớ.
 
 ## 4. PIRL CLI bổ sung được gì
 
@@ -73,17 +69,22 @@ Hệ quả của phạm vi dùng cá nhân:
 
 ### 5.1. Khởi động khi gõ `pirl`
 
-1. **Xác định target repo.** Lấy thư mục hiện tại; nếu đang ở thư mục con của
-   một git repo thì lấy gốc repo (`git rev-parse --show-toplevel`). Thư mục
-   không phải git repo: TUI vẫn mở, báo rõ trên header, và chỉ cho câu hỏi; các
-   layer bị khoá cho tới khi người dùng mở `pirl` trong một git repo.
-2. **Chuẩn bị Hub.** Lần đầu: tạo `~/.pirl/hub` từ bản framework đóng gói
-   (mục 9.3). Các lần sau: kiểm tra có bản framework gốc mới không; có thì hiện
-   thông báo trên header, không chặn công việc.
-3. **Kiểm tra nhanh.** Provider đã cài và đã đăng nhập chưa, Python, Git. Lỗi
-   thì hiện thông báo kèm cách sửa; chi tiết ở `/doctor`.
+1. **Xác định target repo.** Lấy thư mục hiện tại;
+   nếu đang ở thư mục con của một git repo thì lấy gốc repo (`git rev-parse --show-toplevel`).
+   Thư mục không phải git repo:
+   TUI vẫn mở, báo rõ trên header, và chỉ cho câu hỏi;
+   các layer bị khoá cho tới khi người dùng mở `pirl` trong một git repo.
+2. **Chuẩn bị Hub.** Lần đầu:
+   tạo `~/.pirl/hub` từ bản framework đóng gói (mục 9.3).
+   Các lần sau:
+   kiểm tra có bản framework gốc mới không;
+   có thì hiện thông báo trên header, không chặn công việc.
+3. **Kiểm tra nhanh.** Provider đã cài và đã đăng nhập chưa, Python, Git.
+   Lỗi thì hiện thông báo kèm cách sửa;
+   chi tiết ở `/doctor`.
 4. **Khôi phục phiên.** Có run đang dở của repo này thì gợi ý `/resume`.
-5. Hiện màn hình chat với dòng gợi ý: "Gõ `/` để xem lệnh, hoặc nhập yêu cầu".
+5. Hiện màn hình chat với dòng gợi ý:
+   "Gõ `/` để xem lệnh, hoặc nhập yêu cầu".
 
 ### 5.2. Bố cục màn hình
 
@@ -132,29 +133,33 @@ Hệ quả của phạm vi dùng cá nhân:
 
 Quy tắc thêm:
 
-- Chỉ một run layer chạy tại một thời điểm. Trong lúc run chạy, người dùng vẫn
-  gõ câu hỏi được; standalone task và bảo trì framework phải đợi run xong, vì
-  chúng có thể sửa cùng file.
-- Hội thoại không có `/` giữ ngữ cảnh trong phiên: sau `/pirl-plan`, hỏi
-  "T02 phụ thuộc gì?" thì coordinator trả lời dựa trên Plan vừa tạo.
-- Khi chạy dưới PIRL CLI, cách chọn layer trong `AGENTS.md` cần ghi thêm: layer
-  được chọn bằng slash command. Việc sửa này thuộc giai đoạn pilot.
+- Chỉ một run layer chạy tại một thời điểm.
+  Trong lúc run chạy, người dùng vẫn gõ câu hỏi được;
+  standalone task và bảo trì framework phải đợi run xong, vì chúng có thể sửa cùng file.
+- Hội thoại không có `/` giữ ngữ cảnh trong phiên:
+  sau `/pirl-plan`, hỏi "T02 phụ thuộc gì?" thì coordinator trả lời dựa trên Plan vừa tạo.
+- Khi chạy dưới PIRL CLI, cách chọn layer trong `AGENTS.md` cần ghi thêm:
+  layer được chọn bằng slash command.
+  Việc sửa này thuộc giai đoạn pilot.
 
 ### 5.4. Run block
 
 Mỗi lần chạy layer tạo một khối trong khung chat, đi qua các trạng thái:
 
-1. **Đang chạy:** danh sách role và trạng thái từng role; dòng hoạt động mới
-   nhất của role đang chọn; Tab mở log đầy đủ.
-2. **Cần quyết định:** câu hỏi của role, kèm các lựa chọn và lựa chọn được
-   khuyến nghị. Phần phụ thuộc dừng; phần độc lập vẫn chạy.
-3. **Kết quả:** file đã tạo hoặc sửa, kết quả validator, kết luận
-   (`PASS|FAIL|BLOCKED` với Review), bước tiếp theo gợi ý dưới dạng lệnh để
-   người dùng tự gõ (không tự chạy).
-4. **Tự cải tiến:** danh sách file framework đã sửa; Enter mở diff; câu hỏi
-   "Commit cải tiến này vào Hub? [Có] [Không] [Bỏ cải tiến]" (mục 9.4).
+1. **Đang chạy:** danh sách role và trạng thái từng role;
+   dòng hoạt động mới nhất của role đang chọn;
+   Tab mở log đầy đủ.
+2. **Cần quyết định:** câu hỏi của role, kèm các lựa chọn và lựa chọn được khuyến nghị.
+   Phần phụ thuộc dừng;
+   phần độc lập vẫn chạy.
+3. **Kết quả:** file đã tạo hoặc sửa, kết quả validator, kết luận (`PASS|FAIL|BLOCKED` với Review), bước tiếp theo gợi ý dưới dạng lệnh để người dùng tự gõ (không tự chạy).
+4. **Tự cải tiến:** danh sách file framework đã sửa;
+   Enter mở diff;
+   câu hỏi "Commit cải tiến này vào Hub?
+   [Có] [Không] [Bỏ cải tiến]" (mục 9.4).
 
-Esc dừng run: CLI dừng các tiến trình role, giữ trạng thái để `/resume`.
+Esc dừng run:
+CLI dừng các tiến trình role, giữ trạng thái để `/resume`.
 
 ### 5.5. Kiến trúc thành phần
 
@@ -171,14 +176,13 @@ Esc dừng run: CLI dừng các tiến trình role, giữ trạng thái để `/
  Providers (claude, …)        Hub (git, framework update)      Tools (script Python của framework)
 ```
 
-- **Engine phát sự kiện**, UI chỉ hiển thị: `run.started`, `role.started`,
-  `role.output`, `role.question`, `role.finished`, `validator.result`,
-  `audit.result`, `run.finished`. Nhờ đó engine chạy và test được không cần
-  UI, dùng provider giả lập.
-- **CommandRegistry:** mỗi lệnh khai báo tên, mô tả, có nhận request không, và
-  hàm xử lý. Danh sách gợi ý khi gõ `/` sinh từ registry.
-- **Test UI:** `ink-testing-library` cho từng component; kịch bản đầu-cuối
-  chạy engine với provider giả lập.
+- **Engine phát sự kiện**, UI chỉ hiển thị:
+  `run.started`, `role.started`, `role.output`, `role.question`, `role.finished`, `validator.result`, `audit.result`, `run.finished`.
+  Nhờ đó engine chạy và test được không cần UI, dùng provider giả lập.
+- **CommandRegistry:** mỗi lệnh khai báo tên, mô tả, có nhận request không, và hàm xử lý.
+  Danh sách gợi ý khi gõ `/` sinh từ registry.
+- **Test UI:** `ink-testing-library` cho từng component;
+  kịch bản đầu-cuối chạy engine với provider giả lập.
 
 ### 5.6. Dữ liệu lưu trên máy
 
@@ -195,8 +199,8 @@ Trên Windows, `~` là `%USERPROFILE%`.
 #### Hệ thống thiết kế
 
 Mọi màu, ký hiệu và khoảng cách lấy từ một bộ token duy nhất (`ui/theme`);
-component không ghi mã màu trực tiếp. Nhờ vậy giao diện nhất quán và đổi
-theme chỉ cần đổi token.
+component không ghi mã màu trực tiếp.
+Nhờ vậy giao diện nhất quán và đổi theme chỉ cần đổi token.
 
 | Token | Dùng cho | Ghi chú |
 | --- | --- | --- |
@@ -208,12 +212,15 @@ theme chỉ cần đổi token.
 
 Nguyên tắc trình bày:
 
-- Thứ bậc bằng độ đậm và màu, không bằng nhiều đường viền: chỉ run block và
-  lớp phủ có viền; tin nhắn chat không có viền.
-- Khoảng cách theo lưới 1 ký tự: lề trong 1, cách giữa các khối 1 dòng trống.
-- Nội dung markdown trong câu trả lời (tiêu đề, danh sách, bảng, khối code)
-  được hiển thị có định dạng, khối code có tô màu cú pháp.
-- Chuyển động tiết chế: chỉ spinner của role đang chạy; không nhấp nháy.
+- Thứ bậc bằng độ đậm và màu, không bằng nhiều đường viền:
+  chỉ run block và lớp phủ có viền;
+  tin nhắn chat không có viền.
+- Khoảng cách theo lưới 1 ký tự:
+  lề trong 1, cách giữa các khối 1 dòng trống.
+- Nội dung markdown trong câu trả lời (tiêu đề, danh sách, bảng, khối code) được hiển thị có định dạng, khối code có tô màu cú pháp.
+- Chuyển động tiết chế:
+  chỉ spinner của role đang chạy;
+  không nhấp nháy.
 
 Thích ứng với terminal:
 
@@ -227,9 +234,8 @@ Thích ứng với terminal:
 
 #### Co giãn theo kích cỡ
 
-Bố cục chọn theo số cột và số dòng hiện tại của terminal. Khi người dùng kéo
-cửa sổ, TUI nghe sự kiện resize của terminal và vẽ lại ngay theo bố cục mới,
-không mất nội dung, không mất trạng thái nhập.
+Bố cục chọn theo số cột và số dòng hiện tại của terminal.
+Khi người dùng kéo cửa sổ, TUI nghe sự kiện resize của terminal và vẽ lại ngay theo bố cục mới, không mất nội dung, không mất trạng thái nhập.
 
 | Mức | Số cột | Bố cục |
 | --- | --- | --- |
@@ -256,22 +262,21 @@ Quy tắc cho từng loại nội dung:
 
 #### Hiệu năng hiển thị
 
-- TUI chạy ở màn hình phụ của terminal (alternate screen, như vim, htop) và tự
-  dàn trang: nội dung chat được dàn thành từng dòng theo chiều rộng hiện tại,
-  chỉ những dòng vừa khung được vẽ. Nhờ vậy khi đổi kích cỡ, toàn bộ nội dung
-  được dàn lại theo bố cục mới; cuộn bằng PgUp/PgDn. (Ban đầu đề xuất dùng
-  thành phần `Static` của Ink; `Static` in nội dung ra một lần nên không dàn lại
-  được khi đổi kích cỡ, vì vậy không dùng.)
-- Ink vẽ lại tối đa 30 lần mỗi giây; output của role sẽ được gom theo nhịp này.
+- TUI chạy ở màn hình phụ của terminal (alternate screen, như vim, htop) và tự dàn trang:
+  nội dung chat được dàn thành từng dòng theo chiều rộng hiện tại, chỉ những dòng vừa khung được vẽ.
+  Nhờ vậy khi đổi kích cỡ, toàn bộ nội dung được dàn lại theo bố cục mới;
+  cuộn bằng PgUp/PgDn.
+  (Ban đầu đề xuất dùng thành phần `Static` của Ink; `Static` in nội dung ra một lần nên không dàn lại được khi đổi kích cỡ, vì vậy không dùng.)
+- Ink vẽ lại tối đa 30 lần mỗi giây;
+  output của role sẽ được gom theo nhịp này.
 
 #### Kiểm chứng giao diện
 
-- Test chụp ảnh văn bản (snapshot) của mỗi màn hình ở các chiều rộng 40, 60,
-  80, 120, 160 cột và chiều cao 15, 24, 40 dòng, bằng `ink-testing-library`.
-- Test thay đổi kích cỡ giữa lúc run đang chạy: nội dung và trạng thái nhập
-  không mất.
-- Chạy thử bằng tay trên Windows Terminal, PowerShell, Git Bash, Terminal và
-  iTerm2 trên macOS, một terminal Linux; mỗi nơi thử nền sáng và nền tối.
+- Test chụp ảnh văn bản (snapshot) của mỗi màn hình ở các chiều rộng 40, 60, 80, 120, 160 cột và chiều cao 15, 24, 40 dòng, bằng `ink-testing-library`.
+- Test thay đổi kích cỡ giữa lúc run đang chạy:
+  nội dung và trạng thái nhập không mất.
+- Chạy thử bằng tay trên Windows Terminal, PowerShell, Git Bash, Terminal và iTerm2 trên macOS, một terminal Linux;
+  mỗi nơi thử nền sáng và nền tối.
 
 ## 6. Danh sách lệnh (đã xác nhận)
 
@@ -300,9 +305,9 @@ Lệnh gõ trong TUI:
 | Phiên | `/help` | Danh sách lệnh và phím tắt |
 | Phiên | `/exit` | Thoát TUI |
 
-Không có lệnh riêng cho commit/push trong target repo: người dùng yêu cầu bằng
-lời (không có `/`), đúng quy tắc "chỉ commit khi người dùng yêu cầu" của
-framework. Commit cải tiến framework được hỏi ở cuối mỗi run (mục 9.4).
+Không có lệnh riêng cho commit/push trong target repo:
+người dùng yêu cầu bằng lời (không có `/`), đúng quy tắc "chỉ commit khi người dùng yêu cầu" của framework.
+Commit cải tiến framework được hỏi ở cuối mỗi run (mục 9.4).
 
 ## 7. Kiến trúc tổng
 
@@ -336,30 +341,28 @@ capabilities  có chặn quyền theo đường dẫn không, có JSON output kh
 ```
 
 Cờ Claude Code cho pilot (kiểm tra lại theo phiên bản khi viết adapter):
-`claude -p`, `--output-format stream-json`, `--append-system-prompt`,
-`--allowedTools`/`--disallowedTools` (có quy tắc theo đường dẫn, ví dụ dạng
-`Edit(src/**)`), `--permission-mode`, `--add-dir`, `--model`, `--resume`.
+`claude -p`, `--output-format stream-json`, `--append-system-prompt`, `--allowedTools`/`--disallowedTools` (có quy tắc theo đường dẫn, ví dụ dạng `Edit(src/**)`), `--permission-mode`, `--add-dir`, `--model`, `--resume`.
 
 Ghi chú cho giai đoạn sau:
 
-- Codex: `codex exec --json --sandbox read-only|workspace-write --cd <dir>`;
-  đăng nhập ChatGPT Plus/Pro/Team dùng được cho `codex exec`
-  ([Codex auth](https://developers.openai.com/codex/auth)).
-- Gemini CLI: `gemini -p`; tài liệu chính thức khuyên dùng API key hoặc Vertex
-  AI cho chế độ headless
-  ([Gemini CLI auth](https://www.geminicli.com/docs/get-started/authentication)).
-- Copilot CLI: `copilot -p`; mỗi prompt tiêu tốn premium request
-  ([Copilot CLI programmatic](https://docs.github.com/en/copilot/how-tos/copilot-cli/automate-copilot-cli/run-cli-programmatically)).
-- Agent Client Protocol (ACP) có SDK TypeScript chính thức
-  `@agentclientprotocol/sdk`
-  ([ACP TypeScript library](https://agentclientprotocol.com/libraries/typescript));
-  interface trên được thiết kế để thay phần gọi headless bằng ACP sau này mà
-  engine không đổi.
+- Codex:
+  `codex exec --json --sandbox read-only|workspace-write --cd <dir>`;
+  đăng nhập ChatGPT Plus/Pro/Team dùng được cho `codex exec` ([Codex auth](https://developers.openai.com/codex/auth)).
+- Gemini CLI:
+  `gemini -p`;
+  tài liệu chính thức khuyên dùng API key hoặc Vertex AI cho chế độ headless ([Gemini CLI auth](https://www.geminicli.com/docs/get-started/authentication)).
+- Copilot CLI:
+  `copilot -p`;
+  mỗi prompt tiêu tốn premium request ([Copilot CLI programmatic](https://docs.github.com/en/copilot/how-tos/copilot-cli/automate-copilot-cli/run-cli-programmatically)).
+- Agent Client Protocol (ACP) có SDK TypeScript chính thức `@agentclientprotocol/sdk` ([ACP TypeScript library](https://agentclientprotocol.com/libraries/typescript));
+  interface trên được thiết kế để thay phần gọi headless bằng ACP sau này mà engine không đổi.
 
 ### 7.2. Quyền theo role và layer
 
-Ký hiệu: **Target** là target repo; **Hub** là Hub của người dùng; **Allowed
-paths** là danh sách đường dẫn được phép trong task của Plan.
+Ký hiệu:
+**Target** là target repo;
+**Hub** là Hub của người dùng;
+**Allowed paths** là danh sách đường dẫn được phép trong task của Plan.
 
 | Layer | Role | Loại | Đọc | Ghi | Chạy lệnh |
 | --- | --- | --- | --- | --- | --- |
@@ -388,12 +391,11 @@ paths** là danh sách đường dẫn được phép trong task của Plan.
 Cách cưỡng chế:
 
 - Quyền của từng dòng được dịch thành cờ quyền của provider khi gọi role đó.
-- Sau khi role thực hiện xong, CLI chạy `git diff --name-only` trong target
-  repo và so với Allowed paths; file ngoài danh sách thì dừng và hỏi người dùng.
-- Role kiểm chứng và role review không được đọc bản nháp của coordinator hay
-  role khác trong cùng run: CLI không truyền và chặn đọc các đường dẫn đó.
-- Provider nào không cưỡng chế được một quyền thì TUI cảnh báo và CLI ghi mức
-  độc lập thực tế vào output, đúng quy tắc sẵn có của router.
+- Sau khi role thực hiện xong, CLI chạy `git diff --name-only` trong target repo và so với Allowed paths;
+  file ngoài danh sách thì dừng và hỏi người dùng.
+- Role kiểm chứng và role review không được đọc bản nháp của coordinator hay role khác trong cùng run:
+  CLI không truyền và chặn đọc các đường dẫn đó.
+- Provider nào không cưỡng chế được một quyền thì TUI cảnh báo và CLI ghi mức độc lập thực tế vào output, đúng quy tắc sẵn có của router.
 
 ### 7.3. Engine: phần nào là code, phần nào là LLM
 
@@ -416,57 +418,57 @@ Cách cưỡng chế:
 
 ## 8. Ngôn ngữ cài đặt (đã chốt TypeScript + Ink)
 
-Lý do: đây là bộ công nghệ mà Claude Code và Gemini CLI dùng cho cùng loại giao
-diện (luồng output của agent, câu hỏi giữa chừng, duyệt quyền), và là ngôn ngữ
-có cả SDK ACP chính thức lẫn Agent SDK của Anthropic cho các giai đoạn sau.
+Lý do:
+đây là bộ công nghệ mà Claude Code và Gemini CLI dùng cho cùng loại giao diện (luồng output của agent, câu hỏi giữa chừng, duyệt quyền), và là ngôn ngữ có cả SDK ACP chính thức lẫn Agent SDK của Anthropic cho các giai đoạn sau.
 
-Các script Python của framework **giữ nguyên là Python**, vì
-`process-auditor` được phép sửa chúng (`FRAMEWORK_PATHS` trong
-`layer_record.py` gồm `.agents/evals` và `.skills`). CLI gọi chúng như tiến
-trình con. Yêu cầu cài đặt: Node.js 22+ (Ink 7 yêu cầu Node 22), Python
-3.9+, Git, và provider AI của người dùng.
+Các script Python của framework **giữ nguyên là Python**, vì `process-auditor` được phép sửa chúng (`FRAMEWORK_PATHS` trong `layer_record.py` gồm `.agents/evals` và `.skills`).
+CLI gọi chúng như tiến trình con.
+Yêu cầu cài đặt:
+Node.js 22+ (Ink 7 yêu cầu Node 22), Python 3.9+, Git, và provider AI của người dùng.
 
-Nguồn về bộ công nghệ của các agent CLI là bài viết bên thứ ba
-([so sánh Gemini CLI và Codex CLI](https://blog.logrocket.com/gemini-cli-vs-codex-cli/),
-[danh sách dự án dùng Ink](https://www.libhunt.com/r/ink)).
+Nguồn về bộ công nghệ của các agent CLI là bài viết bên thứ ba ([so sánh Gemini CLI và Codex CLI](https://blog.logrocket.com/gemini-cli-vs-codex-cli/), [danh sách dự án dùng Ink](https://www.libhunt.com/r/ink)).
 
 ## 9. Framework tự cải tiến và cập nhật (đã chốt phương án A)
 
 ### 9.1. Nguyên tắc
 
-1. Bản cập nhật CLI không bao giờ ghi vào Hub. Chỉ người dùng, qua
-   `/framework`, mới đưa bản framework gốc mới vào Hub.
-2. Framework đang dùng (nhánh `main`) không bao giờ ở trạng thái hỏng: mọi
-   thao tác cập nhật làm trên bản nháp, kiểm tra xong mới áp dụng.
-3. Không bao giờ chặn công việc: có bản mới chỉ hiện thông báo; người dùng cập
-   nhật khi muốn.
-4. Phần nào máy tự quyết được an toàn thì tự quyết; phần cần người quyết thì
-   giải thích bằng lời và đưa lựa chọn khuyến nghị.
+1. Bản cập nhật CLI không bao giờ ghi vào Hub.
+   Chỉ người dùng, qua `/framework`, mới đưa bản framework gốc mới vào Hub.
+2. Framework đang dùng (nhánh `main`) không bao giờ ở trạng thái hỏng:
+   mọi thao tác cập nhật làm trên bản nháp, kiểm tra xong mới áp dụng.
+3. Không bao giờ chặn công việc:
+   có bản mới chỉ hiện thông báo;
+   người dùng cập nhật khi muốn.
+4. Phần nào máy tự quyết được an toàn thì tự quyết;
+   phần cần người quyết thì giải thích bằng lời và đưa lựa chọn khuyến nghị.
 5. Không thay đổi nào nới lỏng safety rule mà người dùng không duyệt.
 
 ### 9.2. Vận hành qua một ví dụ
 
 1. Người dùng cài PIRL CLI 1.0 (kèm framework `fw-1.0`), gõ `pirl` lần đầu.
    CLI tạo Hub với nhánh `upstream` = `fw-1.0` và nhánh `main` = `fw-1.0`.
-2. Sau vài run, `process-auditor` sửa 2 chỗ: một rule trong
-   `implement.instructions.md` và một câu trong `code-analyst.role.md`. Cuối
-   mỗi run người dùng chọn "Có", nên `main` có thêm 2 commit cải tiến.
-3. Người dùng cập nhật CLI lên 1.1 (kèm `fw-1.1`). Lần sau gõ `pirl`, header
-   hiện "Có bản framework mới". Công việc vẫn chạy bình thường trên `main`.
-4. Người dùng mở `/framework` → "Cập nhật". CLI làm trên bản nháp:
+2. Sau vài run, `process-auditor` sửa 2 chỗ:
+   một rule trong `implement.instructions.md` và một câu trong `code-analyst.role.md`.
+   Cuối mỗi run người dùng chọn "Có", nên `main` có thêm 2 commit cải tiến.
+3. Người dùng cập nhật CLI lên 1.1 (kèm `fw-1.1`).
+   Lần sau gõ `pirl`, header hiện "Có bản framework mới".
+   Công việc vẫn chạy bình thường trên `main`.
+4. Người dùng mở `/framework` → "Cập nhật".
+   CLI làm trên bản nháp:
    - commit `fw-1.1` lên `upstream`;
    - tạo nhánh tạm từ `main` và merge `upstream` vào đó;
-   - kết quả: `fw-1.1` sửa 10 file. 9 file không đụng chỗ người dùng sửa nên
-     nhận tự động. `code-analyst.role.md` bị cả hai bên sửa cùng đoạn: xung đột.
-5. TUI hiện xung đột với 3 cột (bản gốc cũ, bản của bạn, bản gốc mới) và lời
-   giải thích: bản gốc mới đổi gì (lấy từ changelog), bản của bạn đổi gì và vì
-   sao (lấy từ record của cải tiến đó), kèm lựa chọn khuyến nghị: giữ bản của
-   bạn, lấy bản gốc mới, hoặc bản gộp do agent đề xuất.
-6. Sau khi chọn, CLI chạy test framework và validator trên bản nháp. PASS thì
-   chuyển `main` sang bản nháp và gắn mốc `pre-update/fw-1.1` ở vị trí cũ để
-   hoàn tác. FAIL thì bỏ bản nháp, `main` giữ nguyên, TUI báo lỗi.
-7. Nếu sau đó framework mới chạy tệ hơn, `/framework` → "Hoàn tác lần cập nhật
-   gần nhất" đưa `main` về mốc `pre-update/fw-1.1`.
+   - kết quả:
+     `fw-1.1` sửa 10 file.
+     9 file không đụng chỗ người dùng sửa nên nhận tự động.
+     `code-analyst.role.md` bị cả hai bên sửa cùng đoạn:
+     xung đột.
+5. TUI hiện xung đột với 3 cột (bản gốc cũ, bản của bạn, bản gốc mới) và lời giải thích:
+   bản gốc mới đổi gì (lấy từ changelog), bản của bạn đổi gì và vì sao (lấy từ record của cải tiến đó), kèm lựa chọn khuyến nghị:
+   giữ bản của bạn, lấy bản gốc mới, hoặc bản gộp do agent đề xuất.
+6. Sau khi chọn, CLI chạy test framework và validator trên bản nháp.
+   PASS thì chuyển `main` sang bản nháp và gắn mốc `pre-update/fw-1.1` ở vị trí cũ để hoàn tác.
+   FAIL thì bỏ bản nháp, `main` giữ nguyên, TUI báo lỗi.
+7. Nếu sau đó framework mới chạy tệ hơn, `/framework` → "Hoàn tác lần cập nhật gần nhất" đưa `main` về mốc `pre-update/fw-1.1`.
 
 ### 9.3. Cấu trúc Hub
 
@@ -480,9 +482,8 @@ Nguồn về bộ công nghệ của các agent CLI là bài viết bên thứ b
 ```
 
 Mỗi commit cải tiến có trailer để truy nguồn:
-`Pirl-Record: <record_id>` và `Pirl-Source: auditor|manual`. TUI dùng trailer
-này để giải thích xung đột (bước 5 ở mục 9.2) và để liệt kê lịch sử cải tiến
-trong `/framework`.
+`Pirl-Record: <record_id>` và `Pirl-Source: auditor|manual`.
+TUI dùng trailer này để giải thích xung đột (bước 5 ở mục 9.2) và để liệt kê lịch sử cải tiến trong `/framework`.
 
 ### 9.4. Các quyết định về chất lượng và tiện dụng
 
@@ -500,36 +501,30 @@ trong `/framework`.
 ## 10. Xuất patch cải tiến: quyết định không làm
 
 PIRL CLI **không** có lệnh xuất patch cải tiến, cả ở pilot lẫn bản chính thức.
-Lý do: bản đánh giá trước đó tìm ra 10 rủi ro, nặng nhất là lộ thông tin dự án
-hoặc bí mật trong rule do `process-auditor` viết (gửi rồi thì không thu hồi
-được), lộ tên và email trong header của patch, và patch nới lỏng safety rule lan
-sang mọi người dùng nếu bản gốc nhận nó.
+Lý do:
+bản đánh giá trước đó tìm ra 10 rủi ro, nặng nhất là lộ thông tin dự án hoặc bí mật trong rule do `process-auditor` viết (gửi rồi thì không thu hồi được), lộ tên và email trong header của patch, và patch nới lỏng safety rule lan sang mọi người dùng nếu bản gốc nhận nó.
 
 Hệ quả cho thiết kế:
 
-- Cải tiến cục bộ chỉ tồn tại trong Hub trên máy người dùng. CLI không có
-  đường nào gửi nội dung framework, Plan, report hay record ra ngoài.
+- Cải tiến cục bộ chỉ tồn tại trong Hub trên máy người dùng.
+  CLI không có đường nào gửi nội dung framework, Plan, report hay record ra ngoài.
 - Bản framework gốc chỉ thay đổi qua bản phát hành chính thức kèm CLI.
-- Lệch giữa bản cục bộ và bản gốc được giữ trong giới hạn bằng bước đối chiếu
-  sau mỗi lần cập nhật (mục 9.4): cải tiến cục bộ đã thừa được đề xuất bỏ.
-- Trailer `Pirl-Record` và `Pirl-Source` vẫn được giữ, vì chúng phục vụ việc
-  giải thích xung đột và xem lịch sử trong `/framework` (mục 9.3).
+- Lệch giữa bản cục bộ và bản gốc được giữ trong giới hạn bằng bước đối chiếu sau mỗi lần cập nhật (mục 9.4):
+  cải tiến cục bộ đã thừa được đề xuất bỏ.
+- Trailer `Pirl-Record` và `Pirl-Source` vẫn được giữ, vì chúng phục vụ việc giải thích xung đột và xem lịch sử trong `/framework` (mục 9.3).
 
 ## 11. Rủi ro khác
 
-1. **Quota subscription.** Một lần chạy layer = 1 coordinator + N role +
-   process-auditor + các vòng sửa validator, dễ thành 5–15 lần gọi agent.
-   Anthropic ghi rõ giới hạn của gói Pro/Max giả định "mức dùng cá nhân thông
-   thường". Cần giới hạn số role chạy song song, hiển thị usage, dừng an toàn
-   khi gặp rate limit và cho chạy tiếp bằng `/resume`.
-2. **Khác biệt năng lực provider.** Adapter khai báo `capabilities`; thiếu thì
-   TUI cảnh báo và CLI ghi mức độc lập thực tế.
-3. **Câu hỏi giữa chừng.** Pilot phải kiểm chứng `claude --resume` cho phép
-   role nhận câu trả lời rồi làm tiếp.
-4. **Git Bash trên Windows.** Ink cần terminal ở chế độ raw. Cửa sổ Git Bash
-   (mintty) cũ không hỗ trợ đầy đủ chế độ này cho Node.js. Pilot phải chạy thử
-   trên PowerShell, Windows Terminal và Git Bash; nếu Git Bash lỗi thì hướng dẫn
-   mở Git Bash trong Windows Terminal.
+1. **Quota subscription.** Một lần chạy layer = 1 coordinator + N role + process-auditor + các vòng sửa validator, dễ thành 5–15 lần gọi agent.
+   Anthropic ghi rõ giới hạn của gói Pro/Max giả định "mức dùng cá nhân thông thường".
+   Cần giới hạn số role chạy song song, hiển thị usage, dừng an toàn khi gặp rate limit và cho chạy tiếp bằng `/resume`.
+2. **Khác biệt năng lực provider.** Adapter khai báo `capabilities`;
+   thiếu thì TUI cảnh báo và CLI ghi mức độc lập thực tế.
+3. **Câu hỏi giữa chừng.** Pilot phải kiểm chứng `claude --resume` cho phép role nhận câu trả lời rồi làm tiếp.
+4. **Git Bash trên Windows.** Ink cần terminal ở chế độ raw.
+   Cửa sổ Git Bash (mintty) cũ không hỗ trợ đầy đủ chế độ này cho Node.js.
+   Pilot phải chạy thử trên PowerShell, Windows Terminal và Git Bash;
+   nếu Git Bash lỗi thì hướng dẫn mở Git Bash trong Windows Terminal.
 
 ## 12. Lộ trình
 
@@ -544,9 +539,9 @@ Hệ quả cho thiết kế:
 
 ## 13. Đã thực hiện: bỏ múi giờ cố định UTC+7
 
-UTC+7 không chỉ nằm ở `new_plan.py` và `layer_record.py`. Validator bắt buộc
-mọi mốc thời gian phải là `+07:00`, nên nếu chỉ sửa hai file đó, Plan tạo trên
-máy ở múi giờ khác sẽ bị validator từ chối. Vì vậy đã sửa đồng bộ:
+UTC+7 không chỉ nằm ở `new_plan.py` và `layer_record.py`.
+Validator bắt buộc mọi mốc thời gian phải là `+07:00`, nên nếu chỉ sửa hai file đó, Plan tạo trên máy ở múi giờ khác sẽ bị validator từ chối.
+Vì vậy đã sửa đồng bộ:
 
 | File | Thay đổi |
 | --- | --- |
@@ -556,9 +551,9 @@ máy ở múi giờ khác sẽ bị validator từ chối. Vì vậy đã sửa 
 | `plan-format.md`, `review-format.md`, `implementation-record-format.md` | Mô tả mới về múi giờ |
 | Test | Sửa 1 test; thêm 2 test: validator nhận mọi độ lệch và từ chối mốc không có độ lệch; `check` xếp record theo thời điểm khi độ lệch khác nhau |
 
-Kiểm chứng: 24/24 test PASS, cả khi đặt múi giờ máy là `America/New_York`.
-Test mới về thứ tự record FAIL khi tạm đưa code về cách so chuỗi cũ, nên test
-bắt được đúng lỗi đó.
+Kiểm chứng:
+24/24 test PASS, cả khi đặt múi giờ máy là `America/New_York`.
+Test mới về thứ tự record FAIL khi tạm đưa code về cách so chuỗi cũ, nên test bắt được đúng lỗi đó.
 
 ## 14. Trạng thái triển khai
 
@@ -598,12 +593,17 @@ bắt được đúng lỗi đó.
 | Giao diện | Run block trong khung chat; bảng "Phiên làm việc" hiện role đang chạy; 6 bảng màu trong `/settings` |
 | Kiểm chứng | 130 test Vitest pass (engine với Hub thật và provider giả lập, luồng run trong TUI, phím, clipboard). Đối chiếu tham số với Claude Code 2.1.309 thật. Chạy thật một lượt chat và một lượt `/pirl-plan` qua adapter: hai role chạy bằng subagent, Plan qua validator, record được ghi, trả lời bằng tiếng Việt |
 
-Kết quả lượt `/pirl-plan` thật trên repo demo một file: khoảng 6 phút. Số đếm lúc đó là 585 nghìn token
-đầu vào (phần lớn đọc từ cache) và 6 nghìn token đầu ra, nhưng chỉ tính coordinator (xem 14.5). Hai lần chạy đầu lộ ra 4 lỗi tích hợp, đã sửa: coordinator ghi
-file tạm ra `/tmp` và dùng heredoc (bị chặn); xin người dùng cấp quyền; trả lời bằng tiếng Anh; gọi
-`ScheduleWakeup` làm `claude -p` không kết thúc.
+Kết quả lượt `/pirl-plan` thật trên repo demo một file:
+khoảng 6 phút.
+Số đếm lúc đó là 585 nghìn token đầu vào (phần lớn đọc từ cache) và 6 nghìn token đầu ra, nhưng chỉ tính coordinator (xem 14.5).
+Hai lần chạy đầu lộ ra 4 lỗi tích hợp, đã sửa:
+coordinator ghi file tạm ra `/tmp` và dùng heredoc (bị chặn);
+xin người dùng cấp quyền;
+trả lời bằng tiếng Anh;
+gọi `ScheduleWakeup` làm `claude -p` không kết thúc.
 
-Chưa chạy thật: `/pirl-implement`, `/pirl-review` (cùng cơ chế với Plan, đã có test với provider giả lập);
+Chưa chạy thật:
+`/pirl-implement`, `/pirl-review` (cùng cơ chế với Plan, đã có test với provider giả lập);
 Windows, macOS.
 
 ### 14.4. Khác với đề xuất (giai đoạn 1–2)
@@ -619,9 +619,12 @@ Windows, macOS.
 ### 14.5. Theo dõi run, token và model
 
 **Theo dõi run.**
-- Spinner và đồng hồ: chạy 5 khung hình/giây, và chỉ ô spinner được vẽ lại.
-- Nhật ký run: giữ 200 dòng trong bộ nhớ và ghi toàn bộ ra file trong `~/.pirl/logs/`.
-- Lệnh bị chặn: hiện đúng lệnh bị chặn (trước đây chỉ hiện "Bash") và mỗi lệnh chỉ đếm một lần.
+- Spinner và đồng hồ:
+  chạy 5 khung hình/giây, và chỉ ô spinner được vẽ lại.
+- Nhật ký run:
+  giữ 200 dòng trong bộ nhớ và ghi toàn bộ ra file trong `~/.pirl/logs/`.
+- Lệnh bị chặn:
+  hiện đúng lệnh bị chặn (trước đây chỉ hiện "Bash") và mỗi lệnh chỉ đếm một lần.
 
 **Hiệu năng.** Đo trên PTY thật, khi run đang chạy và không có sự kiện mới:
 
@@ -646,62 +649,69 @@ Mức giảm đến từ bốn thay đổi:
 | Tổng quy đổi | | ≈ $0,49 |
 
 - Bản trước chỉ đếm token của coordinator và cộng token đọc cache vào token đầu vào, nên con số trông rất lớn.
-- Stream của Claude Code báo thiếu token ra, và thiếu một số request của role. Vì vậy CLI chỉ dùng số đếm từ
-  stream để hiển thị trong lúc chạy. Khi lượt gọi kết thúc, CLI thay bằng `modelUsage` của kết quả, có tính
-  đến việc session resume cộng dồn tổng của các lượt trước.
-- Hạn mức 5 giờ và tuần lấy từ `rate_limit_event` trong stream, cùng `/usage` đọc trước run (lệnh này không
-  gọi model).
+- Stream của Claude Code báo thiếu token ra, và thiếu một số request của role.
+  Vì vậy CLI chỉ dùng số đếm từ stream để hiển thị trong lúc chạy.
+  Khi lượt gọi kết thúc, CLI thay bằng `modelUsage` của kết quả, có tính đến việc session resume cộng dồn tổng của các lượt trước.
+- Hạn mức 5 giờ và tuần lấy từ `rate_limit_event` trong stream, cùng `/usage` đọc trước run (lệnh này không gọi model).
 
 **Tiết kiệm.**
-- `--tools` chỉ cấp Read, Write, Edit, Bash, Glob, Grep và Agent; `--strict-mcp-config` bỏ MCP server của
-  người dùng. Ngữ cảnh ban đầu của coordinator giảm từ 25k xuống 18k token. Trên repo demo, chi phí giảm
-  khoảng 9%.
+- `--tools` chỉ cấp Read, Write, Edit, Bash, Glob, Grep và Agent;
+  `--strict-mcp-config` bỏ MCP server của người dùng.
+  Ngữ cảnh ban đầu của coordinator giảm từ 25k xuống 18k token.
+  Trên repo demo, chi phí giảm khoảng 9%.
 - Cài đặt model coordinator (mặc định Sonnet), model các role và mức suy luận.
 
 **Đã quyết định.**
-- Giữ cache TTL 1 giờ cho coordinator. Cache chỉ ảnh hưởng chi phí, không ảnh hưởng chất lượng. Nhưng chỉ cần
-  một lần mất cache (role chạy quá 5 phút, hoặc người dùng trả lời câu hỏi sau 5 phút) là mất hết phần tiết
-  kiệm của TTL 5 phút.
+- Giữ cache TTL 1 giờ cho coordinator.
+  Cache chỉ ảnh hưởng chi phí, không ảnh hưởng chất lượng.
+  Nhưng chỉ cần một lần mất cache (role chạy quá 5 phút, hoặc người dùng trả lời câu hỏi sau 5 phút) là mất hết phần tiết kiệm của TTL 5 phút.
 - Framework 1.1.0 thu gọn những gì mỗi run phải nạp, không cắt quy tắc:
-  - Phần chi tiết của tự đánh giá (phân loại nguyên nhân, cách sửa, chế độ `mode: self`, record) chuyển
-    nguyên văn sang `self-evaluation.instructions.md`. `process-auditor` đọc file này; coordinator chỉ đọc
-    khi tự đánh giá.
+  - Phần chi tiết của tự đánh giá (phân loại nguyên nhân, cách sửa, chế độ `mode: self`, record) chuyển nguyên văn sang `self-evaluation.instructions.md`.
+    `process-auditor` đọc file này;
+    coordinator chỉ đọc khi tự đánh giá.
   - Thêm mẫu JSON của record, nên `process-auditor` không phải đọc mã nguồn `layer_record.py`.
-- CLI thêm `--disable-slash-commands`. Không giảm thêm token, vì `--tools` đã bỏ danh sách skill khỏi ngữ
-  cảnh, nhưng Claude Code không phải nạp skill và lệnh của người dùng lúc khởi động.
+- CLI thêm `--disable-slash-commands`.
+  Không giảm thêm token, vì `--tools` đã bỏ danh sách skill khỏi ngữ cảnh, nhưng Claude Code không phải nạp skill và lệnh của người dùng lúc khởi động.
 - Đo lại cùng request `/pirl-plan` trên repo demo (một lần chạy):
   - chi phí quy đổi ≈ $0,49 → $0,47 (giảm khoảng 5%);
-  - phần của `process-auditor`: ghi cache giảm khoảng 30%, đọc cache giảm khoảng 23%;
+  - phần của `process-auditor`:
+    ghi cache giảm khoảng 30%, đọc cache giảm khoảng 23%;
   - validator và record đều pass ngay lần đầu.
-- Không làm: gộp các câu lặp trong cột "Done when" của bảng role. Đó có thể là các bản sửa tăng tính bắt buộc
-  từ trước, mà framework được nhập vào repo không kèm lịch sử để kiểm tra. Cũng không chuyển "Choosing a layer"
-  ra khỏi `AGENTS.md`, vì mục này chứa quy tắc an toàn.
+- Không làm:
+  gộp các câu lặp trong cột "Done when" của bảng role.
+  Đó có thể là các bản sửa tăng tính bắt buộc từ trước, mà framework được nhập vào repo không kèm lịch sử để kiểm tra.
+  Cũng không chuyển "Choosing a layer" ra khỏi `AGENTS.md`, vì mục này chứa quy tắc an toàn.
 
 ### 14.6. Giai đoạn 3 và bản phát hành 1.0.0: đã xong
 
 **`/framework` làm đúng mục 9.2 và 9.4.**
 - Bản đi kèm CLI được commit lên `upstream`, dùng một index riêng nên không đụng thư mục làm việc của Hub.
 - CLI gộp bản đó vào một git worktree nháp của `main`, đặt ở `~/.pirl/hub-update`.
-- Với mỗi file xung đột, TUI hiện hai bên đã đổi gì, kèm commit và record đã tạo ra thay đổi của người dùng. Bốn
-  lựa chọn: giữ bản của bạn, lấy bản gốc mới, để agent gộp, sửa tay.
-  - Agent gộp chạy bằng provider của người dùng. Nó chỉ được đọc bản nháp và ghi đúng một file kết quả, không có
-    Bash. Bản gộp phải được người dùng xem rồi mới dùng.
+- Với mỗi file xung đột, TUI hiện hai bên đã đổi gì, kèm commit và record đã tạo ra thay đổi của người dùng.
+  Bốn lựa chọn:
+  giữ bản của bạn, lấy bản gốc mới, để agent gộp, sửa tay.
+  - Agent gộp chạy bằng provider của người dùng.
+    Nó chỉ được đọc bản nháp và ghi đúng một file kết quả, không có Bash.
+    Bản gộp phải được người dùng xem rồi mới dùng.
   - Xung đột trong `AGENTS.md` (quy tắc an toàn) không có lựa chọn khuyến nghị.
-- Test của framework chạy trên bản nháp. PASS thì `main` fast-forward sang bản nháp và mốc
-  `pre-update/<version>` được gắn ở vị trí cũ. Lỗi thì bản nháp bị bỏ.
-- Các mục còn lại: hoàn tác lần cập nhật gần nhất, xem diff so với bản gốc, khôi phục từng file (một commit mới),
-  lịch sử cải tiến theo trailer, và commit hoặc bỏ file chưa commit.
+- Test của framework chạy trên bản nháp.
+  PASS thì `main` fast-forward sang bản nháp và mốc `pre-update/<version>` được gắn ở vị trí cũ.
+  Lỗi thì bản nháp bị bỏ.
+- Các mục còn lại:
+  hoàn tác lần cập nhật gần nhất, xem diff so với bản gốc, khôi phục từng file (một commit mới), lịch sử cải tiến theo trailer, và commit hoặc bỏ file chưa commit.
 - `/framework` không thay đổi Hub khi đang có run.
 
-**Cải tiến làm hỏng framework (mục 9.4).** CLI chạy test của framework trên các file `process-auditor` đã sửa, trước
-khi hỏi commit. Test lỗi thì không commit được; CLI khuyến nghị bỏ.
+**Cải tiến làm hỏng framework (mục 9.4).** CLI chạy test của framework trên các file `process-auditor` đã sửa, trước khi hỏi commit.
+Test lỗi thì không commit được;
+CLI khuyến nghị bỏ.
 
 **Khác với đề xuất.**
-- Cải tiến lỗi không bị hoàn tác tự động. Người dùng thấy test lỗi và tự chọn bỏ hoặc giữ để sửa tay. CLI không
-  xoá thay đổi trong Hub khi người dùng chưa đồng ý.
-- Bước "agent đối chiếu và đề xuất bỏ cải tiến cục bộ đã thừa" sau cập nhật (mục 9.4) chưa làm. Khi bản gốc sửa
-  giống hệt cải tiến cục bộ, Git tự gộp. Các trường hợp còn lại, người dùng xem bằng "Xem cải tiến cục bộ" và
-  khôi phục từng file.
+- Cải tiến lỗi không bị hoàn tác tự động.
+  Người dùng thấy test lỗi và tự chọn bỏ hoặc giữ để sửa tay.
+  CLI không xoá thay đổi trong Hub khi người dùng chưa đồng ý.
+- Bước "agent đối chiếu và đề xuất bỏ cải tiến cục bộ đã thừa" sau cập nhật (mục 9.4) chưa làm.
+  Khi bản gốc sửa giống hệt cải tiến cục bộ, Git tự gộp.
+  Các trường hợp còn lại, người dùng xem bằng "Xem cải tiến cục bộ" và khôi phục từng file.
 
 **Chạy thật trên repo mẫu.** Model Sonnet 5.5, một lần chạy mỗi layer:
 
@@ -711,22 +721,26 @@ khi hỏi commit. Test lỗi thì không commit được; CLI khuyến nghị b�
 | Implement | validator, record, Allowed paths PASS; README đổi đúng Plan | ≈ $0,50 |
 | Review | Business PASS; report qua validator | ≈ $0,61 |
 
-Lượt Implement cho thấy các role dùng `cat`, `ls`, `grep` trong lệnh ghép và bị chặn. Các role không thấy hướng
-dẫn của coordinator, nên mỗi role giờ nhận quy tắc lệnh trong prompt của mình. Lượt Review sau đó không còn lệnh
-nào bị chặn.
+Lượt Implement cho thấy các role dùng `cat`, `ls`, `grep` trong lệnh ghép và bị chặn.
+Các role không thấy hướng dẫn của coordinator, nên mỗi role giờ nhận quy tắc lệnh trong prompt của mình.
+Lượt Review sau đó không còn lệnh nào bị chặn.
 
 **Phát hành.**
 - Gói `pirl-cli` 1.0.0 chỉ chứa JavaScript đã biên dịch, framework đi kèm và changelog.
 - `npm run pack:check` cài gói vào thư mục riêng và chạy `pirl --version` và `--help`.
-- CI chạy trên Linux, macOS, Windows với Node 22 và 24. Lần chạy đầu trên Windows tìm ra lỗi validator đọc sai
-  đường dẫn Windows trong ngoặc kép; lỗi này đã sửa ở cả framework và CLI.
+- CI chạy trên Linux, macOS, Windows với Node 22 và 24.
+  Lần chạy đầu trên Windows tìm ra lỗi validator đọc sai đường dẫn Windows trong ngoặc kép;
+  lỗi này đã sửa ở cả framework và CLI.
 - Tag `v*` kích hoạt workflow đăng lên npm.
 
-**Chưa kiểm chứng.** Chạy thật với Claude Code trên Windows và macOS. CI chỉ chạy test với provider giả lập.
+**Chưa kiểm chứng.** Chạy thật với Claude Code trên Windows và macOS.
+CI chỉ chạy test với provider giả lập.
 
 ### 14.7. Bước tiếp theo
 
-- Giai đoạn 4: Codex CLI, Gemini CLI, Copilot CLI; provider và model theo role.
+- Giai đoạn 4:
+  Codex CLI, Gemini CLI, Copilot CLI;
+  provider và model theo role.
 - Agent đối chiếu cải tiến cục bộ đã thừa sau mỗi lần cập nhật framework (mục 9.4).
 
 ## Nguồn tham khảo

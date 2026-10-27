@@ -1,23 +1,22 @@
 # PIRL CLI
 
-[![npm](https://img.shields.io/npm/v/pirl-framework-cli)](https://www.npmjs.com/package/pirl-framework-cli)
-[![CI](https://github.com/tdmadc107/PIRL-CLI/actions/workflows/ci.yml/badge.svg)](https://github.com/tdmadc107/PIRL-CLI/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![npm](https://img.shields.io/npm/v/pirl-framework-cli)](https://www.npmjs.com/package/pirl-framework-cli) [![CI](https://github.com/tdmadc107/PIRL-CLI/actions/workflows/ci.yml/badge.svg)](https://github.com/tdmadc107/PIRL-CLI/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 **Plan, implement and review code changes with a team of AI agents, from your terminal.**
 
-PIRL CLI runs the [PIRL framework](pirl-framework/README.md) through the AI agent CLI you already use. Describe
-the work, and PIRL turns it into a Plan, implements it and reviews the result, with specialist agent roles at
-each step and the framework's own checks after each run.
+PIRL CLI runs the [PIRL framework](pirl-framework/README.md) through the AI agent CLI you already use.
+Describe the work, and PIRL turns it into a Plan, implements it and reviews the result, with specialist agent roles at each step and the framework's own checks after each run.
 
-PIRL CLI has no login of its own: it uses your agent CLI under your subscription and never reads, stores or
-forwards its credentials.
+PIRL CLI has no login of its own:
+it uses your agent CLI under your subscription and never reads, stores or forwards its credentials.
 
 ## Highlights
 
 - **Plan → Implement → Review** as three commands, each handled by specialist agent roles.
-- **Checked results**: every run is validated by the framework's tools before you see it as done.
-- **Your repository stays yours**: runs never commit, push or switch branches.
+- **Checked results**:
+  every run is validated by the framework's tools before you see it as done.
+- **Your repository stays yours**:
+  runs never commit, push or switch branches.
 - **A framework that improves itself**, with every change tested and left to your approval.
 
 ## Requirements
@@ -64,13 +63,15 @@ Then describe the work as a Plan:
 /pirl-plan Send customers an email when their order is cancelled
 ```
 
-PIRL suggests the next step when the Plan is ready. Type `/help` in PIRL for all commands and shortcuts.
+PIRL suggests the next step when the Plan is ready.
+Type `/help` in PIRL for all commands and shortcuts.
 
 ## Documentation
 
-- [User guide](docs/user-guide.md): commands, shortcuts, attaching files, settings, usage limits and framework
-  updates
-- [PIRL framework](pirl-framework/README.md): the layers, roles and self-improvement behind PIRL
+- [User guide](docs/user-guide.md):
+  commands, shortcuts, attaching files, settings, usage limits and framework updates
+- [PIRL framework](pirl-framework/README.md):
+  the layers, roles and self-improvement behind PIRL
 - [Changelog](CHANGELOG.md)
 
 ## Uninstallation
@@ -79,8 +80,8 @@ PIRL suggests the next step when the Plan is ready. Type `/help` in PIRL for all
 npm uninstall -g pirl-framework-cli
 ```
 
-Your Hub, settings and run history stay in `~/.pirl` (`%USERPROFILE%\.pirl` on Windows). Delete that folder to
-remove them as well.
+Your Hub, settings and run history stay in `~/.pirl` (`%USERPROFILE%\.pirl` on Windows).
+Delete that folder to remove them as well.
 
 ## Development
 

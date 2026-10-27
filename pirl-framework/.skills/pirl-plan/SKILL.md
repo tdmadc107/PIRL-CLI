@@ -5,7 +5,7 @@ metadata:
   id: .skills/pirl-plan
   kind: skill
   layer: plan
-  version: 1.2.1
+  version: 1.2.0
 ---
 
 # Plan

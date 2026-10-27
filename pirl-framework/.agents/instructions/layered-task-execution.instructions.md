@@ -5,7 +5,7 @@ applyTo: ".agents/instructions/**/*,.skills/**/*"
 metadata:
   id: ".agents/instructions/layered-task-execution"
   kind: "instruction"
-  version: "2.4.1"
+  version: "2.4.0"
   status: "active"
 ---
 

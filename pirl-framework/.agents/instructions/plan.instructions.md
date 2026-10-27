@@ -5,7 +5,7 @@ applyTo: ".agents/instructions/plan.instructions.md"
 metadata:
   id: ".agents/instructions/plan"
   kind: "instruction"
-  version: "2.1.1"
+  version: "2.1.0"
   status: "active"
 ---
 
