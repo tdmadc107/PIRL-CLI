@@ -6,6 +6,8 @@ import {ruleRoot, WAITING_TOOLS} from './permissions.js';
 import type {AgentRunner, RunEvent} from './types.js';
 
 export type MergeProposal = {ok: true; content: string; explanation: string} | {ok: false; error: string};
+/** The user's own request for another merge, after reading `previous`, the agent's earlier proposal. */
+export type MergeRequest = {instruction: string; previous: string};
 
 /** Where the three versions and the merged result live during the proposal, inside the draft's ignored `.tmp/`. */
 const WORK = join('.tmp', 'pirl-merge');
@@ -20,15 +22,17 @@ const SYSTEM_PROMPT = (dir: string, path: string) =>
 		`Read the three, then write the merged file to ${join(dir, 'merged')} with the Write tool.`,
 		'Keep every change of `theirs` and every local improvement of `mine`. Where both change the same passage, write one passage that carries both intentions. When they contradict, prefer `theirs`, unless the local change makes a rule stricter.',
 		'Never loosen, narrow or remove a safety rule (AGENTS.md, "Safety rules and self-improvement", defines them); where a safety rule differs between the versions, keep the stricter wording.',
+		'When the user asks for the merge to be done a certain way, follow the request over the preferences above; the safety rule still holds, so where the request would break it, keep the stricter wording and say so.',
 		'The merged file holds only the file content: no conflict markers, no comments about the merge.',
 		`Then reply in the language of the file's user, ${t('Vietnamese', 'English')}, in at most four short sentences: what each side changed and how you combined them.`,
 	].join('\n');
 
 /**
  * Asks the provider for a merged version of one conflicted file. Nothing is applied here: the proposal goes to the
- * user, who accepts it or picks another resolution. The provider may read the draft and write only the result file.
+ * user, who accepts it, asks for another merge with `request`, or picks another resolution. The provider may read
+ * the draft and write only the result file.
  */
-export async function proposeMerge(runner: AgentRunner, draftDir: string, conflict: Conflict, model?: string): Promise<MergeProposal> {
+export async function proposeMerge(runner: AgentRunner, draftDir: string, conflict: Conflict, model?: string, request?: MergeRequest): Promise<MergeProposal> {
 	const work = join(draftDir, WORK);
 	rmSync(work, {recursive: true, force: true});
 	mkdirSync(work, {recursive: true});
@@ -36,10 +40,12 @@ export async function proposeMerge(runner: AgentRunner, draftDir: string, confli
 		writeFileSync(join(work, 'base'), conflict.base ?? '', 'utf8');
 		writeFileSync(join(work, 'mine'), conflict.mine ?? '', 'utf8');
 		writeFileSync(join(work, 'theirs'), conflict.theirs ?? '', 'utf8');
+		if (request) writeFileSync(join(work, 'previous'), request.previous, 'utf8');
 		const improvements = conflict.myCommits.map(commit => `- ${commit.subject}${commit.record ? ` (record ${commit.record})` : ''}`);
 		const prompt = [
 			`Merge \`${conflict.path}\`.`,
 			...(improvements.length ? ['The local improvements in `mine` came from:', ...improvements] : []),
+			...(request ? ['', `The user read your earlier merge, now in ${join(work, 'previous')}, and asks for another one:`, request.instruction] : []),
 		].join('\n');
 		const merged = join(work, 'merged');
 		let reply: Extract<RunEvent, {type: 'result'}> | null = null;

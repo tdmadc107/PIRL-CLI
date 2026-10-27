@@ -6,7 +6,7 @@ import type {DoctorReport} from '../doctor/doctor.js';
 import type {PlanPackage, RecordSummary} from '../engine/hubData.js';
 import type {PersistedRun, RunController} from '../engine/run.js';
 import type {Question, QuotaRow, RunKind} from '../engine/types.js';
-import type {MergeProposal} from '../engine/agentMerge.js';
+import type {MergeProposal, MergeRequest} from '../engine/agentMerge.js';
 import type {AttachedContext, PathEntry} from '../engine/attachments.js';
 import type {HubStatus} from '../hub/hub.js';
 import type {Conflict, Draft, FinishResult, HistoryEntry, LastUpdate, LocalChange} from '../hub/update.js';
@@ -70,7 +70,8 @@ export type FrameworkServices = {
 	resolve(draft: Draft, path: string, choice: 'mine' | 'theirs' | {content: string | null}): Promise<void>;
 	/** The draft's copy of a file, for a conflict the user edits by hand; null when the file is gone. */
 	readDraft(draft: Draft, path: string): string | null;
-	proposeMerge(draft: Draft, conflict: Conflict, config: Config): Promise<MergeProposal>;
+	/** With `request`, the merge the user asked for after reading the agent's earlier proposal. */
+	proposeMerge(draft: Draft, conflict: Conflict, config: Config, request?: MergeRequest): Promise<MergeProposal>;
 	finishUpdate(draft: Draft, python: {command: string; args: string[]} | null): Promise<FinishResult>;
 	abortUpdate(): Promise<void>;
 };

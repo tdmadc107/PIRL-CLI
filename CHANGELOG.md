@@ -3,6 +3,13 @@
 All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- In `/framework`, the agent's merge of a conflicted file has a third choice, "Other", besides using the merge and choosing another way.
+  You type how the file should be merged, and the agent merges again from the three versions and its earlier merge; the safety rules still hold, and you review the new merge before using it.
+
 ## [1.2.0] - 2026-10-27
 
 ### Changed

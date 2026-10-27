@@ -131,6 +131,7 @@ Open `/framework` to update when you choose:
 
 1. PIRL merges the new version into a draft; `main` is untouched.
 2. Where your improvements and the new version change the same lines, you see both sides and choose: keep yours, take the new version, let the agent merge them, or edit by hand.
+   When the agent's merge is not what you want, choose "Other" and type how it should merge: it merges again from the three versions and its earlier merge, and you review the result before using it.
 3. PIRL runs the framework's tests on the draft.
    If they pass, `main` moves to the draft; if not, nothing changes.
 

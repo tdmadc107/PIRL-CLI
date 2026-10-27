@@ -35,7 +35,7 @@ export function frameworkServices(path: string, bundle: BundledFramework, runner
 				return null;
 			}
 		},
-		proposeMerge: (draft, conflict, config) => proposeMerge(runner, draft.dir, conflict, modelOf(config)),
+		proposeMerge: (draft, conflict, config, request) => proposeMerge(runner, draft.dir, conflict, modelOf(config), request),
 		finishUpdate: (draft, python) => update.finishUpdate(path, draft, python),
 		abortUpdate: () => update.removeDraft(path),
 	};

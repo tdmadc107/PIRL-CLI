@@ -5,7 +5,9 @@ import {plural, t} from '../core/i18n.js';
 import {displayPath} from '../core/paths.js';
 import type {HubStatus} from '../hub/hub.js';
 import type {Conflict, Draft, HistoryEntry, LastUpdate, LocalChange} from '../hub/update.js';
+import {inputLines} from './components/Input.js';
 import {definitionList} from './content.js';
+import {backspace, emptyEditor, insert, move, type EditorState} from './inputEditor.js';
 import {blank, hanging, type Line, type Span} from './lines.js';
 import type {FrameworkServices} from './session.js';
 import {truncateMiddle} from './text.js';
@@ -19,6 +21,9 @@ import type {Theme} from './theme.js';
 
 type Resolution = 'mine' | 'theirs' | 'merged' | 'edited';
 type UpdateState = {draft: Draft; resolved: Record<string, Resolution>};
+type ProposalScreen = {name: 'proposal'; conflict: Conflict; content: string; explanation: string; diff: string; selected: number} & UpdateState;
+/** The user types how the agent should merge again; Esc goes back to `proposal`. */
+type InstructScreen = {name: 'instruct'; proposal: ProposalScreen; input: EditorState; note?: string};
 
 type Screen =
 	| {name: 'home'; selected: number}
@@ -39,7 +44,8 @@ type Screen =
 	  }
 	| ({name: 'update'; selected: number} & UpdateState)
 	| ({name: 'conflict'; conflict: Conflict; theirsDiff: string; mineDiff: string; selected: number; note?: string} & UpdateState)
-	| ({name: 'proposal'; conflict: Conflict; content: string; explanation: string; diff: string; selected: number} & UpdateState)
+	| ProposalScreen
+	| InstructScreen
 	| ({name: 'manual'; conflict: Conflict; selected: number; note?: string} & UpdateState)
 	| {name: 'result'; tone: 'success' | 'error'; text: string; detail?: string[]};
 
@@ -48,6 +54,7 @@ type HomeAction = {id: 'update' | 'changes' | 'history' | 'uncommitted' | 'undo'
 const resolutionLabel = (resolution: Resolution) =>
 	({mine: t('giữ bản của bạn', 'keep yours'), theirs: t('lấy bản gốc mới', 'take the new original'), merged: t('dùng bản gộp của agent', 'use the agent\'s merge'), edited: t('đã sửa tay', 'edited by hand')})[resolution];
 const conflictChoices = () => [t('Giữ bản của bạn', 'Keep yours'), t('Lấy bản gốc mới', 'Take the new original'), t('Để agent gộp hai bản', 'Let the agent merge both'), t('Tự sửa trong bản nháp', 'Edit the draft yourself')];
+const proposalChoices = () => [t('Dùng bản gộp này', 'Use this merge'), t('Khác: nhập yêu cầu để agent gộp lại', 'Other: tell the agent how to merge'), t('Chọn cách khác', 'Choose another way')];
 /** Files holding the core and safety rules: a conflict there gets no recommended choice; the user reads and decides. */
 const SAFETY_FILES = new Set(['AGENTS.md']);
 
@@ -236,6 +243,32 @@ export function useFrameworkConsole(props: FrameworkConsoleProps) {
 		} else setScreen({name: 'manual', ...state, conflict: current.conflict, selected: 0});
 	};
 
+	/** Asks the agent for another merge as the user typed it; a failure keeps the request on screen to edit. */
+	const remerge = (current: InstructScreen, instruction: string) => {
+		const {proposal} = current;
+		step(t('Agent đang gộp lại theo yêu cầu của bạn', 'The agent is merging again as you asked'), async () => {
+			const next = await services!.proposeMerge(proposal.draft, proposal.conflict, props.config, {instruction, previous: proposal.content});
+			if (!next.ok) return {...current, note: t(`Agent không gộp được: ${next.error}`, `The agent could not merge: ${next.error}`)};
+			return {...proposal, content: next.content, explanation: next.explanation, diff: await services!.textDiff(proposal.conflict.mine, next.content), selected: 0};
+		});
+	};
+
+	/** Keys while typing the request: the screen holds the text, so each key of a burst starts from the previous one. */
+	const typeInstruction = (current: InstructScreen, input: string, key: Key) => {
+		const edit = (next: EditorState) => setScreen({...current, input: next});
+		if (key.escape) setScreen(current.proposal);
+		else if (key.return) {
+			const instruction = current.input.value.trim();
+			if (instruction) remerge(current, instruction);
+		} else if (key.backspace || key.delete) edit(backspace(current.input));
+		else if (key.leftArrow) edit(move(current.input, 'left'));
+		else if (key.rightArrow) edit(move(current.input, 'right'));
+		else if (key.home || (key.ctrl && input === 'a')) edit(move(current.input, 'home'));
+		else if (key.end || (key.ctrl && input === 'e')) edit(move(current.input, 'end'));
+		else if (key.ctrl && input === 'u') edit(emptyEditor);
+		else if (input && !key.ctrl && !key.meta) edit(insert(current.input, input));
+	};
+
 	const apply = (current: Extract<Screen, {name: 'update'}>) =>
 		step(t('Đang chạy test của framework trên bản nháp', 'Running the framework tests on the draft'), async () => {
 			const result = await services!.finishUpdate(current.draft, props.python);
@@ -370,7 +403,18 @@ export function useFrameworkConsole(props: FrameworkConsoleProps) {
 				const head: Line[] = hanging([], t(`Bản gộp của agent cho ${current.conflict.path}`, `The agent's merge of ${current.conflict.path}`), columns, {bold: true});
 				if (current.explanation) head.push(blank, ...hanging([], current.explanation, columns));
 				head.push(blank, [{text: t('So với bản của bạn:', 'Compared with yours:'), color: 'accent'}], ...diffLines(current.diff, columns, 30), blank);
-				return withMenu(head, [t('Dùng bản gộp này', 'Use this merge'), t('Chọn cách khác', 'Choose another way')], current.selected);
+				return withMenu(head, proposalChoices(), current.selected);
+			}
+			case 'instruct': {
+				const head: Line[] = hanging([], t(`Yêu cầu agent gộp lại ${current.proposal.conflict.path}`, `Ask the agent to merge ${current.proposal.conflict.path} again`), columns, {bold: true});
+				head.push(blank, ...hanging([], t(
+					'Nhập cách bạn muốn gộp, ví dụ giữ đoạn nào hoặc theo ý của bản nào. Agent gộp lại từ ba bản và bản gộp trước của nó; quy tắc an toàn vẫn giữ nguyên. Bạn xem bản gộp mới trước khi dùng.',
+					'Type how you want the file merged, for example which passage to keep or whose intent to follow. The agent merges again from the three versions and its earlier merge; the safety rules still hold. You review the new merge before using it.',
+				), columns), blank);
+				head.push(...inputLines(current.input, columns, 8, theme, true, t('Yêu cầu của bạn', 'Your request')));
+				const focus = head.length - 1;
+				if (current.note) head.push(blank, ...hanging([{text: `${g.fail} `, color: 'danger'}], current.note, columns, {color: 'danger'}));
+				return {lines: head, focus};
 			}
 			case 'manual': {
 				const path = displayPath(`${current.draft.dir}/${current.conflict.path}`);
@@ -410,6 +454,7 @@ export function useFrameworkConsole(props: FrameworkConsoleProps) {
 	const handleKey = (input: string, key: Key, page: number): boolean => {
 		const current = screenRef.current;
 		if (current.name === 'busy') return true;
+		if (current.name === 'instruct') return typeInstruction(current, input, key), true;
 		const count = current.name === 'home' ? homeActions().length : optionCount(current);
 		const select = (selected: number) => setScreen({...current, selected} as Screen);
 		if (key.escape) {
@@ -502,7 +547,8 @@ export function useFrameworkConsole(props: FrameworkConsoleProps) {
 						await services!.resolve(current.draft, current.conflict.path, {content: current.content});
 						return {name: 'update', draft: current.draft, resolved: {...current.resolved, [current.conflict.path]: 'merged'}, selected: 0};
 					});
-				} else openConflict(current, current.conflict);
+				} else if (current.selected === 1) setScreen({name: 'instruct', proposal: current, input: emptyEditor});
+				else openConflict(current, current.conflict);
 				return true;
 			case 'manual': {
 				if (current.selected === 1) {
@@ -542,6 +588,8 @@ export function useFrameworkConsole(props: FrameworkConsoleProps) {
 				return [`${g.upDown} PgUp/PgDn ${t('cuộn', 'scroll')}`, t('Esc quay lại', 'Esc back')];
 			case 'result':
 				return [t('Enter quay lại', 'Enter back')];
+			case 'instruct':
+				return [t('Enter gửi yêu cầu', 'Enter send'), t('Esc quay lại', 'Esc back')];
 			default:
 				return [`${g.upDown} ${t('chọn', 'choose')}`, t('Enter mở', 'Enter open'), screen.name === 'home' ? t('Esc đóng', 'Esc close') : t('Esc quay lại', 'Esc back')];
 		}
@@ -557,6 +605,7 @@ function optionCount(screen: Screen): number {
 		case 'confirm':
 			return screen.alt ? 3 : 2;
 		case 'proposal':
+			return proposalChoices().length;
 		case 'manual':
 			return 2;
 		case 'update':

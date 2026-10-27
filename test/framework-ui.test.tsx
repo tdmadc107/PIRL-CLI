@@ -114,6 +114,54 @@ describe('/framework', () => {
 		expect(git(hub, 'rev-parse', 'main')).toBe(before);
 	});
 
+	test('a merge the user asks for: the agent merges again from its earlier merge and the typed request', async () => {
+		const shipped = newerBundle({[ROLE]: text => text.replace('# code-analyst', '# code-analyst (upstream)')}, '9.9.9', prefix => tempDir(prefix));
+		const work = (call: {cwd: string}, file: string) => join(call.cwd, '.tmp', 'pirl-merge', file);
+		let previous = '';
+		const {terminal, calls} = await setup(shipped, [
+			call => {
+				writeFileSync(work(call, 'merged'), readFileSync(work(call, 'mine'), 'utf8').replace('# code-analyst (local)', '# code-analyst (first merge)'));
+				return [result('Đã gộp lần đầu.')];
+			},
+			call => {
+				previous = readFileSync(work(call, 'previous'), 'utf8');
+				writeFileSync(work(call, 'merged'), previous.replace('# code-analyst (first merge)', '# code-analyst (as asked)'));
+				return [result('Đã gộp lại theo yêu cầu.')];
+			},
+		]);
+		await until(terminal, 'Cập nhật lên fw-9.9.9');
+		await terminal.press(KEYS.enter);
+		await until(terminal, 'Bản nháp: fw-9.9.9 gộp vào framework của bạn');
+		await terminal.press(KEYS.enter);
+		await until(terminal, 'Bản gốc mới đổi:');
+		await terminal.press(KEYS.enter);
+		await until(terminal, 'Đã gộp lần đầu.');
+		expect(terminal.frame()).toContain('Khác: nhập yêu cầu để agent gộp lại');
+
+		await terminal.press(KEYS.down);
+		await terminal.press(KEYS.enter);
+		await until(terminal, `Yêu cầu agent gộp lại ${ROLE}`);
+		await terminal.press(KEYS.enter); // nothing typed yet: nothing is sent
+		expect(calls).toHaveLength(1);
+		await terminal.type('Giữ tiêu đề 2 bản');
+		await until(terminal, 'Giữ tiêu đề 2 bản');
+		await terminal.press(KEYS.escape);
+		await until(terminal, 'Đã gộp lần đầu.');
+		await terminal.press(KEYS.enter); // Esc came back with "Other" still chosen
+		await until(terminal, `Yêu cầu agent gộp lại ${ROLE}`);
+		expect(terminal.frame()).not.toContain('Giữ tiêu đề 2 bản');
+		await terminal.type('Giữ tiêu đề của bản gốc mới');
+		await terminal.press(KEYS.enter);
+
+		await until(terminal, 'Đã gộp lại theo yêu cầu.');
+		expect(calls).toHaveLength(2);
+		expect(calls[1]!.prompt).toContain('Giữ tiêu đề của bản gốc mới');
+		expect(previous).toContain('# code-analyst (first merge)');
+		expect(terminal.frame()).toContain('+# code-analyst (as asked)');
+		await terminal.press(KEYS.enter);
+		await until(terminal, `${ROLE}: dùng bản gộp của agent`);
+	});
+
 	test('local improvements: the diff of a file, then restoring it to the original', async () => {
 		const {hub, terminal} = await setup(bundle);
 		await until(terminal, 'Xem cải tiến cục bộ');
