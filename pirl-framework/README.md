@@ -13,8 +13,7 @@ The Agent reads [`AGENTS.md`](AGENTS.md), picks the right layer, splits the work
   Review checks the result against the QGs by reasoning on the source.
   Each layer is run through its skill in `.skills/` (`pirl-plan`, `pirl-implement`, `pirl-review`).
 - **Any repository.** The product repositories are not part of the Hub.
-  You name the target repository of each request;
-  the Agent reads that repository's own context documentation (its `AGENTS.md`, `CLAUDE.md`, README and similar).
+  You name the target repository of each request; the Agent reads that repository's own context documentation (its `AGENTS.md`, `CLAUDE.md`, README and similar).
 - **AI Agent roles.** Each layer assigns work to roles with the right expertise, for example `business-analyst`, `backend-developer`, `code-reviewer`.
 - **Self-improvement.** At the end of each layer run, the `process-auditor` role finds each role's mistakes, fixes the relevant instruction files at the root, writes a JSONL record and reports what was fixed and where.
 
@@ -25,8 +24,7 @@ Implement only writes and runs functional tests related to the request, and capt
 ## Requirements
 
 - An AI Agent that can read files in the repository and run commands, for example Claude Code.
-  If the host loads `AGENTS.md` automatically, it works right away;
-  if not, ask the Agent to read `AGENTS.md` before assigning work.
+  If the host loads `AGENTS.md` automatically, it works right away; if not, ask the Agent to read `AGENTS.md` before assigning work.
 - Git.
 - Python 3.9 or later, for the validator, the record tool and the skills' scripts.
 
@@ -40,8 +38,7 @@ git clone https://github.com/tdmadc107/PIRL-framework.git
 
 ### 2. Have a target repository ready
 
-Any local Git repository works;
-nothing needs registering.
+Any local Git repository works; nothing needs registering.
 Give its path in your request, relative to the Hub root or absolute.
 If you want to keep clones inside the Hub, put them in `.repos/`, which Git ignores.
 
@@ -51,8 +48,7 @@ If the repository has no such document yet, you can assign the Agent to write on
 
 ### 3. Assign work
 
-No special commands or keywords are needed;
-just say it:
+No special commands or keywords are needed; just say it:
 
 | You want to | Example request | The Agent runs |
 | --- | --- | --- |
@@ -64,11 +60,9 @@ just say it:
 | Edit the framework itself | "Fix the cleanup rule in the router" | Framework maintenance |
 | Just ask | "Which tasks does Plan T01 depend on?" | Answer, no files created |
 
-Each layer runs only when you ask for it;
-the Agent does not move on to the next layer by itself.
+Each layer runs only when you ask for it; the Agent does not move on to the next layer by itself.
 The Agent picks the smallest team of roles with enough expertise.
-To choose the team yourself, name the roles in your request;
-the role catalog is in the [standalone and maintenance instructions](.agents/instructions/standalone-and-maintenance.instructions.md#role-catalog).
+To choose the team yourself, name the roles in your request; the role catalog is in the [standalone and maintenance instructions](.agents/instructions/standalone-and-maintenance.instructions.md#role-catalog).
 
 Plans and reports go where you say.
 If you name no location, they are created under the Hub root.
@@ -84,15 +78,13 @@ Inside the Hub, Git ignores Plan packages and their reports (directories named `
    Verification roles conclude each QG by reasoning on the source.
    The results go into the `Implementation Record` section at the end of the Plan file.
    When the UI changes, layout screenshots are in `.tmp/layout-snapshots/` (not in git).
-3. **Review.** The Agent checks each QG against the source and writes a report `<plan-set>/<task>/round-<NN>-review-...md`;
-   with the default location it sits inside the Plan package.
+3. **Review.** The Agent checks each QG against the source and writes a report `<plan-set>/<task>/round-<NN>-review-...md`; with the default location it sits inside the Plan package.
    The report has two sections:
    `Business` (a PASS, FAIL or BLOCKED conclusion with FINDs, RISKs and BLOCKs) and `Evaluations` (an assessment of each role of the Implement run).
 4. **Fix.** When Business is FAIL, assign "Fix per report ...".
    Implement runs a repair run with the team named in the report, then you ask for a new Review round.
 5. **Commit.** The Agent commits or pushes only when you ask.
-   Changes in the target repository are committed in that repository;
-   a Hub commit carries the framework improvements of the same run.
+   Changes in the target repository are committed in that repository; a Hub commit carries the framework improvements of the same run.
    Plans, reports and records stay on your machine.
 
 ## Reading the self-improvement part after each run
@@ -102,12 +94,9 @@ At the end of each Plan, Implement or Review run, the Agent's response has:
 - **Self-improvement:** the record ID, and for each applied improvement:
   the issue, cause, file and section edited, old → new version.
   Look at the diff of these files before committing.
-- **Needs confirmation:** the closing block of the answer;
-  it has a point about this improvement only when the improvement would loosen a safety rule.
-  You choose to apply, skip, or have it re-evaluated by a separate agent;
-  the details of the issue and the change are in the "Self-improvement" section.
-  The evaluation is always delegated to a separate agent;
-  only when the host cannot create agents does the Agent evaluate itself and state the reason.
+- **Needs confirmation:** the closing block of the answer; it has a point about this improvement only when the improvement would loosen a safety rule.
+  You choose to apply, skip, or have it re-evaluated by a separate agent; the details of the issue and the change are in the "Self-improvement" section.
+  The evaluation is always delegated to a separate agent; only when the host cannot create agents does the Agent evaluate itself and state the reason.
 
 Safety rules (commit, push, secrets, destructive actions, points that need your decision) are never loosened by self-improvement without your consent.
 The full definition is in [`AGENTS.md`](AGENTS.md#safety-rules-and-self-improvement).

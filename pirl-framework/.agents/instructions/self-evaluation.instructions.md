@@ -12,16 +12,14 @@ metadata:
 # Self-evaluation Instructions
 
 This file holds the procedure of the [router's Self-evaluation and improvement section](layered-task-execution.instructions.md#self-evaluation-and-improvement), which owns when a Plan, Implement or Review run self-evaluates, who evaluates and how the result is reported.
-`process-auditor` reads this whole file in every layer run;
-the coordinator reads it only when it self-evaluates in `mode: self`.
+`process-auditor` reads this whole file in every layer run; the coordinator reads it only when it self-evaluates in `mode: self`.
 Standalone tasks and framework maintenance do not apply it.
 
 ## Issues and causes
 
 An issue is a decision or output that is wrong against the request, the source, a contract or a rule, with evidence.
 Each issue records the role (or `coordinator`), the wrong decision, the related rule as `file#section`, the evidence and an `issue_key`:
-a kebab-case key describing the issue;
-an issue already present in an earlier record keeps its existing key.
+a kebab-case key describing the issue; an issue already present in an earlier record keeps its existing key.
 
 Before classifying, look up earlier records with `layer_record.py query --issue-key <key>` and `layer_record.py query --rule <file#section>`.
 Classify by evidence, not by how many times it repeated:
@@ -44,8 +42,7 @@ There are no off-limits areas and no waiting for proposals:
    layer files, skills, role files, `AGENTS.md`, the router, framework tools with their tests.
    The only improvement not applied this way is one in a target repository's context documentation, handled per the `input` row above.
 2. Sweep the whole framework for places still describing the old behavior and fix them in the same run.
-3. Replace the wrong passage with concrete conditions and actions;
-   do not pile on reminders, and write it in the general form described in the [Framework maintenance section](standalone-and-maintenance.instructions.md#framework-maintenance).
+3. Replace the wrong passage with concrete conditions and actions; do not pile on reminders, and write it in the general form described in the [Framework maintenance section](standalone-and-maintenance.instructions.md#framework-maintenance).
 4. Bump the `version` of files that have one.
 5. Re-read the edited part against the three scenarios of the [Framework maintenance section](standalone-and-maintenance.instructions.md#framework-maintenance).
 6. Run the commands in [Framework checks](standalone-and-maintenance.instructions.md#framework-checks) that match what was edited.
@@ -64,19 +61,15 @@ It then writes a new record whose `supersedes` points to the self-evaluation rec
 The final response reports this in the "Self-improvement" section, without asking.
 
 An improvement that touches a safety rule (loosening, narrowing, removing or working around it) is not applied:
-the record states `pending_user` with reason `safety`;
-the final response states the issue, cause, rule, the concrete change and the evidence of that improvement in the "Self-improvement" section, and the user's decision (apply, skip, or re-evaluate with a separate agent) is one point in "Needs confirmation" ([CONTEXT.md](../../CONTEXT.md#5-closing-block-needs-confirmation-and-proposals));
-no other separate section is opened for that decision.
+the record states `pending_user` with reason `safety`; the final response states the issue, cause, rule, the concrete change and the evidence of that improvement in the "Self-improvement" section, and the user's decision (apply, skip, or re-evaluate with a separate agent) is one point in "Needs confirmation" ([CONTEXT.md](../../CONTEXT.md#5-closing-block-needs-confirmation-and-proposals)); no other separate section is opened for that decision.
 The run that carries out that choice writes a new record whose `supersedes` points to the old record.
 
 ## Record
 
 Each run writes exactly one record with `python -B .agents/evals/layer_record.py append --input <JSON file>` (or by passing JSON on stdin).
 On Windows, use `--input` with a UTF-8 file so non-ASCII text is not corrupted.
-The tool adds `schema`, `record_id`, `recorded_at` and rejects malformed records;
-if the record is rejected, the run is not complete.
-Do not edit the JSONL files by hand;
-correct a record with a new record that has `supersedes`.
+The tool adds `schema`, `record_id`, `recorded_at` and rejects malformed records; if the record is rejected, the run is not complete.
+Do not edit the JSONL files by hand; correct a record with a new record that has `supersedes`.
 Records are handoff output, stored at `.agents/evals/records/<layer>/<YYYY-MM-DD>.jsonl`.
 That directory is ignored by Git because records describe the user's projects:
 they stay on the local machine and are never committed, and the tool still reads them for `query` and `check`.
@@ -96,10 +89,8 @@ they stay on the local machine and are never committed, and the tool still reads
 | `supersedes` | The record being corrected, or null |
 
 A complete record for a Plan run, as the input of `append`.
-Values in `<...>` are placeholders;
-`framework_ref` is the object `start` returned, copied as is.
-A run with no issues writes `issues: []`, `fixes: []` and `audit.result: "clean"`;
-a Review record also has `task.report_file` and `outcome.verdict`.
+Values in `<...>` are placeholders; `framework_ref` is the object `start` returned, copied as is.
+A run with no issues writes `issues: []`, `fixes: []` and `audit.result: "clean"`; a Review record also has `task.report_file` and `outcome.verdict`.
 
 ```json
 {

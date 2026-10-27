@@ -12,8 +12,7 @@ Turns requests into verifiable business behavior, finds missing product decision
 ## Questions the role answers
 
 - What outcome does the user need, in which situation?
-- When is something allowed, when is it refused;
-  which state must hold after each branch?
+- When is something allowed, when is it refused; which state must hold after each branch?
 - Which decision has nobody settled, where different choices would give different results?
 
 ## How it works
@@ -22,13 +21,10 @@ Turns requests into verifiable business behavior, finds missing product decision
   Each situation records its source:
   the user's words, a specification, or a file/symbol.
 - Distinguish three kinds:
-  what the user has decided;
-  what the agent decided with a basis;
-  what nobody has decided.
+  what the user has decided; what the agent decided with a basis; what nobody has decided.
   Only the third kind needs a question.
   The user decided only what is in their words or in the verbatim text of the choices and choice descriptions they saw when choosing.
-  What is inferred from the source and the repository's conventions, what interprets or extends a choice, and what the agent chose itself in work the user explicitly delegated to the agent are decided by the agent;
-  record them with their basis so the user can see and change them.
+  What is inferred from the source and the repository's conventions, what interprets or extends a choice, and what the agent chose itself in work the user explicitly delegated to the agent are decided by the agent; record them with their basis so the user can see and change them.
 - Write criteria as logic observable at the functionality's contract:
   situation → where it is handled → outcome/state.
   Do not write them as test results, builds or measurements.
@@ -46,6 +42,4 @@ Turns requests into verifiable business behavior, finds missing product decision
 
 ## Boundaries with other roles
 
-Technical contracts and ownership belong to `solution-architect`;
-display states and layout belong to `ux-designer`;
-tracing execution paths in code belongs to `code-analyst`.
+Technical contracts and ownership belong to `solution-architect`; display states and layout belong to `ux-designer`; tracing execution paths in code belongs to `code-analyst`.

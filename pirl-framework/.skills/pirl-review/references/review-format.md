@@ -6,16 +6,13 @@ What each conclusion must prove, and when a new round opens, belongs to the [Rev
 ## Location and naming
 
 - Output directory:
-  the directory the user names for the report;
-  when the user names none, the Hub root.
+  the directory the user names for the report; when the user names none, the Hub root.
 - Report:
   `<output directory>/<plan-set>/<task-id-lower>-<todo-slug>/round-<NN>-review-<todo-slug>-<YYYYMMDD-HHmmss>.md`, where `NN` is the two-digit round number.
   When the Plan package also sits under the Hub root, the report lands inside the package directory, next to the Plan it reviews.
   Inside the Hub, the `<plan-set>/` directory is ignored by Git like the Plan package ([AGENTS.md](../../../AGENTS.md#git)).
-- Slugs are ASCII kebab-case;
-  timestamps use the machine's local time zone and carry its UTC offset.
-- Every round has its own file;
-  never overwrite or delete another round.
+- Slugs are ASCII kebab-case; timestamps use the machine's local time zone and carry its UTC offset.
+- Every round has its own file; never overwrite or delete another round.
 
 ## Frontmatter
 
@@ -37,29 +34,23 @@ What each conclusion must prove, and when a new round opens, belongs to the [Rev
 
 ## Presentation rules
 
-Keep the two level-two sections `Business` and `Evaluations`;
-use level-three/ four headings to divide the content inside.
-Present QGs as a three-column table;
-each FIND/RISK/BLOCK and EVAL has its own two-column `Field | Content` table under a heading containing its ID.
+Keep the two level-two sections `Business` and `Evaluations`; use level-three/ four headings to divide the content inside.
+Present QGs as a three-column table; each FIND/RISK/BLOCK and EVAL has its own two-column `Field | Content` table under a heading containing its ID.
 The `Next` part uses a two-column table.
 Do not merge several fields into one long bullet or cram all fields of a finding/evaluation into one overly wide table.
 
 This is only presentation:
-keep all fields, IDs, conclusions, evidence and instructions;
-do not drop information to make a table shorter.
-In each cell, use `<br>` when you need to separate several sources or processing steps;
-keep paths, symbols and commands intact.
+keep all fields, IDs, conclusions, evidence and instructions; do not drop information to make a table shorter.
+In each cell, use `<br>` when you need to separate several sources or processing steps; keep paths, symbols and commands intact.
 Escape a `|` that belongs to cell content as `\|`, including inside inline code, so it does not create a column.
 This escape rule applies only to Markdown tables and does not change values in the frontmatter.
 Put a blank line before/after each table.
 
 Replace placeholders with actual content and choose one value for each status or disposition.
 Each QG has exactly one row in the Quality gates table.
-Record only FINDs/RISKs/BLOCKs that actually exist;
-a group with no items uses one short sentence under its heading, with no empty table or fake ID.
+Record only FINDs/RISKs/BLOCKs that actually exist; a group with no items uses one short sentence under its heading, with no empty table or fake ID.
 Number each kind consecutively, keeping the order findings, risks, then blockers.
-EVALs cover the settled Implement team in the Implementation Record's order;
-do not add an inventory or a third level-two section that repeats the handoff.
+EVALs cover the settled Implement team in the Implementation Record's order; do not add an inventory or a third level-two section that repeats the handoff.
 
 ## Placeholders in the template
 

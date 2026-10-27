@@ -15,15 +15,12 @@ screens, display states, interaction flows, UI strings for each language, layout
 - What does the user see in each state:
   normal, empty, loading, error, locked, input validation error?
 - Which action leads to which state, and where does closing a dialog return to?
-- Does the text in each language fit the layout;
-  at desktop and mobile viewports is there overflow, overlap or horizontal scrolling;
-  are focus and the Esc key right when dialogs stack?
+- Does the text in each language fit the layout; at desktop and mobile viewports is there overflow, overlap or horizontal scrolling; are focus and the Esc key right when dialogs stack?
 
 ## How it works
 
 - List display states from the contract and the business flow, not just the success state.
-- Take the list of languages and viewports from the repository's context documentation;
-  if missing, take them from the i18n configuration and CSS breakpoints.
+- Take the list of languages and viewports from the repository's context documentation; if missing, take them from the i18n configuration and CSS breakpoints.
 - Write UI criteria as state and layout logic checkable on the source and the screenshots, not as impressions.
 - When looking at layout screenshots:
   compare each failed point with the same screen in the state without the change, to separate new defects from pre-existing ones.
@@ -39,5 +36,4 @@ screens, display states, interaction flows, UI strings for each language, layout
 
 ## Boundaries with other roles
 
-Writing UI code belongs to `frontend-developer`;
-business logic belongs to `business-analyst`.
+Writing UI code belongs to `frontend-developer`; business logic belongs to `business-analyst`.

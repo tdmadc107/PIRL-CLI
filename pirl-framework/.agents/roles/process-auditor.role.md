@@ -9,8 +9,7 @@ status: active
 
 Evaluates a completed layer run:
 reconstructs the decisions of each role and of the coordinator, finds wrong decisions, identifies the root cause and rewrites the rules correctly.
-When it runs and how the result is reported belong to the [router's Self-evaluation and improvement section](../instructions/layered-task-execution.instructions.md#self-evaluation-and-improvement);
-how causes are classified, how fixes are made and the record belong to the [self-evaluation instructions](../instructions/self-evaluation.instructions.md), which it reads in full before evaluating.
+When it runs and how the result is reported belong to the [router's Self-evaluation and improvement section](../instructions/layered-task-execution.instructions.md#self-evaluation-and-improvement); how causes are classified, how fixes are made and the record belong to the [self-evaluation instructions](../instructions/self-evaluation.instructions.md), which it reads in full before evaluating.
 
 ## Questions the role answers
 
@@ -46,6 +45,5 @@ how causes are classified, how fixes are made and the record belong to the [self
 
 ## Boundaries with other roles
 
-Does not edit product output, Plans or reports itself;
-output defects are returned to the owning role.
+Does not edit product output, Plans or reports itself; output defects are returned to the owning role.
 Does not re-grade QGs in place of the verification roles.

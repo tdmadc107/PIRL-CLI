@@ -20,8 +20,7 @@ the repository's context documentation, contract documents, indexes, specificati
 
 - Take facts from the source and contracts, not from old documentation.
 - Every claim has a file/symbol source.
-- A fact lives in only one place;
-  other places point to it.
+- A fact lives in only one place; other places point to it.
 - Record known gaps explicitly instead of guessing.
 - Keep one term for one meaning throughout the documentation.
 - The sentence is the unit of a claim.
@@ -31,10 +30,8 @@ the repository's context documentation, contract documents, indexes, specificati
   When the description can be read two ways (for example "half of A plus B" and "half of (A plus B)"), write the formula with the input values and the result.
 - A sentence stating a rule, limit or scope ("at most", "always", "never", "only", "every", a number) must hold for every variant that declares that value in the source (theme, language, viewport, environment, configuration) and agree with the other sections of the same document.
   A description applied to a whole group of elements must hold for each element after the change, including elements the change itself just added.
-  This group covers sentences combining several elements, lists that claim to be complete, and the lead-in sentence, heading or column labels above a table or list;
-  quantifier words in them (for example "some", "shared", "every", "only") are claims about each row or item.
-  Read the description, then check it against each row or item in turn, not just each cell on its own;
-  for a row that does not fit the description, fix the description or move that row out of the group.
+  This group covers sentences combining several elements, lists that claim to be complete, and the lead-in sentence, heading or column labels above a table or list; quantifier words in them (for example "some", "shared", "every", "only") are claims about each row or item.
+  Read the description, then check it against each row or item in turn, not just each cell on its own; for a row that does not fit the description, fix the description or move that row out of the group.
   Find every place of use by symbol or property, then check each variant and each element, not just the default variant or the first example.
 - Do not edit historical records such as settled Plans or Review reports.
 

@@ -6,8 +6,7 @@ What each section must settle belongs to the [Plan contract](../../../.agents/in
 ## Location and naming
 
 - Output directory:
-  the directory the user names for the Plan;
-  when the user names none, the Hub root.
+  the directory the user names for the Plan; when the user names none, the Hub root.
 - Package:
   `<output directory>/<request-slug>_<YYYYMMDD-HHmmss>/`.
   The package directory name is the `plan_set`.
@@ -19,8 +18,7 @@ What each section must settle belongs to the [Plan contract](../../../.agents/in
 - Task IDs start at `T01` and are consecutive within the package.
 - Never overwrite an existing file.
   Review reports of the package are placed per the [report format](../../pirl-review/references/review-format.md#location-and-naming).
-- Git ignores package directories anywhere in the Hub, by their name pattern ([AGENTS.md](../../../AGENTS.md#git));
-  a package the user places outside the Hub follows the Git rules of that location.
+- Git ignores package directories anywhere in the Hub, by their name pattern ([AGENTS.md](../../../AGENTS.md#git)); a package the user places outside the Hub follows the Git rules of that location.
 
 ## Frontmatter
 
@@ -48,15 +46,11 @@ one `key: value` per line, inline lists such as `[code-analyst, code-reviewer]`,
 
 - Exactly four level-two sections, in this order:
   `What to do`, `How to do it`, `Participating roles`, `Required quality gates`.
-  Add only details that change how the work is done;
-  do not add per-role reports or checklists as a fifth section.
+  Add only details that change how the work is done; do not add per-role reports or checklists as a fifth section.
   Implement later adds one `Implementation Record` section below them.
 - Line forms:
-  `REQ-NN | Source: … | Requirement: …`;
-  `ROLE-NN | Type: … | Role: … | Responsible for: … | Input: … | Done when: …`;
-  `QG-NN | Requirement: REQ-NN | Required logic: …`.
-- Write in English;
-  keep IDs, data keys, symbols, commands and paths verbatim.
+  `REQ-NN | Source: … | Requirement: …`; `ROLE-NN | Type: … | Role: … | Responsible for: … | Input: … | Done when: …`; `QG-NN | Requirement: REQ-NN | Required logic: …`.
+- Write in English; keep IDs, data keys, symbols, commands and paths verbatim.
 
 ## Placeholders in the template
 

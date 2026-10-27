@@ -11,9 +11,7 @@ metadata:
 # Plan
 
 Carries out one Plan layer run.
-The [Plan contract](../../.agents/instructions/plan.instructions.md) owns the decisions and exit conditions;
-the [router](../../.agents/instructions/layered-task-execution.instructions.md) owns the shared contracts;
-[AGENTS.md](../../AGENTS.md) owns the core rules, roles and target repository.
+The [Plan contract](../../.agents/instructions/plan.instructions.md) owns the decisions and exit conditions; the [router](../../.agents/instructions/layered-task-execution.instructions.md) owns the shared contracts; [AGENTS.md](../../AGENTS.md) owns the core rules, roles and target repository.
 This skill owns the order of the steps, the Plan file format and the helper script.
 Where a step names a section, that section decides.
 
@@ -43,14 +41,12 @@ Run the commands from the Hub root.
    Pick the roles by the "Select when" column, or keep exactly the roles the user named ([AI Agent roles at the Plan layer](../../.agents/instructions/plan.instructions.md#ai-agent-roles-at-the-plan-layer)).
    Delegate each role to a separate agent per the [assignment principles](../../.agents/instructions/layered-task-execution.instructions.md#assignment-principles).
 4. **Investigate and settle decisions** ([contract](../../.agents/instructions/plan.instructions.md#investigating-and-settling-decisions)).
-   Ask only about missing decisions that change the result;
-   continue the independent parts.
+   Ask only about missing decisions that change the result; continue the independent parts.
    Asking pauses the run:
    the next steps, self-evaluation included, follow the answers.
 5. **Split the work into tasks** ([contract](../../.agents/instructions/plan.instructions.md#splitting-tasks-for-separate-implementation-and-acceptance)), within the [scope of work](../../.agents/instructions/plan.instructions.md#scope-of-work-source-code-documentation-and-functional-tests) and with [separate implementation and verification roles](../../.agents/instructions/plan.instructions.md#separating-implementation-roles-from-verification-roles).
 6. **Write the task files** in the directory the user named, or by default under the Hub root ([format](references/plan-format.md#location-and-naming)).
-   The first task starts the package;
-   each next task joins it:
+   The first task starts the package; each next task joins it:
 
    ```powershell
    python -B .skills/pirl-plan/scripts/new_plan.py --request-slug <request-slug> --todo-slug <todo-slug> [--out-dir <dir>]

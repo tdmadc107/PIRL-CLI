@@ -12,8 +12,7 @@ Traces data and control flow in the source, identifies callers/consumers and the
 ## Questions the role answers
 
 - From the entrypoint, which guards, data transformations and write/read operations does the execution path pass through to reach the final state?
-- Who writes and who reads this data;
-  which callers, consumers, configuration and documentation does the change touch?
+- Who writes and who reads this data; which callers, consumers, configuration and documentation does the change touch?
 - For each combination of branch, prior state and event order, what is the result?
 - Which elements, consumers or configuration beyond the intended target does this change spread to, and what is its effect on each?
 
@@ -26,8 +25,7 @@ Traces data and control flow in the source, identifies callers/consumers and the
 - For multi-branch flows:
   build the scenario table from the contract (input, prior state, order) before reading the code, then trace each row of the table through the source.
 - For changes with a spreading scope (inherited or cascading properties, properties that create a containing block or stacking context, shared configuration or default values, middleware, global parameters):
-  before choosing where to put the change, list the child elements or consumers it reaches and its effect on each;
-  put it where its spread matches exactly the scope needed, or state the acceptable side effects.
+  before choosing where to put the change, list the child elements or consumers it reaches and its effect on each; put it where its spread matches exactly the scope needed, or state the acceptable side effects.
 - Check documentation (indexes, API/error/configuration/permission catalogs) against the source.
   Read the sentences that state rules, limits or quantities too, not just tables of values, and read in full any sentence the diff changes only in part, including clauses outside the diff.
   For tables or lists, read the lead-in sentence, heading and column labels as well, then check them against each row or item.
@@ -44,5 +42,4 @@ Traces data and control flow in the source, identifies callers/consumers and the
 
 ## Boundaries with other roles
 
-Challenging a diff to find bugs belongs to `code-reviewer`;
-contract decisions belong to `solution-architect`.
+Challenging a diff to find bugs belongs to `code-reviewer`; contract decisions belong to `solution-architect`.

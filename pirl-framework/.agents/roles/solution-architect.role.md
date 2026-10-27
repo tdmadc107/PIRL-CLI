@@ -38,5 +38,4 @@ Settles API and data contracts, ownership of data and decisions, the permission 
 
 ## Boundaries with other roles
 
-Business behavior belongs to `business-analyst`;
-execution-path details in code belong to `code-analyst`.
+Business behavior belongs to `business-analyst`; execution-path details in code belong to `code-analyst`.

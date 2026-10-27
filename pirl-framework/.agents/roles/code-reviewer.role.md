@@ -16,8 +16,7 @@ bugs, regressions, permission and security holes, data or state inconsistency, g
 - When an error happens midway, is the state still consistent?
 - Who can perform this operation without having the permission?
 - Does the guard or validator really reject bad values, or does it always report success?
-- Do the tests trace back to a REQ;
-  do they lock in implementation details?
+- Do the tests trace back to a REQ; do they lock in implementation details?
 
 ## How it works
 
@@ -37,5 +36,4 @@ bugs, regressions, permission and security holes, data or state inconsistency, g
 
 ## Boundaries with other roles
 
-Tracing flows across the whole system belongs to `code-analyst`;
-checking business behavior belongs to `business-analyst`.
+Tracing flows across the whole system belongs to `code-analyst`; checking business behavior belongs to `business-analyst`.

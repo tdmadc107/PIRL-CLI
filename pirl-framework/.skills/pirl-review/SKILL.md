@@ -11,9 +11,7 @@ metadata:
 # Review
 
 Carries out one Review round.
-The [Review contract](../../.agents/instructions/review.instructions.md) owns the decisions, the rounds and the exit conditions;
-the [router](../../.agents/instructions/layered-task-execution.instructions.md) owns the shared contracts;
-[AGENTS.md](../../AGENTS.md) owns the core rules, roles and target repository.
+The [Review contract](../../.agents/instructions/review.instructions.md) owns the decisions, the rounds and the exit conditions; the [router](../../.agents/instructions/layered-task-execution.instructions.md) owns the shared contracts; [AGENTS.md](../../AGENTS.md) owns the core rules, roles and target repository.
 This skill owns the order of the steps, the report format and the helper script.
 Where a step names a section, that section decides.
 
@@ -42,15 +40,13 @@ Run the commands from the Hub root.
    the Plan, its Implementation Record, the diff and source of the Plan's `target_repo`, and earlier reports for the same task.
    Identify the snapshot before concluding.
 3. **Round.** Decide whether this work is a new round or belongs to the current one ([Report and rounds](../../.agents/instructions/review.instructions.md#report-and-rounds)).
-   A new round creates its report in the directory the user named, or by default under the Hub root ([format](references/review-format.md#location-and-naming));
-   the current round edits its existing report:
+   A new round creates its report in the directory the user named, or by default under the Hub root ([format](references/review-format.md#location-and-naming)); the current round edits its existing report:
 
    ```powershell
    python -B .skills/pirl-review/scripts/new_review.py --plan <Plan file> --todo-slug <todo-slug> [--out-dir <dir>]
    ```
 
-4. **Team.** Pick `review_roles` by the "Select when" column ([AI Agent roles at the Review layer](../../.agents/instructions/review.instructions.md#ai-agent-roles-at-the-review-layer));
-   delegate each role to a separate agent per the [assignment principles](../../.agents/instructions/layered-task-execution.instructions.md#assignment-principles).
+4. **Team.** Pick `review_roles` by the "Select when" column ([AI Agent roles at the Review layer](../../.agents/instructions/review.instructions.md#ai-agent-roles-at-the-review-layer)); delegate each role to a separate agent per the [assignment principles](../../.agents/instructions/layered-task-execution.instructions.md#assignment-principles).
 5. **Business** ([contract](../../.agents/instructions/review.instructions.md#business-prove-or-refute-each-suspicion)):
    conclude each QG, keep only grounded FINDs, RISKs and BLOCKs, and write the `Business` section.
 6. **Evaluations and self-evaluation.** `process-auditor`, in a separate agent, evaluates the roles of the reviewed Implement run ([Evaluations](../../.agents/instructions/review.instructions.md#evaluations-assessing-implement-roles)) and the Review run itself ([Self-evaluation and improvement](../../.agents/instructions/layered-task-execution.instructions.md#self-evaluation-and-improvement)), applies improvements and writes the `Evaluations` section.

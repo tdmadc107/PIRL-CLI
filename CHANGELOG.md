@@ -8,12 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Changed
 
 - `/resume` no longer continues a run as soon as you choose it.
-  PIRL waits for your message, "continue" or a related problem for the run to solve, and sends it to the run's agent session;
-  Esc cancels.
+  PIRL waits for your message, "continue" or a related problem for the run to solve, and sends it to the run's agent session; Esc cancels.
   A run that was waiting for your answers shows its questions again.
 - A layer run that ends without its result (a Plan package, the Plan file or a Review report) and without asking you anything is no longer reported as "Done".
-  PIRL sends it back to finish or to ask what is missing, as it does for a failed validator;
-  if there is still no result, the run ends as "No result" with the reason, and `/resume` can continue it.
+  PIRL sends it back to finish or to ask what is missing, as it does for a failed validator; if there is still no result, the run ends as "No result" with the reason, and `/resume` can continue it.
 - A question that needs content only you have (text, data, values) is asked as a free answer you type, not as an option such as "I will write it", which sent no content.
 
 ### Fixed
@@ -24,12 +22,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   PIRL now ends the whole process tree, also when PIRL closes.
 - On every system, a provider that ignores the stop request is ended after a few seconds, and the run ends once it is gone, even if a process it started keeps the output open.
 - Esc tells you the run is stopping, and a second Esc forces it at once.
-- Esc also stops a run that waits for your answers, as the hint said;
-  it can be resumed later.
+- Esc also stops a run that waits for your answers, as the hint said; it can be resumed later.
 - A run stopped while PIRL checked its results no longer comes back to ask about framework improvements.
 - With English chosen, a file the agent writes shows as "Write <path>", not "Ghi <path>".
-- The run log records a refused improvements decision (a commit while the framework tests fail, or a commit or discard that Git refused);
-  before, only the run block showed it.
+- The run log records a refused improvements decision (a commit while the framework tests fail, or a commit or discard that Git refused); before, only the run block showed it.
 
 ### Framework fw-1.3.0
 
@@ -40,9 +36,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   The coordinator no longer reads the sources it hands to roles, and each role reads only what its part needs.
 - A question about content only you have asks for that content itself.
 - The framework's Markdown files are no longer hard-wrapped at a fixed width.
-  A line ends only where a sentence or clause ends with `.`, `:`, `;`, `?` or `!`, so a phrase is never split across lines and can be found with a plain search.
-  Headings, tables, code blocks and the output templates keep their form;
-  every file renders as before.
+  A line ends only where a sentence or clause ends with `.`, `:`, `?` or `!` (not `;`), so a phrase is never split across lines and can be found with a plain search.
+  Headings, tables, code blocks and the output templates keep their form; every file renders as before.
 - Framework maintenance keeps this convention for every Markdown file it edits.
 
 ## [1.1.2] - 2026-10-26
@@ -75,11 +70,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   A copy run from its source is left alone, with the way to update it.
 - PIRL tells you when a new version is out:
   the header shows it and a note in the chat says how to update.
-  npm is asked in the background each time PIRL starts;
-  `PIRL_NO_UPDATE_CHECK=1` turns the check off.
+  npm is asked in the background each time PIRL starts; `PIRL_NO_UPDATE_CHECK=1` turns the check off.
 - Select text with the mouse across more than one screen:
-  drag in the chat or an open panel, without Shift;
-  while the button is held, the wheel or the pointer past an edge scrolls on and extends the selection.
+  drag in the chat or an open panel, without Shift; while the button is held, the wheel or the pointer past an edge scrolls on and extends the selection.
   Releasing copies it to the clipboard.
   The right button pastes.
 
@@ -91,8 +84,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- Code blocks in replies keep their indentation;
-  it was stripped, so code was shown, and would have been copied, flush left.
+- Code blocks in replies keep their indentation; it was stripped, so code was shown, and would have been copied, flush left.
   Tabs are drawn as spaces to the next multiple of four instead of pushing the rest of the line out of place.
 
 ## [1.0.1] - 2026-10-25
@@ -136,8 +128,7 @@ fw-1.1.0.
 - `/resume` lists the runs of the repository that can continue and resumes the one you choose, even after the TUI was closed.
 - After each run, PIRL runs the framework's validator and checks the self-evaluation record.
   After Implement, it checks that the changed files are within the Plan's allowed paths.
-- Framework improvements made by a run are tested with the framework's own tests before PIRL offers to commit them to the Hub;
-  an improvement that fails the tests cannot be committed.
+- Framework improvements made by a run are tested with the framework's own tests before PIRL offers to commit them to the Hub; an improvement that fails the tests cannot be committed.
 - `/framework`:
   - update to the framework bundled with the CLI through a draft, with a three-way merge;
   - resolve conflicts by keeping your version, taking the new one, letting the agent merge them, or editing by hand;
@@ -148,20 +139,16 @@ fw-1.1.0.
   open a Plan, a review report or a record to see its details.
 - Attach files and folders with `@`:
   paths of the repository are suggested as you type.
-  Small text files are sent with their content;
-  large files and folders are sent as paths or file lists.
+  Small text files are sent with their content; large files and folders are sent as paths or file lists.
   On Windows, network (UNC) and device paths are never read, except on the share that holds the repository or the home directory.
 - Run progress:
-  a spinner, a clock and what each role is doing;
-  the full log of each run in `~/.pirl/logs/`.
+  a spinner, a clock and what each role is doing; the full log of each run in `~/.pirl/logs/`.
 - Token usage by kind (cache reads, cache writes, output, new input), including the roles', with its equivalent at API list prices.
 - 5-hour and weekly usage limits in the side panel, with percentage bars and reset times.
 - Mouse wheel scrolling of the chat and panels, while dragging still selects text as usual.
 - `/settings`:
   coordinator model (Sonnet by default), role model, reasoning effort for every role, parallel roles, color scheme, light or dark background, glyphs, motion and mouse mode.
-- `/doctor`, `/copy`, `/clear`, `/help` and `/exit`;
-  paste with Ctrl+V;
-  new lines with Shift+Enter, Ctrl+J or `\` then Enter.
+- `/doctor`, `/copy`, `/clear`, `/help` and `/exit`; paste with Ctrl+V; new lines with Shift+Enter, Ctrl+J or `\` then Enter.
 - A responsive layout from 40 columns, and support for Vietnamese input methods.
 
 ### Framework fw-1.1.0

@@ -12,10 +12,7 @@ metadata:
 
 Carries out one Implement layer run:
 a first run of a Plan task, or a repair run per a Review report.
-The [Implement contract](../../.agents/instructions/implement.instructions.md) owns the decisions, when layout verification with mocks applies, and the exit conditions;
-the [layout verification instructions](../../.agents/instructions/layout-verification.instructions.md) own how it is done;
-the [router](../../.agents/instructions/layered-task-execution.instructions.md) owns the shared contracts (verification by reasoning, functional tests);
-[AGENTS.md](../../AGENTS.md) owns the core rules, roles and target repository.
+The [Implement contract](../../.agents/instructions/implement.instructions.md) owns the decisions, when layout verification with mocks applies, and the exit conditions; the [layout verification instructions](../../.agents/instructions/layout-verification.instructions.md) own how it is done; the [router](../../.agents/instructions/layered-task-execution.instructions.md) owns the shared contracts (verification by reasoning, functional tests); [AGENTS.md](../../AGENTS.md) owns the core rules, roles and target repository.
 This skill owns the order of the steps, the Implementation Record format and the helper scripts.
 Where a step names a section, that section decides.
 
@@ -57,25 +54,21 @@ Run the commands from the Hub root.
 6. **Verify the quality gates by reasoning** ([contract](../../.agents/instructions/implement.instructions.md#verifying-quality-gates-by-reasoning)).
    A FAIL goes back to the implementation role that owns the part, at most two repairs of the same cause.
 7. **Write the Implementation Record** ([Recording results](../../.agents/instructions/implement.instructions.md#recording-results), [format](references/implementation-record-format.md)).
-   When the Plan has no record yet, add the template first;
-   set the Plan's `status` to the record's `status`;
-   then validate and fix until it passes:
+   When the Plan has no record yet, add the template first; set the Plan's `status` to the record's `status`; then validate and fix until it passes:
 
    ```powershell
    python -B .skills/pirl-implement/scripts/add_implementation_record.py --plan <Plan file>
    python -B .agents/evals/validate_layer_artifact.py --kind plan --path <Plan file>
    ```
 
-8. **Self-evaluate.** `process-auditor`, in a separate agent, evaluates the run, applies improvements and writes exactly one record ([Self-evaluation and improvement](../../.agents/instructions/layered-task-execution.instructions.md#self-evaluation-and-improvement));
-   output defects it finds go back to the owning implementation role within the same two-repair limit:
+8. **Self-evaluate.** `process-auditor`, in a separate agent, evaluates the run, applies improvements and writes exactly one record ([Self-evaluation and improvement](../../.agents/instructions/layered-task-execution.instructions.md#self-evaluation-and-improvement)); output defects it finds go back to the owning implementation role within the same two-repair limit:
 
    ```powershell
    python -B .agents/evals/layer_record.py append --input <JSON file>
    python -B .agents/evals/layer_record.py check
    ```
 
-9. **Clean up** temporary resources in the Hub and the target repository;
-   keep the layout capture directories ([router](../../.agents/instructions/layered-task-execution.instructions.md#cleaning-up-temporary-resources-before-handoff)).
+9. **Clean up** temporary resources in the Hub and the target repository; keep the layout capture directories ([router](../../.agents/instructions/layered-task-execution.instructions.md#cleaning-up-temporary-resources-before-handoff)).
 10. **Hand off and report** ([Finishing and handoff](../../.agents/instructions/implement.instructions.md#finishing-and-handoff), [Reporting](../../.agents/instructions/layered-task-execution.instructions.md#reporting)).
     Stop there:
     Review opens only when the user asks for it.

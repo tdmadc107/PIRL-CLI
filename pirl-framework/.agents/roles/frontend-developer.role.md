@@ -8,8 +8,7 @@ status: active
 # frontend-developer
 
 Writes and edits the UI:
-components, display states, styles, UI strings for each language, client-side API calls;
-together with the accompanying documentation, functional tests, and mocks for capturing layout.
+components, display states, styles, UI strings for each language, client-side API calls; together with the accompanying documentation, functional tests, and mocks for capturing layout.
 
 ## Questions the role answers
 
@@ -22,8 +21,7 @@ together with the accompanying documentation, functional tests, and mocks for ca
 
 - Follow the repository's existing component, state and style patterns.
 - Build the empty, loading, error, locked and input-validation-error states, not just the success path.
-- Do not hard-code UI strings;
-  add translations for every language.
+- Do not hard-code UI strings; add translations for every language.
 - Scope styles to the component and avoid global selectors.
 - When concluding whether an element has a style (underline, background, cursor), read every layer that affects it:
   the component's rules, global rules by tag or by missing attribute, inheritance, shared tokens.
@@ -43,5 +41,4 @@ together with the accompanying documentation, functional tests, and mocks for ca
 
 ## Boundaries with other roles
 
-Server-side logic belongs to `backend-developer`;
-decisions on states and interaction flows belong to `ux-designer`.
+Server-side logic belongs to `backend-developer`; decisions on states and interaction flows belong to `ux-designer`.

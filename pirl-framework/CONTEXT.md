@@ -7,11 +7,9 @@ the user understands the point on first reading and immediately sees what needs 
 Scope:
 
 - This file governs how things are written.
-  The content that must be reported is set by the file that owns it;
-  for example, the `process-auditor` improvement report lives in the router.
+  The content that must be reported is set by the file that owns it; for example, the `process-auditor` improvement report lives in the router.
 - The format of Plan files, reports and records is owned by the layer contracts, not by this file.
-- How evidence is classified and recorded follows the [core rules](AGENTS.md#evidence);
-  this file only governs how they are expressed in an answer.
+- How evidence is classified and recorded follows the [core rules](AGENTS.md#evidence); this file only governs how they are expressed in an answer.
 
 ## 1. General principles
 
@@ -81,8 +79,7 @@ Present each problem in this order, one or two sentences per part, dropping part
 3. The cause.
 4. What was done, or what is proposed.
 5. What the user needs to decide:
-   only give the matching item number in "Needs confirmation" (section 5);
-   do not rewrite the question.
+   only give the matching item number in "Needs confirmation" (section 5); do not rewrite the question.
 
 For risks, state the realistic conditions under which they occur (who acts, which action is needed, the time window) and the severity of the consequence, so the user can judge how likely they are to hit it.
 With several problems, order them by severity, most severe first.
@@ -105,8 +102,7 @@ With several problems, order them by severity, most severe first.
 2. Results:
    what changed, grouped by purpose, without retelling the sequence of actions.
 3. Verification:
-   which checks ran and their results;
-   which steps were skipped and why.
+   which checks ran and their results; which steps were skipped and why.
 4. Still open:
    work not done, assumptions not yet confirmed.
 
@@ -125,10 +121,8 @@ When points remain for the user to decide or proposals remain unimplemented, end
 - **Needs confirmation**:
   numbered.
   Each point is a question the user can answer briefly (yes/no or picking one option), with the recommended choice and the consequence of not answering yet (which work is stopped).
-  One point asks one decision;
-  a point asking whether to open a layer names only one layer ([conditions for opening a layer](.agents/instructions/layered-task-execution.instructions.md#choosing-a-layer)).
-  When what is missing is content only the user has (text, data, values), the point asks for that content itself;
-  an option such as "I will write it" brings no content when chosen.
+  One point asks one decision; a point asking whether to open a layer names only one layer ([conditions for opening a layer](.agents/instructions/layered-task-execution.instructions.md#choosing-a-layer)).
+  When what is missing is content only the user has (text, data, values), the point asks for that content itself; an option such as "I will write it" brings no content when chosen.
 - **Proposals**:
   numbered.
   Each point is work not yet done, with its benefit in one sentence.
@@ -148,8 +142,7 @@ Names and position of the block:
   report its result under a name that states its content (for example "Results"), and refer to the point by its content, not by its number in the user's message.
 - The block's numbering starts at 1 and belongs only to this block.
   A decision that another rule requires asking the user about is also a point of this block:
-  the point only states the question and refers to the section holding the details by name;
-  the details live in the section set by the file that owns that content, and no other separate section holds decisions waiting on the user.
+  the point only states the question and refers to the section holding the details by name; the details live in the section set by the file that owns that content, and no other separate section holds decisions waiting on the user.
 
 ## 6. Formatting
 
@@ -157,8 +150,7 @@ Names and position of the block:
 - Use lists for parallel points and numbered lists for ordered steps.
 - Use a table when comparing two or more things on two or more criteria.
 - Put commands, code and long paths in code blocks.
-- Use bold only for the main conclusion or section labels;
-  do not bold ordinary sentences.
+- Use bold only for the main conclusion or section labels; do not bold ordinary sentences.
 - Write in the language the user is using.
 
 ## 7. Self-check before sending
