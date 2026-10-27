@@ -1,6 +1,7 @@
 import {appendFileSync, readFileSync, writeFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {afterEach, describe, expect, test} from 'vitest';
+import {setLanguage} from '../src/core/i18n.js';
 import {readRoleCatalog, roleAgents} from '../src/engine/agents.js';
 import {claudeArgs} from '../src/engine/claudeRunner.js';
 import {createStreamParser, describeTool, parseStreamLine} from '../src/engine/claudeStream.js';
@@ -116,6 +117,24 @@ describe('Claude Code stream-json', () => {
 			{type: 'result', text: 'No conversation found with session ID: s', isError: true, sessionId: 's'},
 		]);
 		expect(describeTool('Bash', {command: 'git log --oneline -5'})).toBe('Chạy git log --oneline -5');
+	});
+
+	test('with English chosen, every tool line is in English', () => {
+		setLanguage('en');
+		try {
+			const calls: Array<[string, Record<string, unknown>]> = [
+				['Read', {file_path: 'a.ts'}],
+				['Edit', {file_path: 'a.ts'}],
+				['Write', {file_path: 'a.ts'}],
+				['Grep', {pattern: 'x'}],
+				['Glob', {pattern: '*.ts'}],
+				['Bash', {command: 'git status'}],
+				['TodoWrite', {}],
+			];
+			expect(calls.map(([name, input]) => describeTool(name, input))).toEqual(['Read a.ts', 'Edit a.ts', 'Write a.ts', 'Search "x"', 'List *.ts', 'Run git status', 'Update the to-do list']);
+		} finally {
+			setLanguage('vi');
+		}
 	});
 });
 
@@ -332,6 +351,34 @@ describe('RunController', () => {
 		expect(run.state.status).toBe('done');
 		expect(run.state.improvements?.state).toBe('kept');
 		expect((await logOf(run)).at(-1)).toBe('pirl Giữ cải tiến, chưa commit. Xong');
+	});
+
+	test('with English chosen, the run\'s log is in English', async () => {
+		const {hub, target} = await hubAndTarget();
+		const {runner} = fakeRunner([
+			(_call, emit) => {
+				emit({type: 'activity', agent: null, text: describeTool('Write', {file_path: '.tmp/pirl-run/brief.md'})});
+				const {planSet} = writePlan(hub, target);
+				const recordId = writeRecord(hub, target, planSet);
+				appendFileSync(join(hub, '.agents/roles/code-analyst.role.md'), '\n- Check every caller.\n');
+				return [result('Plan ready.' + outputsBlock({plan_set: planSet, plan_file: null, report: null, record_id: recordId}))];
+			},
+		]);
+		setLanguage('en');
+		try {
+			const run = new RunController(deps(hub, target, runner), 1, 'plan', 'Cancellation email');
+			await run.start();
+			await run.resolveImprovements('commit');
+			const log = await logOf(run);
+			expect(log[0]).toBe('pirl Starting Plan: Cancellation email');
+			expect(log).toContain('coordinator Write .tmp/pirl-run/brief.md');
+			expect(log).toContain('pirl Coordinator done; checking the results');
+			expect(log.at(-1)).toBe('pirl Committed 1 improved file. Done');
+			// No line PIRL or a tool description writes is left in Vietnamese.
+			expect(log.filter(line => /[À-ỹđĐ]/.test(line))).toEqual([]);
+		} finally {
+			setLanguage('vi');
+		}
 	});
 
 	test('an improvement that breaks the framework\'s tests cannot be committed', async () => {

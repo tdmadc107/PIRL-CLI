@@ -19,6 +19,7 @@ All notable changes to this project are documented in this file. The format foll
 - A layer run that ends without its result (a Plan package, the Plan file or a Review report) and without asking
   you anything no longer reports "Done". It is sent back to finish it or to ask what is missing, as a failed
   validator is; if it still has no result, it ends as "No result" with the reason, and `/resume` can continue it.
+- With English chosen, a file the agent writes shows as "Write <path>" in the run and its log, not "Ghi <path>".
 - The run log now records a refused improvements decision (committing while the framework tests fail, or a
   commit or discard that Git refused), not only the run block.
 
