@@ -194,6 +194,7 @@ describe('host protocol', () => {
 		expect(text).toContain('`py -3 -B ...`');
 		expect(text).toContain('at most 2 role subagents');
 		expect(text).toContain('Do not commit');
+		expect(text).toContain('content only the user has (text, data, values) has `"options": []`');
 		const chat = hostInstructions({kind: 'chat', hub: '/h', target: null, python: null, maxParallelRoles: 1});
 		expect(chat).toContain('pirl-suggest');
 		expect(chat).not.toContain('pirl-result');
@@ -483,6 +484,39 @@ describe('RunController', () => {
 		await started;
 		expect(calls).toHaveLength(0);
 		expect(run.state.status).toBe('stopped');
+	});
+
+	test('a Plan run that ends without a Plan and without questions is sent back, then ends with no result', async () => {
+		const {hub, target} = await hubAndTarget();
+		const {runner, calls} = fakeRunner([
+			() => [result('Chưa đủ dữ liệu để lập Plan.' + outputsBlock({plan_set: null, plan_file: null, report: null, record_id: writeRecord(hub, target, 'none')}))],
+			() => [result('Vẫn chưa có Plan.')],
+		]);
+		const run = new RunController({...deps(hub, target, runner), maxRepairs: 1}, 1, 'plan', 'Cập nhật dữ liệu portfolio');
+		await run.start();
+		expect(calls[1]!.prompt).toContain('Run chưa có kết quả: không tìm thấy Plan package nào.');
+		expect(calls[1]!.prompt).toContain('kết thúc bằng khối pirl-questions để hỏi');
+		expect(run.state.checks.validator).toEqual({state: 'fail', detail: 'Run kết thúc mà không có Plan package và không hỏi bạn câu nào.'});
+		expect(run.state.status).toBe('failed');
+		expect(run.state.error).toBe('Run kết thúc mà không có Plan package và không hỏi bạn câu nào.');
+		expect(resumable(run.persisted())).toBe(true);
+	});
+
+	test('a repair that produces the missing Plan ends the run done', async () => {
+		const {hub, target} = await hubAndTarget();
+		const {runner} = fakeRunner([
+			() => [result('Chưa có Plan.')],
+			() => {
+				const {planSet} = writePlan(hub, target);
+				const recordId = writeRecord(hub, target, planSet);
+				return [result('Plan đã sẵn sàng.' + outputsBlock({plan_set: planSet, plan_file: null, report: null, record_id: recordId}))];
+			},
+		]);
+		const run = new RunController(deps(hub, target, runner), 1, 'plan', 'Email');
+		await run.start();
+		expect(run.state.checks.validator).toMatchObject({state: 'pass'});
+		expect(run.state.status).toBe('done');
+		expect(run.state.error).toBeNull();
 	});
 
 	test('stop() while the results are checked: the run stays stopped and asks nothing about improvements', async () => {

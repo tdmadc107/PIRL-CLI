@@ -55,6 +55,7 @@ export function claudeArgs(request: AgentRunRequest, files: {systemPrompt: strin
  */
 export type StopTimings = {graceMs: number; settleMs: number};
 const STOP_TIMINGS: StopTimings = {graceMs: 3_000, settleMs: 2_000};
+const STOP_SIGNALS: NodeJS.Signals[] = ['SIGINT', 'SIGTERM', 'SIGKILL'];
 
 /**
  * Ends `child` and every process it started. On Windows there are no signals, and Claude Code installed by npm is a
@@ -123,46 +124,44 @@ export function createClaudeRunner(command = 'claude', options: {platform?: Node
 			child.stderr?.setEncoding('utf8').on('data', (chunk: string) => (stderr += chunk));
 			child.stdin?.on('error', () => {});
 			child.stdin?.end(request.prompt);
-			let settle: (() => void) | null = null;
-			const done = new Promise<{code: number | null; stderr: string}>(resolve => {
-				let finished = false;
-				const finish = (code: number | null, error?: string) => {
-					if (finished) return;
-					finished = true;
-					running.delete(child);
-					if (buffer.trim()) for (const event of parseStreamLine(buffer.trim())) emit(event);
-					buffer = '';
-					rmSync(dir, {recursive: true, force: true});
-					resolve({code, stderr: error ?? stderr});
-				};
-				child.on('error', error => finish(null, error.message));
-				child.on('close', code => finish(code));
-				// A process that holds the pipes after it was killed (a grandchild, a hung shim) must not keep the run open.
-				settle = () => {
-					child.stdout?.destroy();
-					child.stderr?.destroy();
-					finish(child.exitCode);
-				};
-			});
+			let resolveDone: (exit: {code: number | null; stderr: string}) => void = () => {};
+			const done = new Promise<{code: number | null; stderr: string}>(resolve => (resolveDone = resolve));
+			let finished = false;
+			const finish = (code: number | null, error?: string) => {
+				if (finished) return;
+				finished = true;
+				running.delete(child);
+				if (buffer.trim()) for (const event of parseStreamLine(buffer.trim())) emit(event);
+				buffer = '';
+				rmSync(dir, {recursive: true, force: true});
+				resolveDone({code, stderr: error ?? stderr});
+			};
+			child.on('error', error => finish(null, error.message));
+			child.on('close', code => finish(code));
+			/** Ends the run without waiting for 'close': a process left holding the pipes (a grandchild, a hung shim) must not keep it open. */
+			const settle = () => {
+				child.stdout?.destroy();
+				child.stderr?.destroy();
+				finish(child.exitCode);
+			};
+
 			const timers: NodeJS.Timeout[] = [];
 			void done.then(() => timers.forEach(clearTimeout));
 			const later = (ms: number, step: () => void) => timers.push(setTimeout(step, ms).unref());
-			let stage = 0;
-			/** The next step of stopping: the first call asks the provider to stop, each later one (a second Esc) forces it. */
+			const last = STOP_SIGNALS.length - 1;
+			/** The stop signal sent last, as an index into STOP_SIGNALS; -1 before the first stop. */
+			let sent = -1;
+			/** Sends the next stop signal; a forced stop (a second Esc), and Windows, which has no signals, send the last one. */
 			const escalate = (force: boolean) => {
-				stage = force || platform === 'win32' ? 3 : stage + 1;
-				if (stage === 3) {
-					killTree(child, 'SIGKILL', platform);
-					later(timings.settleMs, () => settle?.());
-					return;
-				}
-				killTree(child, stage === 1 ? 'SIGINT' : 'SIGTERM', platform);
-				later(timings.graceMs, () => stage < 3 && escalate(false));
+				sent = force || platform === 'win32' ? last : sent + 1;
+				killTree(child, STOP_SIGNALS[sent]!, platform);
+				if (sent === last) later(timings.settleMs, settle);
+				else later(timings.graceMs, () => sent < last && escalate(false));
 			};
 			return {
 				done,
 				stop() {
-					if (stage < 3) escalate(stage > 0);
+					if (sent < last) escalate(sent >= 0);
 				},
 			};
 		},

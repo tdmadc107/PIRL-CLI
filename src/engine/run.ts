@@ -135,6 +135,8 @@ export class RunController {
 	private readonly firstStartedAt: string;
 	private providerTotals: Record<string, ModelTotals> = {};
 	private deniedIds = new Set<string>();
+	/** Why the layer has no result after its checks (no Plan package, Plan file or report); null once it has one. */
+	private missingResult: string | null = null;
 	private logStream: WriteStream | null = null;
 	private now: () => number;
 
@@ -534,8 +536,16 @@ export class RunController {
 				: layer === 'implement'
 					? this.resolveHubPath(this.state.outputs.planFile)
 					: this.resolveHubPath(this.state.outputs.report);
+		this.missingResult = null;
 		if (!target) {
-			checks.validator = {state: 'skipped', detail: t('không xác định được file kết quả của run', 'could not tell which file the run produced')};
+			this.missingResult = t(`Run kết thúc mà không có ${RESULT[layer]} và không hỏi bạn câu nào.`, `The run ended without a ${RESULT[layer]} and asked you nothing.`);
+			checks.validator = {state: 'fail', detail: this.missingResult};
+			repairs.push(
+				t(
+					`Run chưa có kết quả: không tìm thấy ${RESULT[layer]} nào. Hoàn tất nó theo skill của layer và ghi đường dẫn vào khối pirl-result. Nếu còn thiếu quyết định hoặc nội dung mà chỉ người dùng đưa được, kết thúc bằng khối pirl-questions để hỏi.`,
+					`The run has no result: no ${RESULT[layer]} was found. Complete it per the layer's skill and give its path in the pirl-result block. If a decision or content only the user can give is missing, end with a pirl-questions block that asks for it.`,
+				),
+			);
 		} else {
 			const result = await this.python(['.agents/evals/validate_layer_artifact.py', '--kind', layer === 'review' ? 'review' : 'plan', '--path', target]);
 			if (succeeded(result)) checks.validator = {state: 'pass', detail: relative(this.deps.hub, target) || target};
@@ -591,7 +601,7 @@ export class RunController {
 		if (this.stopped) return;
 		const files = now.filter(path => !this.before.hubChanges.includes(path));
 		if (files.length === 0) {
-			this.update({status: 'done'}, {who: 'pirl', text: t('Xong', 'Done'), tone: 'success'});
+			this.finish({}, null);
 			return;
 		}
 		this.update({status: 'checking', activity: t('Chạy test của framework trên các cải tiến', 'Running the framework tests on the improvements')}, {who: 'pirl', text: t(`${files.length} file framework thay đổi; chạy test của framework`, `${files.length} framework ${plural(files.length, 'file')} changed; running the framework tests`)});
@@ -625,7 +635,7 @@ export class RunController {
 			return;
 		}
 		if (choice === 'keep') {
-			this.update({status: 'done', improvements: {...pending, state: 'kept'}}, {who: 'pirl', text: t('Giữ cải tiến, chưa commit. Xong', 'Kept the improvements, not committed. Done'), tone: 'success'});
+			this.finish({improvements: {...pending, state: 'kept'}}, t('Giữ cải tiến, chưa commit', 'Kept the improvements, not committed'));
 			return;
 		}
 		const result =
@@ -636,9 +646,22 @@ export class RunController {
 			this.update({improvements: {...pending, error: result.error ?? t('lỗi không rõ', 'unknown error')}});
 			return;
 		}
+		const count = pending.files.length;
+		this.finish(
+			{improvements: {files: pending.files, state: choice === 'commit' ? 'committed' : 'discarded'}},
+			choice === 'commit' ? t(`Đã commit ${count} file cải tiến`, `Committed ${count} improved ${plural(count, 'file')}`) : t(`Đã bỏ ${count} file cải tiến`, `Discarded ${count} improved ${plural(count, 'file')}`),
+		);
+	}
+
+	/**
+	 * Ends the run after its last step (`what`, for the log). A layer run that never produced its result ends failed
+	 * with the reason, not done, so the user sees it had no result and /resume can continue it.
+	 */
+	private finish(patch: Partial<RunState>, what: string | null) {
+		const outcome = this.missingResult ? t('Không có kết quả', 'No result') : t('Xong', 'Done');
 		this.update(
-			{status: 'done', improvements: {files: pending.files, state: choice === 'commit' ? 'committed' : 'discarded'}},
-			{who: 'pirl', text: choice === 'commit' ? t(`Đã commit ${pending.files.length} file cải tiến. Xong`, `Committed ${pending.files.length} improved ${plural(pending.files.length, 'file')}. Done`) : t(`Đã bỏ ${pending.files.length} file cải tiến. Xong`, `Discarded ${pending.files.length} improved ${plural(pending.files.length, 'file')}. Done`), tone: 'success'},
+			{...patch, ...(this.missingResult ? {status: 'failed', error: this.missingResult} : {status: 'done'})},
+			{who: 'pirl', text: what ? `${what}. ${outcome}` : outcome, tone: this.missingResult ? 'warning' : 'success'},
 		);
 	}
 
@@ -652,6 +675,9 @@ export class RunController {
 }
 
 const TERMINAL: RunStatus[] = ['done', 'failed', 'stopped'];
+
+/** What each layer hands off; a layer run without it has no result. */
+const RESULT: Record<LayerKind, string> = {plan: 'Plan package', implement: 'Plan file', review: 'Review report'};
 
 /** mm:ss since the run started, or h:mm:ss after an hour. */
 export function formatElapsed(ms: number): string {
