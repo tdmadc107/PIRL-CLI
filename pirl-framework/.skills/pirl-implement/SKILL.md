@@ -10,8 +10,7 @@ metadata:
 
 # Implement
 
-Carries out one Implement layer run:
-a first run of a Plan task, or a repair run per a Review report.
+Carries out one Implement layer run: a first run of a Plan task, or a repair run per a Review report.
 The [Implement contract](../../.agents/instructions/implement.instructions.md) owns the decisions, when layout verification with mocks applies, and the exit conditions; the [layout verification instructions](../../.agents/instructions/layout-verification.instructions.md) own how it is done; the [router](../../.agents/instructions/layered-task-execution.instructions.md) owns the shared contracts (verification by reasoning, functional tests); [AGENTS.md](../../AGENTS.md) owns the core rules, roles and target repository.
 This skill owns the order of the steps, the Implementation Record format and the helper scripts.
 Where a step names a section, that section decides.

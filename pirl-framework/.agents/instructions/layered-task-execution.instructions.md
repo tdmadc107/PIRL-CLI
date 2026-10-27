@@ -38,8 +38,7 @@ For all three layers, together with the delegation rules in AGENTS.md:
 - The coordinator (the Agent receiving the request from the user) is responsible for the final result: it assigns work and merges results by evidence, not by how many roles agree.
 - Roles that do not need each other's results run in parallel; a role that needs another role's result runs after that role (`process-auditor` runs after the layer's output is settled).
   The coordinator does not do the delegated work itself.
-- Roles that run in parallel get parts that do not overlap:
-  no two roles examine the same question in the same sources.
+- Roles that run in parallel get parts that do not overlap: no two roles examine the same question in the same sources.
   The coordinator reads only what it needs to choose the team and assign the parts (the request, the target repository's context documentation); the sources a part needs are read by the role that examines it.
   Each role reads only the sources that bear on its part: a part about which content a page shows does not need the page's styles, images or tests.
 - When delegating, pass the role file, the role's row in the layer file's table (plus every row that row refers to for its completion condition), sources, constraints, the settled direction and the part to examine; do not hide the solution and do not impose the conclusion.
@@ -65,21 +64,18 @@ A host without a mechanism to create agents does not block the work: the coordin
 
 This rule applies to the Plan → Implement → Review chain of development work.
 Work in the chain covers implementing product source code (with accompanying documentation in the target repository), creating/updating the repository's context documentation, and writing, updating and running functional tests under the [FUT rule](#functional-tests-fut-rule) when a REQ/specification needs them.
-Building, running the application/ database/browser for acceptance, measuring performance or load, running tests outside FUT, building new harnesses or verification scripts, deploying and releasing belong to the user's build/test/release stage, outside the task lifecycle:
-that stage produces no evidence for the framework and hands no results back to the task.
+Building, running the application/ database/browser for acceptance, measuring performance or load, running tests outside FUT, building new harnesses or verification scripts, deploying and releasing belong to the user's build/test/release stage, outside the task lifecycle: that stage produces no evidence for the framework and hands no results back to the task.
 Defects the user sees there are sent as an independent fix request, which is a new task.
 The only exception is [layout verification with mocks](layout-verification.instructions.md) during an Implement run.
 
-Verifying an implementation result is the agent's reasoning:
-read the diff and the source, trace the execution path from the entrypoint through callers, guards and write/read operations to the final state, check each `Required logic` of the QG, pick a counterexample or failure branch that could refute it, challenge competing explanations, then conclude `PASS|FAIL|BLOCKED` with sources.
+Verifying an implementation result is the agent's reasoning: read the diff and the source, trace the execution path from the entrypoint through callers, guards and write/read operations to the final state, check each `Required logic` of the QG, pick a counterexample or failure branch that could refute it, challenge competing explanations, then conclude `PASS|FAIL|BLOCKED` with sources.
 Reading files, diffs, git history or searching gathers sources for the reasoning; it is not a verification run.
 Test/build/run results, whether already in the repository, CI, an old report or from the test run under FUT, are not a baseline or PASS/FAIL evidence for a QG: a red test must be explained from the source, and a green test only proves the cases it ran.
 
 Sources of evidence for a QG, for every role in all three layers:
 
 - Allowed: file contents, diffs, git history, search results over the source and documentation; for UI QGs, also the screenshots and measurements of [layout verification with mocks](layout-verification.instructions.md) (bounding boxes, computed styles, scroll-area sizes of rendered elements in each state).
-- Not evidence, whether run inside or outside the repository:
-  scripts, harnesses or probes written to verify (bulk value comparisons, counting differing pixels between two images, computing on the reader's behalf); using a browser or runtime to force logic branches, emulate features, measure timing or check listener removal; builds, typechecks, lint and other static analysis tools; test results.
+- Not evidence, whether run inside or outside the repository: scripts, harnesses or probes written to verify (bulk value comparisons, counting differing pixels between two images, computing on the reader's behalf); using a browser or runtime to force logic branches, emulate features, measure timing or check listener removal; builds, typechecks, lint and other static analysis tools; test results.
   Test results under FUT are stated next to the reasoning and do not become an evidence line of a QG.
 - Calculations needed for the reasoning (ratios, unit conversions, formulas) are written with the formula and the input values taken from the source, so readers can check them themselves.
 
@@ -99,8 +95,7 @@ Per layer:
   Layout screenshots produced by the Implement run itself per the [layout verification instructions](layout-verification.instructions.md) are not data supplied by the user.
 
 Commands the user requests run in every layer: when the user explicitly asks for a command or check, run exactly the requested part in that run and report the result separately; the result does not replace QG reasoning and does not extend to other commands.
-A request to investigate the root cause of a bug/issue lets the role responsible for the investigation reproduce the defect in that run:
-run commands, related tests, the application or small test data at the boundary that causes the defect to tell hypotheses apart.
+A request to investigate the root cause of a bug/issue lets the role responsible for the investigation reproduce the defect in that run: run commands, related tests, the application or small test data at the boundary that causes the defect to tell hypotheses apart.
 Stop once the cause has been distinguished; the reproduction result is diagnostic evidence, not a QG baseline, and does not entail running the whole system.
 
 The Plan/report validator commands, the `layer_record.py` commands, the framework check commands after self-improvement and the `git status` sweep during cleanup are contractual handoff procedures; they still run as specified and are not product verification.
@@ -114,20 +109,16 @@ If the user explicitly asks for something else, follow that request.
 
 - Source: each test traces back to a REQ or specification item of the functionality under development, or of functionality affected by it.
   "Affected" must be grounded in the source: a call path, contract or shared data that the change touches; do not infer it from module names, the existence of a test or a wish to "be safe".
-- Content:
-  assert functional behavior observable at the functionality's contract (input → outcome/state, refusal/failure branches the specification names).
+- Content: assert functional behavior observable at the functionality's contract (input → outcome/state, refusal/failure branches the specification names).
   Do not lock in implementation details, do not use the implementation's algorithm as the expected result, and do not assert things the specification does not require (wording, order, timing, format) in a way that blocks a correct result.
-- Extent:
-  only enough tests to tell right from wrong for the assigned behavior.
+- Extent: only enough tests to tell right from wrong for the assigned behavior.
   Do not add combinations, edge cases, performance or platforms the specification does not require, do not test the same behavior twice, and do not spread to unrelated functionality.
   If an existing test already protects that behavior, update it instead of writing a new one.
 - Updates: tests of affected functionality that still assert the old behavior are fixed to the new logic; tests that only served a removed flow are deleted.
-- Running:
-  run only the tests of the functionality under development and the affected functionality, selected by file, class or test name, with the command the target repository's context documentation gives.
+- Running: run only the tests of the functionality under development and the affected functionality, selected by file, class or test name, with the command the target repository's context documentation gives.
   Never run tests of unrelated functionality or the whole suite/system, even when you believe the change has no impact.
   Compilation performed by that test command itself is part of the run, not a separate build.
-- Results:
-  a run only proves the cases that ran.
+- Results: a run only proves the cases that ran.
   A red test is explained from the source (wrong product or wrong test) before fixing the right side; in the Plan → Implement → Review chain, test results are not a QG baseline.
 
 ## Shared snapshots and older records
@@ -140,8 +131,7 @@ Separate three things: the current source, what the record states, and the chang
 - A change in the snapshot that no Implementation Record of the package records (not in any task's `changed_paths`) is an unowned change.
   State it in the run's output with its path and its effect on the conclusions; do not attribute it to any task or role, and do not use it as grounds for a role's issue.
   The user assigns an Implement run or a standalone task to record it.
-- When several tasks of a package share one snapshot (the same commit, or the same set of changes that cannot be separated by task), attribute a mismatch (a broken QG, a wrong documentation sentence, a value that does not match) to the task that made it wrong, in run order:
-  rebuild the state after each task from the base revision, that task's REQs and its `changed_paths`.
+- When several tasks of a package share one snapshot (the same commit, or the same set of changes that cannot be separated by task), attribute a mismatch (a broken QG, a wrong documentation sentence, a value that does not match) to the task that made it wrong, in run order: rebuild the state after each task from the base revision, that task's REQs and its `changed_paths`.
   Something that was still right when a task completed and only became wrong after a change belonging to a later task's REQ is a mismatch of the later task, even when the earlier task wrote or synced it.
   Rewriting a whole file does not make a task own every sentence of the file after another task changes what the sentence describes.
   When the source, diffs and records are not enough to separate the order, record the conclusion as an inference with its basis.
@@ -157,11 +147,9 @@ Asking the user for a decision or for content is not a handoff: the run pauses a
 
 ### Timing and evaluator
 
-- At the start of the run, the coordinator runs `python -B .agents/evals/layer_record.py start` and keeps the returned `framework_ref`:
-  the Hub commit and the hashes of framework files that differ from that commit.
+- At the start of the run, the coordinator runs `python -B .agents/evals/layer_record.py start` and keeps the returned `framework_ref`: the Hub commit and the hashes of framework files that differ from that commit.
   This is the version of the rules the run applies.
-- After the layer's output is settled and before cleanup, [`process-auditor`](../roles/process-auditor.role.md) evaluates the run:
-  every role that took part and the coordinator itself (choosing the team, assigning work, merging results).
+- After the layer's output is settled and before cleanup, [`process-auditor`](../roles/process-auditor.role.md) evaluates the run: every role that took part and the coordinator itself (choosing the team, assigning work, merging results).
   At Review, `process-auditor` also re-evaluates the roles of the reviewed Implement run per the [Evaluations section](review.instructions.md#evaluations-assessing-implement-roles).
 - Delegate `process-auditor` to a separate agent per the [assignment principles](#assignment-principles) and record `mode: agent`.
   Only when the host has no tool to create sub-agents or the call fails does the coordinator self-evaluate, record `mode: self` and state that reason in `summary`.
@@ -175,8 +163,7 @@ Output issues (product source, Plan, report) are also returned to the owning rol
 
 ### Reporting
 
-The run's final response has a "Self-improvement" section:
-the `record_id`, then for each applied improvement the issue, cause, file and section edited, old → new version, and a summary of the change; or a single sentence "no issues found".
+The run's final response has a "Self-improvement" section: the `record_id`, then for each applied improvement the issue, cause, file and section edited, old → new version, and a summary of the change; or a single sentence "no issues found".
 In `mode: self`, the `record_id` is the maintenance record that supersedes the self-evaluation record.
 An improvement pending the user for reason `safety` is described in the "Self-improvement" section, and the decision about it is one point of "Needs confirmation" per the [Self-evaluation when `mode: self`](self-evaluation.instructions.md#self-evaluation-when-mode-self) section.
 An improvement pending for reason `repository` is described in the "Self-improvement" section and offered as one point of "Proposals" ([CONTEXT.md](../../CONTEXT.md#5-closing-block-needs-confirmation-and-proposals)): the user assigns it as a standalone task in the target repository.
@@ -189,14 +176,12 @@ The role/agent that creates temporary resources must clean them up itself; the c
 Do not push cleanup to a later layer or wait for the user to remind you.
 PASS, FAIL, blocked or cancelled, everything no longer needed must be cleaned up before handing off the corresponding result.
 
-- The mandatory cleanup scope is the Git-committable area of the Hub and of each target repository used:
-  tracked files and untracked files not excluded by `.gitignore`.
+- The mandatory cleanup scope is the Git-committable area of the Hub and of each target repository used: tracked files and untracked files not excluded by `.gitignore`.
   Paths ignored by Git (for example `.tmp/` at the Hub root, `node_modules/`, build directories) and locations outside the repository are not committed and are not part of the cleanup duty; they may be kept for a later run.
   The `.tmp/layout-snapshots/` directory of [layout verification with mocks](layout-verification.instructions.md) is handoff output and is always kept.
 - When creating temporary files, directories or sessions in the committable area, keep their paths/owners in the working context; do not create extra manifests or cleanup logs just to track them.
   Run Python tools with `python -B` to avoid `__pycache__`.
-- In that area, delete as soon as their purpose is served:
-  probe scripts, input drafts, images, traces, logs, caches and the run's own temporary directories.
+- In that area, delete as soon as their purpose is served: probe scripts, input drafts, images, traces, logs, caches and the run's own temporary directories.
   Everywhere, close the browser/temporary processes the run started once they are no longer needed; do not stop pre-existing shared sessions or services that are output the user needs to keep using.
 - Before deleting raw evidence, save the trigger, reproduction steps, runtime, measurements and conclusions needed into the official output under the applicable contract.
   Keep source, user inputs, Plans, reports and records.
@@ -207,8 +192,7 @@ PASS, FAIL, blocked or cancelled, everything no longer needed must be cleaned up
   Do not delete the whole TEMP, run a broad `git clean`, or treat every untracked file as clutter.
   For resources with an unclear owner, verify first; do not delete by mistake to reach a clean state.
   Sub-agents clean up their own part and report exactly what remains if they hit a real error; the coordinator takes it over and handles it in the same run.
-- After the last verification command that can regenerate files, sweep `git status --short` of the Hub and each target repository used:
-  every remaining change or untracked file must be handoff output or a pre-existing user change.
+- After the last verification command that can regenerate files, sweep `git status --short` of the Hub and each target repository used: every remaining change or untracked file must be handoff output or a pre-existing user change.
   Claim completion only after cleaning up and checking again.
   If a file is locked or permissions are genuinely missing, clean up what can be cleaned, report the path, cause, owner and the steps to resolve it; keep the cleanup duty open and report the product result separately, without pretending it is clean or changing the QGs.
 

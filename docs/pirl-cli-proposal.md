@@ -42,8 +42,7 @@ Hệ quả của phạm vi dùng cá nhân:
 ## 3. Hiện trạng PIRL framework (đã đọc trong repo)
 
 - Framework chạy hoàn toàn bằng file chỉ dẫn: `AGENTS.md`, `CONTEXT.md`, router `.agents/instructions/layered-task-execution.instructions.md`, 3 layer contract, 9 role, 3 skill `pirl-plan|pirl-implement|pirl-review`.
-- Công cụ Python 3.9+:
-  `new_plan.py`, `new_review.py`, `add_implementation_record.py`, `new_layout_run.py`, `validate_layer_artifact.py`, `layer_record.py`.
+- Công cụ Python 3.9+: `new_plan.py`, `new_review.py`, `add_implementation_record.py`, `new_layout_run.py`, `validate_layer_artifact.py`, `layer_record.py`.
   24 test đều PASS (`python3 -B -m unittest discover -s .agents/evals/tests -p "test_*.py"`).
 - Framework phụ thuộc vào "host" ở 4 điểm mà CLI làm chắc chắn hơn (mục 4): host tự suy ra layer; sub-agent cho từng role tuỳ host; độc lập giữa role chỉ là lời dặn; các bước quy trình do LLM tự nhớ.
 
@@ -121,8 +120,7 @@ Quy tắc thêm:
 - Chỉ một run layer chạy tại một thời điểm.
   Trong lúc run chạy, người dùng vẫn gõ câu hỏi được; standalone task và bảo trì framework phải đợi run xong, vì chúng có thể sửa cùng file.
 - Hội thoại không có `/` giữ ngữ cảnh trong phiên: sau `/pirl-plan`, hỏi "T02 phụ thuộc gì?" thì coordinator trả lời dựa trên Plan vừa tạo.
-- Khi chạy dưới PIRL CLI, cách chọn layer trong `AGENTS.md` cần ghi thêm:
-  layer được chọn bằng slash command.
+- Khi chạy dưới PIRL CLI, cách chọn layer trong `AGENTS.md` cần ghi thêm: layer được chọn bằng slash command.
   Việc sửa này thuộc giai đoạn pilot.
 
 ### 5.4. Run block
@@ -153,8 +151,7 @@ Esc dừng run: CLI dừng các tiến trình role, giữ trạng thái để `/
  Providers (claude, …)        Hub (git, framework update)      Tools (script Python của framework)
 ```
 
-- **Engine phát sự kiện**, UI chỉ hiển thị:
-  `run.started`, `role.started`, `role.output`, `role.question`, `role.finished`, `validator.result`, `audit.result`, `run.finished`.
+- **Engine phát sự kiện**, UI chỉ hiển thị: `run.started`, `role.started`, `role.output`, `role.question`, `role.finished`, `validator.result`, `audit.result`, `run.finished`.
   Nhờ đó engine chạy và test được không cần UI, dùng provider giả lập.
 - **CommandRegistry:** mỗi lệnh khai báo tên, mô tả, có nhận request không, và hàm xử lý.
   Danh sách gợi ý khi gõ `/` sinh từ registry.
@@ -232,8 +229,7 @@ Quy tắc cho từng loại nội dung:
 
 #### Hiệu năng hiển thị
 
-- TUI chạy ở màn hình phụ của terminal (alternate screen, như vim, htop) và tự dàn trang:
-  nội dung chat được dàn thành từng dòng theo chiều rộng hiện tại, chỉ những dòng vừa khung được vẽ.
+- TUI chạy ở màn hình phụ của terminal (alternate screen, như vim, htop) và tự dàn trang: nội dung chat được dàn thành từng dòng theo chiều rộng hiện tại, chỉ những dòng vừa khung được vẽ.
   Nhờ vậy khi đổi kích cỡ, toàn bộ nội dung được dàn lại theo bố cục mới; cuộn bằng PgUp/PgDn.
   (Ban đầu đề xuất dùng thành phần `Static` của Ink; `Static` in nội dung ra một lần nên không dàn lại được khi đổi kích cỡ, vì vậy không dùng.)
 - Ink vẽ lại tối đa 30 lần mỗi giây; output của role sẽ được gom theo nhịp này.
@@ -271,8 +267,7 @@ Lệnh gõ trong TUI:
 | Phiên | `/help` | Danh sách lệnh và phím tắt |
 | Phiên | `/exit` | Thoát TUI |
 
-Không có lệnh riêng cho commit/push trong target repo:
-người dùng yêu cầu bằng lời (không có `/`), đúng quy tắc "chỉ commit khi người dùng yêu cầu" của framework.
+Không có lệnh riêng cho commit/push trong target repo: người dùng yêu cầu bằng lời (không có `/`), đúng quy tắc "chỉ commit khi người dùng yêu cầu" của framework.
 Commit cải tiến framework được hỏi ở cuối mỗi run (mục 9.4).
 
 ## 7. Kiến trúc tổng
@@ -394,8 +389,7 @@ Nguồn về bộ công nghệ của các agent CLI là bài viết bên thứ b
 
 1. Người dùng cài PIRL CLI 1.0 (kèm framework `fw-1.0`), gõ `pirl` lần đầu.
    CLI tạo Hub với nhánh `upstream` = `fw-1.0` và nhánh `main` = `fw-1.0`.
-2. Sau vài run, `process-auditor` sửa 2 chỗ:
-   một rule trong `implement.instructions.md` và một câu trong `code-analyst.role.md`.
+2. Sau vài run, `process-auditor` sửa 2 chỗ: một rule trong `implement.instructions.md` và một câu trong `code-analyst.role.md`.
    Cuối mỗi run người dùng chọn "Có", nên `main` có thêm 2 commit cải tiến.
 3. Người dùng cập nhật CLI lên 1.1 (kèm `fw-1.1`).
    Lần sau gõ `pirl`, header hiện "Có bản framework mới".
@@ -404,8 +398,7 @@ Nguồn về bộ công nghệ của các agent CLI là bài viết bên thứ b
    CLI làm trên bản nháp:
    - commit `fw-1.1` lên `upstream`;
    - tạo nhánh tạm từ `main` và merge `upstream` vào đó;
-   - kết quả:
-     `fw-1.1` sửa 10 file.
+   - kết quả: `fw-1.1` sửa 10 file.
      9 file không đụng chỗ người dùng sửa nên nhận tự động.
      `code-analyst.role.md` bị cả hai bên sửa cùng đoạn: xung đột.
 5. TUI hiện xung đột với 3 cột (bản gốc cũ, bản của bạn, bản gốc mới) và lời giải thích: bản gốc mới đổi gì (lấy từ changelog), bản của bạn đổi gì và vì sao (lấy từ record của cải tiến đó), kèm lựa chọn khuyến nghị: giữ bản của bạn, lấy bản gốc mới, hoặc bản gộp do agent đề xuất.
@@ -425,8 +418,7 @@ Nguồn về bộ công nghệ của các agent CLI là bài viết bên thứ b
   <plan-set>/                       Plan và report (Git bỏ qua, như hiện nay)
 ```
 
-Mỗi commit cải tiến có trailer để truy nguồn:
-`Pirl-Record: <record_id>` và `Pirl-Source: auditor|manual`.
+Mỗi commit cải tiến có trailer để truy nguồn: `Pirl-Record: <record_id>` và `Pirl-Source: auditor|manual`.
 TUI dùng trailer này để giải thích xung đột (bước 5 ở mục 9.2) và để liệt kê lịch sử cải tiến trong `/framework`.
 
 ### 9.4. Các quyết định về chất lượng và tiện dụng
@@ -491,8 +483,7 @@ Vì vậy đã sửa đồng bộ:
 | `plan-format.md`, `review-format.md`, `implementation-record-format.md` | Mô tả mới về múi giờ |
 | Test | Sửa 1 test; thêm 2 test: validator nhận mọi độ lệch và từ chối mốc không có độ lệch; `check` xếp record theo thời điểm khi độ lệch khác nhau |
 
-Kiểm chứng:
-24/24 test PASS, cả khi đặt múi giờ máy là `America/New_York`.
+Kiểm chứng: 24/24 test PASS, cả khi đặt múi giờ máy là `America/New_York`.
 Test mới về thứ tự record FAIL khi tạm đưa code về cách so chuỗi cũ, nên test bắt được đúng lỗi đó.
 
 ## 14. Trạng thái triển khai
@@ -533,8 +524,7 @@ Test mới về thứ tự record FAIL khi tạm đưa code về cách so chuỗ
 | Giao diện | Run block trong khung chat; bảng "Phiên làm việc" hiện role đang chạy; 6 bảng màu trong `/settings` |
 | Kiểm chứng | 130 test Vitest pass (engine với Hub thật và provider giả lập, luồng run trong TUI, phím, clipboard). Đối chiếu tham số với Claude Code 2.1.309 thật. Chạy thật một lượt chat và một lượt `/pirl-plan` qua adapter: hai role chạy bằng subagent, Plan qua validator, record được ghi, trả lời bằng tiếng Việt |
 
-Kết quả lượt `/pirl-plan` thật trên repo demo một file:
-khoảng 6 phút.
+Kết quả lượt `/pirl-plan` thật trên repo demo một file: khoảng 6 phút.
 Số đếm lúc đó là 585 nghìn token đầu vào (phần lớn đọc từ cache) và 6 nghìn token đầu ra, nhưng chỉ tính coordinator (xem 14.5).
 Hai lần chạy đầu lộ ra 4 lỗi tích hợp, đã sửa: coordinator ghi file tạm ra `/tmp` và dùng heredoc (bị chặn); xin người dùng cấp quyền; trả lời bằng tiếng Anh; gọi `ScheduleWakeup` làm `claude -p` không kết thúc.
 
@@ -605,8 +595,7 @@ Mức giảm đến từ bốn thay đổi:
   - chi phí quy đổi ≈ $0,49 → $0,47 (giảm khoảng 5%);
   - phần của `process-auditor`: ghi cache giảm khoảng 30%, đọc cache giảm khoảng 23%;
   - validator và record đều pass ngay lần đầu.
-- Không làm:
-  gộp các câu lặp trong cột "Done when" của bảng role.
+- Không làm: gộp các câu lặp trong cột "Done when" của bảng role.
   Đó có thể là các bản sửa tăng tính bắt buộc từ trước, mà framework được nhập vào repo không kèm lịch sử để kiểm tra.
   Cũng không chuyển "Choosing a layer" ra khỏi `AGENTS.md`, vì mục này chứa quy tắc an toàn.
 

@@ -65,8 +65,7 @@ The Implement coordinator gives each role its role file, its row in the table to
    Load only the context that serves that decision.
    When delegating to a separate agent, pass the full settled direction; do not hide the solution to create an appearance of independence.
    Only when delegation is not possible under the assignment principles does the coordinator perform the roles in turn.
-5. Choose equivalent implementation details within the settled direction yourself:
-   helper placement, variable names or how to reuse source do not need a new Plan.
+5. Choose equivalent implementation details within the settled direction yourself: helper placement, variable names or how to reuse source do not need a new Plan.
    Hand back only decisions that change behavior, permissions, data, scope or trade-offs the user has settled.
    State exactly what is missing and continue the independent parts; do not assume the whole task is blocked because one branch is unclear.
    A deviation from the Plan that the user confirms follows the [Changes to the Plan confirmed by the user](#changes-to-the-plan-confirmed-by-the-user) section.
@@ -76,8 +75,7 @@ The Implement coordinator gives each role its role file, its row in the table to
 - Trace the execution path from input to result before changing anything.
   Keep each invariant where it is owned and update the affected writers/readers within scope.
 - The Plan's path list is the scope of the main work, not the boundary of consistency.
-  Once the behavior is stable, sweep the whole target repository and the related context documentation, not just the task's directory, for places that still describe the old behavior or lack the new behavior:
-  contract documents, indexes and status tables, API/error/configuration/ permission catalogs, UI strings, comments or code that only served the replaced flow.
+  Once the behavior is stable, sweep the whole target repository and the related context documentation, not just the task's directory, for places that still describe the old behavior or lack the new behavior: contract documents, indexes and status tables, API/error/configuration/ permission catalogs, UI strings, comments or code that only served the replaced flow.
   These are direct consequences of the change, so fix them in the same run even when they are outside the Plan's paths.
   Tests of the functionality under development and of affected functionality that still assert the old behavior are updated to the new logic, and tests that only served a removed flow are deleted, all under the [FUT rule](layered-task-execution.instructions.md#functional-tests-fut-rule); do not touch tests of unrelated functionality and do not build new harnesses or verification scripts, inside or outside the repository (the only exception is layout mock and capture scripts in `.tmp/` per the [layout verification instructions](layout-verification.instructions.md)).
   Points that need a product decision are recorded where the project keeps known gaps and in the residual risk, not decided by you.
@@ -94,8 +92,7 @@ The Implement coordinator gives each role its role file, its row in the table to
   Items of another task (a RISK, FIND or BLOCK in another report) enter this repair run only when this run's source report lists them with this run's task and layer as the owner; `repair_closure_evidence` records the original report and the item ID.
   Items without such an owner keep their owner and revisit condition; if the sweep finds them, state them in `residual_risk` without fixing them along the way.
   EVAL items record the evaluation of the previous run's roles and the framework improvements the Review applied; read them to know which rules changed, but do not turn them into new product FINDs or QGs.
-- Keep before/after evidence for the mechanism to fix by reasoning on the source:
-  the old execution path that led to the defect and the change point that blocks it, with a counterexample that distinguishes the defect from valid behavior.
+- Keep before/after evidence for the mechanism to fix by reasoning on the source: the old execution path that led to the defect and the change point that blocks it, with a counterexample that distinguishes the defect from valid behavior.
   Do not build, typecheck, lint or run the application; test results under FUT, when the Plan assigns them, are only stated next to the reasoning and are not an evidence line ([sources of evidence](layered-task-execution.instructions.md#verification-by-reasoning)).
   A repair run that touches the UI captures the layout again per the [layout verification instructions](layout-verification.instructions.md), into a new run directory.
 
@@ -123,8 +120,7 @@ The Plan is the standard that the verification roles and Review check against, s
   Record each edit in the Implementation Record's `plan_amendments`.
   The verification roles conclude the QGs against the edited Plan.
 - **Does not apply:** deviations the agent chose itself that the user has not confirmed.
-  Do not edit the Plan to match the code:
-  ask the user in the session, and record the affected QGs as `BLOCKED` with the decision to be made until they answer.
+  Do not edit the Plan to match the code: ask the user in the session, and record the affected QGs as `BLOCKED` with the decision to be made until they answer.
   Changes to roles, `depends_on` or task boundaries are not covered by this section either and go back to the Plan layer.
   When the user confirms after the Implement session has ended, editing the Plan is a Plan run: use the same form of annotation with the `record_id` of that Plan run, and that record is the trace in place of `plan_amendments`.
 
@@ -137,8 +133,7 @@ When delegating, the coordinator states which files are the measurements of the 
 When the Plan assigns tests, the implementation role runs only the tests of the functionality under development and the affected functionality.
 A red test is explained from the source before fixing the product or the test; do not edit a test to match wrong code, and do not add tests or widen the run to increase confidence.
 
-Each implementation role self-challenges its own work:
-check the REQs and the `Required logic` against the source, pick a counterexample or edge branch that could refute it, and fix in-scope gaps as soon as they are found.
+Each implementation role self-challenges its own work: check the REQs and the `Required logic` against the source, pick a counterexample or edge branch that could refute it, and fix in-scope gaps as soon as they are found.
 Self-challenge does not replace the verification role's conclusion.
 
 After the implementation/repair team is done, each verification role handles its assigned QGs:
@@ -146,8 +141,7 @@ After the implementation/repair team is done, each verification role handles its
 1. Read the diff together with the surrounding source; trace from the entrypoint through callers, guards and write/read operations to the outcome and state that the `Required logic` states, including the refusal/failure branches that must hold.
    For UI QGs, also look at the screenshots and measurements of the checks per the layout verification instructions in the latest layout capture; if they are missing when the diff changes the UI, return a FAIL to `frontend-developer`.
 2. Pick a counterexample that can occur within the QG's scope, look for guards or competing explanations, then consider whether the source refutes the claim of completion.
-3. When the task has tests, read the tests in the diff and check them against FUT:
-   traceable to a REQ, exactly the functionality under development and the affected functionality, no duplicates, no assertions the specification does not require.
+3. When the task has tests, read the tests in the diff and check them against FUT: traceable to a REQ, exactly the functionality under development and the affected functionality, no duplicates, no assertions the specification does not require.
    A violation is returned as a FAIL.
 4. Record `PASS|FAIL|BLOCKED` for each QG with the claim, the path traced, the counterexample and sources.
    `FAIL` when a trigger → mechanism → consequence that violates the QG can be shown, or when a clause of the `Required logic` does not hold against the source even if the impact is small (for example one element or value in a documentation sentence does not match); such a point must not be recorded as a non-blocking observation with `PASS`.
@@ -185,11 +179,9 @@ After writing it, run the Plan validator (command in the [`pirl-implement` skill
 `role_work` and `role_challenge_results` cover each implementation/repair role, then each verification role, exactly once and in order; `effective_implementation_roles` contains only the implementation/repair team.
 `changed_paths` stays within the paths the Plan allows; the Plan file receiving the results is the bookkeeping exception.
 Consistency updates from the impact sweep are the second exception: list them separately in `changed_paths` with the sync reason, and state in `role_work` what was swept so readers know which parts were checked.
-`root_cause_revalidation` and `review_item_disposition` are always present:
-the first run writes `N/A`, a repair run covers every report item in order.
+`root_cause_revalidation` and `review_item_disposition` are always present: the first run writes `N/A`, a repair run covers every report item in order.
 `plan_amendments` is also always present, with `N/A` when the Plan was not edited.
-When a repair run corrects a statement of an earlier Implementation Record, `repair_closure_evidence` follows the [Shared snapshots and older records section](layered-task-execution.instructions.md#shared-snapshots-and-older-records) of the router:
-state the time-stamped source showing the statement was wrong when written; without such a source, record the mismatch between the record and the source as a change without a record, and do not claim the old statement was wrong.
+When a repair run corrects a statement of an earlier Implementation Record, `repair_closure_evidence` follows the [Shared snapshots and older records section](layered-task-execution.instructions.md#shared-snapshots-and-older-records) of the router: state the time-stamped source showing the statement was wrong when written; without such a source, record the mismatch between the record and the source as a change without a record, and do not claim the old statement was wrong.
 The source report must be for the same Plan/task and use `pirl-review/v1`.
 
 ## Finishing and handoff

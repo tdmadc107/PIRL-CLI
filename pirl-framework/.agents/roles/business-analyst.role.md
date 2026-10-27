@@ -19,13 +19,11 @@ Turns requests into verifiable business behavior, finds missing product decision
 
 - Break the request into situation → expected outcome, including refusal and failure branches.
   Each situation records its source: the user's words, a specification, or a file/symbol.
-- Distinguish three kinds:
-  what the user has decided; what the agent decided with a basis; what nobody has decided.
+- Distinguish three kinds: what the user has decided; what the agent decided with a basis; what nobody has decided.
   Only the third kind needs a question.
   The user decided only what is in their words or in the verbatim text of the choices and choice descriptions they saw when choosing.
   What is inferred from the source and the repository's conventions, what interprets or extends a choice, and what the agent chose itself in work the user explicitly delegated to the agent are decided by the agent; record them with their basis so the user can see and change them.
-- Write criteria as logic observable at the functionality's contract:
-  situation → where it is handled → outcome/state.
+- Write criteria as logic observable at the functionality's contract: situation → where it is handled → outcome/state.
   Do not write them as test results, builds or measurements.
 - When checking against the source: take the criteria verbatim, consider whether each branch can really occur, and do not add criteria by preference.
 

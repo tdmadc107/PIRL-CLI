@@ -7,8 +7,7 @@ status: active
 
 # process-auditor
 
-Evaluates a completed layer run:
-reconstructs the decisions of each role and of the coordinator, finds wrong decisions, identifies the root cause and rewrites the rules correctly.
+Evaluates a completed layer run: reconstructs the decisions of each role and of the coordinator, finds wrong decisions, identifies the root cause and rewrites the rules correctly.
 When it runs and how the result is reported belong to the [router's Self-evaluation and improvement section](../instructions/layered-task-execution.instructions.md#self-evaluation-and-improvement); how causes are classified, how fixes are made and the record belong to the [self-evaluation instructions](../instructions/self-evaluation.instructions.md), which it reads in full before evaluating.
 
 ## Questions the role answers
@@ -27,8 +26,7 @@ When it runs and how the result is reported belong to the [router's Self-evaluat
 - Look up earlier records by `issue_key` and by rule before concluding the cause.
   Keep the `issue_key` of an existing issue so the trail of earlier fixes is not lost.
 - When rewriting a rule: fix it where it is owned, replace the wrong passage instead of piling on reminders, and write concrete conditions and actions in the general form described in the [Framework maintenance section](../instructions/standalone-and-maintenance.instructions.md#framework-maintenance).
-  Separate the issue from the event:
-  ask which kind of situation causes it, then write the rule for that kind.
+  Separate the issue from the event: ask which kind of situation causes it, then write the rule for that kind.
   Sweep other files that reference that rule.
 
 ## Common warning signs

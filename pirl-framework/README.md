@@ -41,8 +41,7 @@ Any local Git repository works; nothing needs registering.
 Give its path in your request, relative to the Hub root or absolute.
 If you want to keep clones inside the Hub, put them in `.repos/`, which Git ignores.
 
-The Agent learns the repository from the repository itself:
-architecture, conventions, the command that runs tests by file or name, UI languages and viewports, known gaps.
+The Agent learns the repository from the repository itself: architecture, conventions, the command that runs tests by file or name, UI languages and viewports, known gaps.
 If the repository has no such document yet, you can assign the Agent to write one (for example its `AGENTS.md`) as a standalone task.
 
 ### 3. Assign work
@@ -70,8 +69,7 @@ Inside the Hub, Git ignores Plan packages and their reports (directories named `
 ## A full working cycle
 
 1. **Plan.** The Agent investigates the source and asks when a product decision is missing.
-   The result is a Plan package `<request-slug>_<YYYYMMDD-HHmmss>/`, one file per task with:
-   What to do (REQs), How to do it, Participating roles, Required quality gates (QGs).
+   The result is a Plan package `<request-slug>_<YYYYMMDD-HHmmss>/`, one file per task with: What to do (REQs), How to do it, Participating roles, Required quality gates (QGs).
    Read and settle the Plan before implementing.
 2. **Implement.** The Agent edits the source in the target repository, within the Plan's scope.
    Verification roles conclude each QG by reasoning on the source.
@@ -89,8 +87,7 @@ Inside the Hub, Git ignores Plan packages and their reports (directories named `
 
 At the end of each Plan, Implement or Review run, the Agent's response has:
 
-- **Self-improvement:** the record ID, and for each applied improvement:
-  the issue, cause, file and section edited, old → new version.
+- **Self-improvement:** the record ID, and for each applied improvement: the issue, cause, file and section edited, old → new version.
   Look at the diff of these files before committing.
 - **Needs confirmation:** the closing block of the answer; it has a point about this improvement only when the improvement would loosen a safety rule.
   You choose to apply, skip, or have it re-evaluated by a separate agent; the details of the issue and the change are in the "Self-improvement" section.

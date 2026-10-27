@@ -6,8 +6,7 @@ What each section must settle belongs to the [Plan contract](../../../.agents/in
 ## Location and naming
 
 - Output directory: the directory the user names for the Plan; when the user names none, the Hub root.
-- Package:
-  `<output directory>/<request-slug>_<YYYYMMDD-HHmmss>/`.
+- Package: `<output directory>/<request-slug>_<YYYYMMDD-HHmmss>/`.
   The package directory name is the `plan_set`.
 - Task file: `<NN>-plan-<todo-slug>-<YYYYMMDD-HHmmss>.md`, where `NN` is the task number (`T01` → `01`) and the timestamp is the package timestamp, shared by every file of the package.
 - Slugs are ASCII kebab-case: lowercase letters, digits and single hyphens.
@@ -40,8 +39,7 @@ Write the frontmatter in the YAML subset the validator reads: one `key: value` p
 
 ## Body
 
-- Exactly four level-two sections, in this order:
-  `What to do`, `How to do it`, `Participating roles`, `Required quality gates`.
+- Exactly four level-two sections, in this order: `What to do`, `How to do it`, `Participating roles`, `Required quality gates`.
   Add only details that change how the work is done; do not add per-role reports or checklists as a fifth section.
   Implement later adds one `Implementation Record` section below them.
 - Line forms: `REQ-NN | Source: … | Requirement: …`; `ROLE-NN | Type: … | Role: … | Responsible for: … | Input: … | Done when: …`; `QG-NN | Requirement: REQ-NN | Required logic: …`.
@@ -49,9 +47,7 @@ Write the frontmatter in the YAML subset the validator reads: one `key: value` p
 
 ## Placeholders in the template
 
-- `{{name}}`:
-  computed values that `scripts/new_plan.py` fills in.
+- `{{name}}`: computed values that `scripts/new_plan.py` fills in.
   When a file is written without the script, fill them by the rules above.
-- `<…>`:
-  content the coordinator writes from the settled decisions.
+- `<…>`: content the coordinator writes from the settled decisions.
   A line of the form `<If …: …>` stays only when its condition holds.

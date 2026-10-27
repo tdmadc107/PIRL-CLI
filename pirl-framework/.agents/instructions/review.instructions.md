@@ -21,8 +21,7 @@ Use exactly the two sections `Business` and `Evaluations`; keep IDs, symbols, ro
 ## AI Agent roles at the Review layer
 
 The role catalog lives in the [standalone and maintenance instructions](standalone-and-maintenance.instructions.md#role-catalog) and the assignment principles in the [router](layered-task-execution.instructions.md#assignment-principles); each role's expertise lives in the role file linked in the table.
-Review picks `review_roles` from the table below using the "Select when" column, in the table's order:
-the first four roles are the default, and `ux-designer` is added when the diff changes the UI.
+Review picks `review_roles` from the table below using the "Select when" column, in the table's order: the first four roles are the default, and `ux-designer` is added when the diff changes the UI.
 Each role applies its own expertise to specific QGs/boundaries; do not force every role to find a defect.
 
 | Role | Select when | Responsibility at Review | Done when |
@@ -56,8 +55,7 @@ Each role applies its own expertise to specific QGs/boundaries; do not force eve
 
 1. Take the QGs and `Required logic` verbatim from the Plan.
    The REQs and the user's decisions explain the criteria; rubrics, reviewer preferences and instruction defects do not create new product criteria.
-   Check against the [Plan's task boundaries](plan.instructions.md#splitting-tasks-for-separate-implementation-and-acceptance):
-   do not use another task's integration criteria as a PASS condition of the task under review.
+   Check against the [Plan's task boundaries](plan.instructions.md#splitting-tasks-for-separate-implementation-and-acceptance): do not use another task's integration criteria as a PASS condition of the task under review.
    If a QG itself needs work assigned to a later/parallel task, record that QG `BLOCKED` and create an `escalate` BLOCK back to Plan to fix the assignment/QG; do not assign `repair`/`retry` to the same task just to wait for that work.
    Do not drop the QG or record PASS yourself; still evaluate independent implementation defects that have enough evidence.
 2. Trace the entrypoint, callers, guards, writers/readers, configuration and failure branches that can occur.
@@ -66,18 +64,15 @@ Each role applies its own expertise to specific QGs/boundaries; do not force eve
 3. For a suspicion, connect trigger → mechanism → consequence → violated QG.
    Actively look for refuting sources, including deliberate invariants.
    Severity must rest on impact and on whether the failure path is reachable; a name, a regex or a code fragment is not enough to prove a deadlock, data loss or a Critical defect.
-4. Conclude QGs by reasoning on the source per the [router](layered-task-execution.instructions.md#verification-by-reasoning):
-   Review does not build, does not create/run tests, scripts, mocks or the application, and does not use test/build results, including results written in the Implementation Record, as a baseline or PASS/FAIL evidence.
+4. Conclude QGs by reasoning on the source per the [router](layered-task-execution.instructions.md#verification-by-reasoning): Review does not build, does not create/run tests, scripts, mocks or the application, and does not use test/build results, including results written in the Implementation Record, as a baseline or PASS/FAIL evidence.
    When the diff changes the UI, read the `layout_verification` and screenshots that Implement captured per [layout verification with mocks](layout-verification.instructions.md) as a source for UI QGs, without capturing again.
    A green test does not prove the business logic is right, and a red test does not prove the product is wrong.
    A counterexample is an input and call path traceable on the source, valid only if it can occur within the QG's scope.
 5. Keep only well-grounded conclusions:
    - `FIND`: a real bug that violates a QG, with trigger, source, cause and impact.
-   - `RISK`:
-     a grounded risk mechanism while the QG still holds; record the limit, owner and revisit condition.
+   - `RISK`: a grounded risk mechanism while the QG still holds; record the limit, owner and revisit condition.
      A risk does not require a fix or block a business PASS.
-   - `BLOCK`:
-     missing sources, conditions or decisions needed to conclude a QG; state the missing evidence, who provides it and the action to continue.
+   - `BLOCK`: missing sources, conditions or decisions needed to conclude a QG; state the missing evidence, who provides it and the action to continue.
      A refuted suspicion is removed from the findings, not relabeled as a risk to keep it.
      Missing tests, not having built/run, or red/green test results are not by themselves a FIND, RISK or BLOCK; do not ask for more tests, builds or releases.
      Conversely, tests in the diff that violate the [FUT rule](layered-task-execution.instructions.md#functional-tests-fut-rule) (not traceable to a REQ/specification, outside the functionality under development and the affected functionality, redundant duplicates, assertions contrary to the specification or that block a correct result) are a `repair` FIND; its QG field records `FUT` with the related REQ.
@@ -86,8 +81,7 @@ Each role applies its own expertise to specific QGs/boundaries; do not force eve
    A FIND within the Plan's scope uses `repair`; if it changes settled behavior, paths or decisions, use `replan`.
    While any `replan` remains, leave `repair_roles` empty and hand off to Plan.
    If the fix stays within scope, the repair team is exactly the implementation roles accountable for `repair` FINDs and `retry` BLOCKs, in handoff order.
-   RISKs are deferred:
-   `Instructions` and `Revisit when` name the task and layer that will handle them or the work the user needs to assign; while there is no owning task, do not write "a later run" or "the next edit of <file>", and instructions for another task to handle name that task.
+   RISKs are deferred: `Instructions` and `Revisit when` name the task and layer that will handle them or the work the user needs to assign; while there is no owning task, do not write "a later run" or "the next edit of <file>", and instructions for another task to handle name that task.
    `escalate` BLOCKs move to another owner.
    Assign `retry` only when there is a new action/condition; do not open another round for the same blocker.
 7. Record QG `PASS|FAIL|BLOCKED`.
@@ -96,8 +90,7 @@ Each role applies its own expertise to specific QGs/boundaries; do not force eve
 
 ## Evaluations: assessing Implement roles
 
-This section answers:
-did each role of the reviewed Implement run do its assigned part correctly, and if not, what was the root cause and where was the framework improved.
+This section answers: did each role of the reviewed Implement run do its assigned part correctly, and if not, what was the root cause and where was the framework improved.
 The Review's `process-auditor` carries out this section together with the Review run's self-evaluation, per the [router](layered-task-execution.instructions.md#self-evaluation-and-improvement).
 Review also knows the FINDs that the Implement run missed, so this evaluation has more evidence than Implement's own self-evaluation.
 
@@ -117,8 +110,7 @@ Review also knows the FINDs that the Implement run missed, so this evaluation ha
 
 Each Review round writes one `pirl-review/v1` report, built from the `review` skill's [template](../../.skills/pirl-review/assets/review-template.md) and saved where the user says, or by default under the Hub root, per the [report format](../../.skills/pirl-review/references/review-format.md).
 The first round has `prior_review: null`; later rounds reference the report immediately before.
-A request for additional phases or evidence for the same implementation run belongs to the current Review round:
-update that report and keep `review_round` and `prior_review`.
+A request for additional phases or evidence for the same implementation run belongs to the current Review round: update that report and keep `review_round` and `prior_review`.
 Do not increment the round just because of a message, the time of verification or an extra investigation scope.
 Open a new round when assigned to review the next implementation/repair run or when the user explicitly asks for an independent round.
 When editing a settled report, record the reason for the edit in the report and leave the other rounds intact.
@@ -131,8 +123,7 @@ The coordinator and every Review role carry out the [temporary-resource cleanup]
 The rule applies even when Business is FAIL or the Review is blocked; do not claim completion just because the report and validator pass.
 
 `verdict` equals `business_verdict`.
-`status: completed` means the evaluation is complete:
-Business has a well-grounded conclusion, Evaluations cover the Implement team, the Review record is written, and temporary resources have been cleaned up and checked again under the shared contract.
+`status: completed` means the evaluation is complete: Business has a well-grounded conclusion, Evaluations cover the Implement team, the Review record is written, and temporary resources have been cleaned up and checked again under the shared contract.
 A Business FAIL can still be a completed Review.
 Missing input needed for the evaluation uses `status: blocked`.
 

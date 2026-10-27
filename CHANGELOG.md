@@ -17,8 +17,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Fixed
 
 - Esc stops a run on Windows.
-  Claude Code installed by npm runs under a `claude.cmd` shim, and only the shim was stopped:
-  the agent kept working and the run stayed "running".
+  Claude Code installed by npm runs under a `claude.cmd` shim, and only the shim was stopped: the agent kept working and the run stayed "running".
   PIRL now ends the whole process tree, also when PIRL closes.
 - On every system, a provider that ignores the stop request is ended after a few seconds, and the run ends once it is gone, even if a process it started keeps the output open.
 - Esc tells you the run is stopping, and a second Esc forces it at once.
@@ -35,7 +34,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   The coordinator no longer reads the sources it hands to roles, and each role reads only what its part needs.
 - A question about content only you have asks for that content itself.
 - The framework's Markdown files are no longer hard-wrapped at a fixed width.
-  A line ends only where a sentence ends with `.`, `?` or `!`, or at a `:` that two or more sentences follow (never at `;`), so a phrase is never split across lines and can be found with a plain search.
+  A line ends only where a sentence ends with `.`, `?` or `!`, never at `;`, and at `:` only before a list, a table or a code block, so a phrase is never split across lines and can be found with a plain search.
   Headings, tables, code blocks and the output templates keep their form; every file renders as before.
 - Framework maintenance keeps this convention for every Markdown file it edits.
 
@@ -43,8 +42,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- Choose the interface language in `/settings`:
-  Tiếng Việt (the default) or English.
+- Choose the interface language in `/settings`: Tiếng Việt (the default) or English.
   The change applies at once, to the TUI and to `pirl --help` and `pirl update`.
   Agents still reply in the language of your request.
   PIRL's own messages to the agent (validator fixes, your answers, /resume) follow the chosen language too.
@@ -66,11 +64,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - `pirl update` installs the newest version of PIRL from npm.
   A copy run from its source is left alone, with the way to update it.
-- PIRL tells you when a new version is out:
-  the header shows it and a note in the chat says how to update.
+- PIRL tells you when a new version is out: the header shows it and a note in the chat says how to update.
   npm is asked in the background each time PIRL starts; `PIRL_NO_UPDATE_CHECK=1` turns the check off.
-- Select text with the mouse across more than one screen:
-  drag in the chat or an open panel, without Shift; while the button is held, the wheel or the pointer past an edge scrolls on and extends the selection.
+- Select text with the mouse across more than one screen: drag in the chat or an open panel, without Shift; while the button is held, the wheel or the pointer past an edge scrolls on and extends the selection.
   Releasing copies it to the clipboard.
   The right button pastes.
 
@@ -128,8 +124,7 @@ Bundled framework: fw-1.1.0.
   - undo the last update;
   - view differences from the original, restore single files, and browse the history of improvements.
 - `/plans` and `/records`: open a Plan, a review report or a record to see its details.
-- Attach files and folders with `@`:
-  paths of the repository are suggested as you type.
+- Attach files and folders with `@`: paths of the repository are suggested as you type.
   Small text files are sent with their content; large files and folders are sent as paths or file lists.
   On Windows, network (UNC) and device paths are never read, except on the share that holds the repository or the home directory.
 - Run progress: a spinner, a clock and what each role is doing; the full log of each run in `~/.pirl/logs/`.

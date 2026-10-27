@@ -37,8 +37,7 @@ Every issue must have an improvement applied within the run.
 There are no off-limits areas and no waiting for proposals:
 
 1. Before editing any framework file, read the [standalone and maintenance instructions](standalone-and-maintenance.instructions.md).
-   Fix every place that owns the cause:
-   layer files, skills, role files, `AGENTS.md`, the router, framework tools with their tests.
+   Fix every place that owns the cause: layer files, skills, role files, `AGENTS.md`, the router, framework tools with their tests.
    The only improvement not applied this way is one in a target repository's context documentation, handled per the `input` row above.
 2. Sweep the whole framework for places still describing the old behavior and fix them in the same run.
 3. Replace the wrong passage with concrete conditions and actions; do not pile on reminders, and write it in the general form described in the [Framework maintenance section](standalone-and-maintenance.instructions.md#framework-maintenance).
@@ -51,14 +50,12 @@ An improvement that would loosen a safety rule is not applied: record `pending_u
 
 ## Self-evaluation when `mode: self`
 
-The self-evaluation itself does not edit framework files:
-every improvement in its record is recorded as `pending_user` with reason `mode_self`, and the tool rejects `applied` in `mode: self`.
+The self-evaluation itself does not edit framework files: every improvement in its record is recorded as `pending_user` with reason `mode_self`, and the tool rejects `applied` in `mode: self`.
 Improvements that touch no safety rule do not need the user's confirmation ([AGENTS.md](../../AGENTS.md#workflow)), so within the same run the coordinator applies each improvement that touches no safety rule as user-directed framework maintenance, following the six steps of the [Thorough improvement](#thorough-improvement) section.
 It then writes a new record whose `supersedes` points to the self-evaluation record, with empty `issues` and `fixes`, and a `summary` stating each `issue_key`, the file and section edited, old → new version, the check commands run and a reference to the authorization in `AGENTS.md`.
 The final response reports this in the "Self-improvement" section, without asking.
 
-An improvement that touches a safety rule (loosening, narrowing, removing or working around it) is not applied:
-the record states `pending_user` with reason `safety`; the final response states the issue, cause, rule, the concrete change and the evidence of that improvement in the "Self-improvement" section, and the user's decision (apply, skip, or re-evaluate with a separate agent) is one point in "Needs confirmation" ([CONTEXT.md](../../CONTEXT.md#5-closing-block-needs-confirmation-and-proposals)); no other separate section is opened for that decision.
+An improvement that touches a safety rule (loosening, narrowing, removing or working around it) is not applied: the record states `pending_user` with reason `safety`; the final response states the issue, cause, rule, the concrete change and the evidence of that improvement in the "Self-improvement" section, and the user's decision (apply, skip, or re-evaluate with a separate agent) is one point in "Needs confirmation" ([CONTEXT.md](../../CONTEXT.md#5-closing-block-needs-confirmation-and-proposals)); no other separate section is opened for that decision.
 The run that carries out that choice writes a new record whose `supersedes` points to the old record.
 
 ## Record

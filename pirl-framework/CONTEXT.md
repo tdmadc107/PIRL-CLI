@@ -28,8 +28,7 @@ Scope:
 ## 2. Wording and naming
 
 - Short sentences, one idea per sentence, with a full subject and predicate and correct spelling, diacritics and punctuation.
-- Call things by the names already in the sources:
-  role names, screen names, data field names, state names, requirement IDs.
+- Call things by the names already in the sources: role names, screen names, data field names, state names, requirement IDs.
   Do not coin new names, nicknames or metaphors for a subject.
   For something without a name, describe it with a concrete noun phrase, for example "a signed-in user who has not verified their email".
 - Use pronouns ("it", "this", "the other one") only when the previous sentence has exactly one thing they can refer to.
@@ -81,8 +80,7 @@ With several problems, order them by severity, most severe first.
 - By default give one recommended option and its reason in one sentence.
 - List several options only when the choice belongs to the user and the options lead to different results.
   At most three options.
-- Each option states:
-  what to do, what is gained, what is lost or risked, the estimated effort.
+- Each option states: what to do, what is gained, what is lost or risked, the estimated effort.
   Use a table for two or more options.
 - Mark the recommended option.
   Do not list options that will not be pursued just for completeness.
@@ -106,13 +104,11 @@ With several problems, order them by severity, most severe first.
 
 When points remain for the user to decide or proposals remain unimplemented, end the answer with two sections with fixed names, in this order:
 
-- **Needs confirmation**:
-  numbered.
+- **Needs confirmation**: numbered.
   Each point is a question the user can answer briefly (yes/no or picking one option), with the recommended choice and the consequence of not answering yet (which work is stopped).
   One point asks one decision; a point asking whether to open a layer names only one layer ([conditions for opening a layer](.agents/instructions/layered-task-execution.instructions.md#choosing-a-layer)).
   When what is missing is content only the user has (text, data, values), the point asks for that content itself; an option such as "I will write it" brings no content when chosen.
-- **Proposals**:
-  numbered.
+- **Proposals**: numbered.
   Each point is work not yet done, with its benefit in one sentence.
   Do not repeat points already in "Needs confirmation".
 

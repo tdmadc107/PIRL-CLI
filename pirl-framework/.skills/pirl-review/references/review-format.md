@@ -6,8 +6,7 @@ What each conclusion must prove, and when a new round opens, belongs to the [Rev
 ## Location and naming
 
 - Output directory: the directory the user names for the report; when the user names none, the Hub root.
-- Report:
-  `<output directory>/<plan-set>/<task-id-lower>-<todo-slug>/round-<NN>-review-<todo-slug>-<YYYYMMDD-HHmmss>.md`, where `NN` is the two-digit round number.
+- Report: `<output directory>/<plan-set>/<task-id-lower>-<todo-slug>/round-<NN>-review-<todo-slug>-<YYYYMMDD-HHmmss>.md`, where `NN` is the two-digit round number.
   When the Plan package also sits under the Hub root, the report lands inside the package directory, next to the Plan it reviews.
   Inside the Hub, the `<plan-set>/` directory is ignored by Git like the Plan package ([AGENTS.md](../../../AGENTS.md#git)).
 - Slugs are ASCII kebab-case; timestamps use the machine's local time zone and carry its UTC offset.
@@ -38,8 +37,7 @@ Present QGs as a three-column table; each FIND/RISK/BLOCK and EVAL has its own t
 The `Next` part uses a two-column table.
 Do not merge several fields into one long bullet or cram all fields of a finding/evaluation into one overly wide table.
 
-This is only presentation:
-keep all fields, IDs, conclusions, evidence and instructions; do not drop information to make a table shorter.
+This is only presentation: keep all fields, IDs, conclusions, evidence and instructions; do not drop information to make a table shorter.
 In each cell, use `<br>` when you need to separate several sources or processing steps; keep paths, symbols and commands intact.
 Escape a `|` that belongs to cell content as `\|`, including inside inline code, so it does not create a column.
 This escape rule applies only to Markdown tables and does not change values in the frontmatter.
@@ -53,7 +51,6 @@ EVALs cover the settled Implement team in the Implementation Record's order; do 
 
 ## Placeholders in the template
 
-- `{{name}}`:
-  computed values that `scripts/new_review.py` fills in from the Plan and the earlier rounds.
+- `{{name}}`: computed values that `scripts/new_review.py` fills in from the Plan and the earlier rounds.
   When a report is written without the script, fill them by the rules above.
 - `<…>` and the `a / b` alternatives: the coordinator writes the actual content and keeps exactly one alternative.

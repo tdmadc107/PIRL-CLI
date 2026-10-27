@@ -22,8 +22,7 @@ Writes and edits the UI: components, display states, styles, UI strings for each
 - Build the empty, loading, error, locked and input-validation-error states, not just the success path.
 - Do not hard-code UI strings; add translations for every language.
 - Scope styles to the component and avoid global selectors.
-- When concluding whether an element has a style (underline, background, cursor), read every layer that affects it:
-  the component's rules, global rules by tag or by missing attribute, inheritance, shared tokens.
+- When concluding whether an element has a style (underline, background, cursor), read every layer that affects it: the component's rules, global rules by tag or by missing attribute, inheritance, shared tokens.
   The element's markup (whether it has a class) decides which rules match.
 - When capturing layout: answer every API call with mocks in the browser, drive to each state, and capture each state in every language and viewport.
 - Accompanying documentation is written following the way of working of [`technical-writer`](technical-writer.role.md#how-it-works).

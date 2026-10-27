@@ -21,16 +21,14 @@ Plan, Implement and Review runs do not read it otherwise; a question that only n
 
 ## Standalone tasks
 
-A standalone task is work the user assigns directly that closes within that same run, outside the Plan → Implement → Review chain:
-writing or updating documentation on request, an investigation with durable output, a small fix the user specifies.
+A standalone task is work the user assigns directly that closes within that same run, outside the Plan → Implement → Review chain: writing or updating documentation on request, an investigation with durable output, a small fix the user specifies.
 Carrying out a Plan task is still Implement, even with a single role.
 A question that only needs an explanation and creates no durable output is answered directly (step 3 of [Choosing a layer](../../AGENTS.md#choosing-a-layer)).
 
 No Review is scheduled, so the person doing the work closes the loop within the session:
 
 1. Complete the delivery within exactly the scope the user assigned, under the core rules.
-2. Self-verify:
-   check the output against the request and the authoritative sources, and pick a counterexample that could refute the most important claim; fix wrong output before reporting.
+2. Self-verify: check the output against the request and the authoritative sources, and pick a counterexample that could refute the most important claim; fix wrong output before reporting.
    Record it as self-verification, not an independent review.
 3. Report separately the delivery result, how it was verified and what remains unknown.
    Do not create a Plan or report unless the user asks.
@@ -43,8 +41,7 @@ If the user later asks for a Review, the Review evaluates as usual; self-verific
 
 Applies to standalone tasks and to work done directly without a layer; the three layers verify per the [Verification by reasoning section](layered-task-execution.instructions.md#verification-by-reasoning).
 
-- Choose the narrowest verification that answers the open question:
-  static (types, lint, syntax, metadata), unit (pure functions, services, domain rules), component (UI behavior and accessibility), integration (API, authentication, storage, multi-tier flows) or manual (visual layout, real browser, multi-step flows per viewport).
+- Choose the narrowest verification that answers the open question: static (types, lint, syntax, metadata), unit (pure functions, services, domain rules), component (UI behavior and accessibility), integration (API, authentication, storage, multi-tier flows) or manual (visual layout, real browser, multi-step flows per viewport).
   Widen only when an affected contract or a concrete failure mechanism requires it; a file name or the existence of a test does not create that need.
   Tests written or run follow the [FUT rule](layered-task-execution.instructions.md#functional-tests-fut-rule).
 - A passing command only proves the cases that ran, not invariant coverage, adjacent integration paths, edge behavior or the reliability of the skipped part.
@@ -58,21 +55,16 @@ A request to edit `AGENTS.md`, `CONTEXT.md`, instructions, roles, skills or the 
 Do not force a product Plan or report before editing.
 Improvements that `process-auditor` applies during a layer run under the [Self-evaluation and improvement section](layered-task-execution.instructions.md#self-evaluation-and-improvement) are also framework maintenance, allowed by that section without a separate request.
 
-- Start from the wrong or missing decision, then identify the owning file:
-  `AGENTS.md` for the core rules, structure, roles and the target repository; `CONTEXT.md` for how responses to the user are presented; the router for layer boundaries and shared contracts; the layer contract for the roles' responsibilities, decisions and exit conditions; the layer's skill for the run procedure, the output format and the helper scripts.
+- Start from the wrong or missing decision, then identify the owning file: `AGENTS.md` for the core rules, structure, roles and the target repository; `CONTEXT.md` for how responses to the user are presented; the router for layer boundaries and shared contracts; the layer contract for the roles' responsibilities, decisions and exit conditions; the layer's skill for the run procedure, the output format and the helper scripts.
   Read the files that reference the rule before changing it, so that other files do not restore the old behavior.
 - Write rules in the framework's general form, reusable for every repository, host and situation of the same kind: conditions are stated by kind of situation, actions by role and output, not by one event that happened.
-  The content of `AGENTS.md`, `CONTEXT.md`, instructions, role files, rules and tools contains no details specific to one run or one project as a condition or basis:
-  repository or product names, paths inside a product repository, specific tokens or values, task or record IDs, dates, quotes from the user, names of a specific host or tool.
+  The content of `AGENTS.md`, `CONTEXT.md`, instructions, role files, rules and tools contains no details specific to one run or one project as a condition or basis: repository or product names, paths inside a product repository, specific tokens or values, task or record IDs, dates, quotes from the user, names of a specific host or tool.
   Illustrative examples, when needed, are marked as examples and do not become conditions.
   Knowledge specific to one repository lives in that repository's own context documentation; the decisions and evidence of a run live in Plans, Implementation Records, reports and records.
 - Fix with conditions and actions that are concrete enough; replace the wrong passage instead of piling on reminders.
-  Re-read against three scenarios:
-  the scenario that caused the problem, a similar scenario where the rule must not apply, and a scenario of the same kind in another repository or host; the rule must apply to the third scenario without changes.
+  Re-read against three scenarios: the scenario that caused the problem, a similar scenario where the rule must not apply, and a scenario of the same kind in another repository or host; the rule must apply to the third scenario without changes.
   Do not add tests, validators or schemas in place of improving the content, and do not create tests or validators that grade wording by headings, keywords, counts or format.
-- Write the prose of the framework's Markdown files, in paragraphs and list items, without hard wraps:
-  a line ends only where a sentence or clause ends with `.`, `:`, `?` or `!` followed by a space, and every `.`, `?` or `!` ending starts a new line, however long the line is; a `;` does not end the line.
-  A `:` ends the line only when two or more sentences follow it, up to the end of the paragraph or list item or to the next sentence that is itself a lead-in ending with `:`; a single sentence stays on the colon's line.
+- Write the prose of the framework's Markdown files, in paragraphs and list items, without hard wraps: a line ends only where a sentence ends with `.`, `?` or `!` followed by a space, and every such ending starts a new line, however long the line is; a `;` or `:` does not end the line, except a `:` that ends a paragraph or list item before a list or another block such as a table or code block.
   An ending inside a code span, a link, parentheses, a `<…>` placeholder or bold text does not end the line.
   Frontmatter, headings, tables and code blocks keep their own form.
   The output templates in the skills' `assets/` are not broken inside a sentence, but their lines are not split further either, because the Plans, Implementation Records and reports made from them are read line by line (for example a `Label: value` line).
@@ -146,14 +138,11 @@ The `Used in` column says where a role can be selected: `plan`, `implement`, `ve
 
 Constraints that keep roles separate from skills:
 
-- Closed catalog:
-  only the IDs in this table.
+- Closed catalog: only the IDs in this table.
   Adding, merging or removing a role means editing this table together with the role file, the layer file tables and the framework checks, in one change.
-- Layers pick roles themselves following the layer file's guidance:
-  Plan and Review by the "Select when" column; the Implement team for implementation and verification is chosen by the Plan.
+- Layers pick roles themselves following the layer file's guidance: Plan and Review by the "Select when" column; the Implement team for implementation and verification is chosen by the Plan.
   The user does not need to name roles, but when they do, keep exactly that list.
-- A role file contains only shared expertise:
-  the questions the role answers, how it works, warning signs, boundaries with other roles.
+- A role file contains only shared expertise: the questions the role answers, how it works, warning signs, boundaries with other roles.
   It does not contain a layer's sequence, output templates, commands or completion conditions; those belong to the layer contract and the layer's skill.
 - Roles have no artifacts, tools, skills or evaluation mechanism of their own; a role is evaluated through the layer's record.
 - Knowledge specific to one repository lives in that repository's context documentation, not in role files or skills.

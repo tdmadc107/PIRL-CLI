@@ -11,8 +11,7 @@ What each field must hold, and what a repair run records, belongs to the [Record
 ## Fields
 
 - One `- <field>: <value>` line per field, in the order of the template, followed by the numbered next actions.
-- The validator reads `status` and `updated_at` verbatim:
-  write them exactly as in the template, without backticks or a trailing period.
+- The validator reads `status` and `updated_at` verbatim: write them exactly as in the template, without backticks or a trailing period.
   `status` is one of `awaiting_confirmation`, `implemented`, `blocked`, `failed` and equals the Plan's frontmatter `status`; `updated_at` is an ISO-8601 timestamp with the machine's UTC offset, quoted.
   The other fields are free text.
 - Fields that the contract requires to be present even when empty take exactly `N/A`, as the template shows.

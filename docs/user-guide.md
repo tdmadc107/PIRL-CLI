@@ -92,8 +92,7 @@ A run never commits, pushes or switches branches in your repository.
 Commands outside a run's permissions are refused and listed in the run's summary; the run carries on.
 Esc or Ctrl+C stops a run, together with every process the agent started; if it does not stop within a few seconds, a second Esc forces it.
 `/resume` continues it later in the same agent session, even after PIRL was closed.
-Choosing a run in `/resume` starts nothing:
-type what it should do next (for example "continue", or a related problem to solve) and press Enter; Esc cancels.
+Choosing a run in `/resume` starts nothing: type what it should do next (for example "continue", or a related problem to solve) and press Enter; Esc cancels.
 A run that was waiting for your answers shows its questions again.
 
 ## Usage and limits
@@ -124,8 +123,7 @@ PIRL also gives each run only the tools it needs and does not load your MCP serv
 
 ## Framework updates
 
-On first start, PIRL creates the Hub in `~/.pirl/hub`:
-a local Git repository holding the framework that ships with the CLI.
+On first start, PIRL creates the Hub in `~/.pirl/hub`: a local Git repository holding the framework that ships with the CLI.
 Its `upstream` branch keeps the original framework versions; `main` keeps them plus your improvements, and runs use `main`.
 
 When a newer CLI brings a newer framework, the header says so.

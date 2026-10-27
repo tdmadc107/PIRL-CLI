@@ -36,8 +36,7 @@ Run the commands from the Hub root.
 
 1. **Open the run.** Apply the [core rules](../../AGENTS.md#core-rules) and [CONTEXT.md](../../CONTEXT.md).
    Run `python -B .agents/evals/layer_record.py start` and keep the returned `framework_ref` ([Timing and evaluator](../../.agents/instructions/layered-task-execution.instructions.md#timing-and-evaluator)).
-2. **Read the inputs** ([Inputs and permissions](../../.agents/instructions/review.instructions.md#inputs-and-permissions)):
-   the Plan, its Implementation Record, the diff and source of the Plan's `target_repo`, and earlier reports for the same task.
+2. **Read the inputs** ([Inputs and permissions](../../.agents/instructions/review.instructions.md#inputs-and-permissions)): the Plan, its Implementation Record, the diff and source of the Plan's `target_repo`, and earlier reports for the same task.
    Identify the snapshot before concluding.
 3. **Round.** Decide whether this work is a new round or belongs to the current one ([Report and rounds](../../.agents/instructions/review.instructions.md#report-and-rounds)).
    A new round creates its report in the directory the user named, or by default under the Hub root ([format](references/review-format.md#location-and-naming)); the current round edits its existing report:

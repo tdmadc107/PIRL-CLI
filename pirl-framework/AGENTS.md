@@ -1,8 +1,7 @@
 # Start here
 
 This repository is PIRL (Plan – Implement – Review Layer): a Hub that coordinates software development work for AI Agents.
-The framework runs entirely on instruction files:
-three layers, Plan, Implement and Review, define what the Agent does, how it does it and what it produces.
+The framework runs entirely on instruction files: three layers, Plan, Implement and Review, define what the Agent does, how it does it and what it produces.
 Each layer is run through its skill in `.skills/`.
 The product repositories the Agent works on are not part of the Hub; the user names the target repository of each request, as described in [Target repository](#target-repository).
 
@@ -33,8 +32,7 @@ Read [CONTEXT.md](CONTEXT.md) before the first answer of each session and apply 
 ### Safety rules and self-improvement
 
 Safety rules are: every rule in this Safety section; the [Git](#git) section; and any rule anywhere in the framework that limits commit, push, deploy, secrets or destructive and externally consequential actions, or that requires the user's decision or authorization.
-The self-improvement guards of the [self-evaluation instructions](.agents/instructions/self-evaluation.instructions.md) are safety rules too:
-the mode-self guard (a self-evaluation record never applies fixes itself; improvements that touch no safety rule are applied in the same turn as user-directed maintenance under the standing authorization in the [Workflow](#workflow) section, and everything else goes to the user) and the never-loosen rule below, including this definition.
+The self-improvement guards of the [self-evaluation instructions](.agents/instructions/self-evaluation.instructions.md) are safety rules too: the mode-self guard (a self-evaluation record never applies fixes itself; improvements that touch no safety rule are applied in the same turn as user-directed maintenance under the standing authorization in the [Workflow](#workflow) section, and everything else goes to the user) and the never-loosen rule below, including this definition.
 That authorization covers improvements that touch no safety rule and nothing else.
 
 Code and tests that enforce a safety rule are part of that rule: for example, the check in `.agents/evals/layer_record.py` that rejects applied fixes from a self-evaluation, together with its tests.
@@ -64,12 +62,10 @@ Support important claims with at least one of:
 When recording evidence:
 
 - Distinguish observed fact, inference, assumption, and proposal.
-- A claim that something is absent, always or never true, or differs from its source is observed fact only after everything that could contradict it has been read:
-  every measured value, and for styles every rule that can reach the element (component, global, inherited, shared tokens).
+- A claim that something is absent, always or never true, or differs from its source is observed fact only after everything that could contradict it has been read: every measured value, and for styles every rule that can reach the element (component, global, inherited, shared tokens).
   Otherwise it is an inference; say what was not read.
   Whoever carries a finding into a record, report or reply to the user first checks it against that evidence, or labels it unchecked and names what was not read.
-- Back every claim about what the user said, was asked, answered, confirmed or delegated with a source:
-  their message, a Plan, a record or a report.
+- Back every claim about what the user said, was asked, answered, confirmed or delegated with a source: their message, a Plan, a record or a report.
   When none is found, write that it was not asked or not found; never fill the gap from assumption or from the user's silence.
 - Record the exact command, working directory, status, and relevant output for verification claims.
 - Treat failed or unavailable evidence honestly; include the blocker and next falsification step.
@@ -89,24 +85,21 @@ Plan files and Review reports are written where the user says; when the user nam
 
 Each layer run ends with [self-evaluation and improvement](.agents/instructions/layered-task-execution.instructions.md#self-evaluation-and-improvement): `process-auditor` finds each role's mistakes, fixes the relevant framework files at the root, writes one record and reports what was fixed and where.
 
-Framework improvement is a mandatory part of every run, not a proposal:
-improvements that touch no safety rule are applied within the run, even when the self-evaluation runs in `mode: self`, without waiting for the user to confirm; the procedure lives in the [self-evaluation instructions](.agents/instructions/self-evaluation.instructions.md#self-evaluation-when-mode-self).
+Framework improvement is a mandatory part of every run, not a proposal: improvements that touch no safety rule are applied within the run, even when the self-evaluation runs in `mode: self`, without waiting for the user to confirm; the procedure lives in the [self-evaluation instructions](.agents/instructions/self-evaluation.instructions.md#self-evaluation-when-mode-self).
 This authorization covers only improvements that touch no safety rule; improvements that touch a safety rule still need the user's approval.
 
 ## Choosing a layer
 
 1. Infer the goal from the user's words and the context already established, not from keywords.
    When the user names roles, keep the list and its order; do not ask again about what is already given.
-2. Investigate the sources to resolve information that can be found, including what the user has already said:
-   the decisions they made (confirmations, delegated choices, refusals) live in Plans, Implementation Records, records and reports; the host's session history is only a fallback source when the host keeps it.
+2. Investigate the sources to resolve information that can be found, including what the user has already said: the decisions they made (confirmations, delegated choices, refusals) live in Plans, Implementation Records, records and reports; the host's session history is only a fallback source when the host keeps it.
    Ask only about missing decisions that change the result, the scope or the permission to act, and do not ask again about something already answered; stop the part that depends on that decision and continue the independent parts that have enough basis.
    A run that acts on the user's answer quotes that answer in its own output (the record's `summary`, the Implementation Record) so later runs can find it without the session history.
 3. If the user only asks for an explanation or an investigation, return a conclusion within that scope; do not turn the question into a handoff package.
    When the request is product delivery, choose the right layer below; do not switch layers just because the current part is done.
 4. A layer opens only when the user's own words ask for the work that layer produces (creating a Plan, implementing a Plan, a review).
    Agreeing to, choosing or confirming an answer to a question the Agent wrote opens only the layer named in the user's words, or the layer the question asked about on its own (one confirmation point asks one decision, and a point about opening a layer names one layer).
-   An approved proposal covering several layers settles the direction:
-   a layer that appears only in the Agent's text is not opened, and if the user's words name no layer, ask one question about the first layer.
+   An approved proposal covering several layers settles the direction: a layer that appears only in the Agent's text is not opened, and if the user's words name no layer, ask one question about the first layer.
    When the requested layer is done, stop and ask separately about the next layer.
 
 No slash command, activation token or exact keyword is needed.
@@ -120,21 +113,18 @@ No slash command, activation token or exact keyword is needed.
 | Standalone task | Work assigned directly, outside a Plan's chain; [Standalone tasks section](.agents/instructions/standalone-and-maintenance.instructions.md#standalone-tasks). |
 | Framework maintenance | Edit `AGENTS.md`, instructions, roles, skills or framework tools themselves; [Framework maintenance section](.agents/instructions/standalone-and-maintenance.instructions.md#framework-maintenance). |
 
-Load only the documents relevant to the current decision:
-the skill and the contract of the selected layer, and the context documentation of the target repository.
+Load only the documents relevant to the current decision: the skill and the contract of the selected layer, and the context documentation of the target repository.
 Do not load every file in `.agents/` or `.skills/`.
 
 Loading order:
 
 1. Identify the kind of work per [Choosing a layer](#choosing-a-layer).
 2. Depending on the kind of work:
-   - Plan, Implement or Review:
-     read the [router](.agents/instructions/layered-task-execution.instructions.md), which holds the boundaries between kinds of work and the shared contracts, then run that layer's skill (`.skills/pirl-<layer>/SKILL.md`); the skill loads exactly the layer contract and the resources each step needs.
+   - Plan, Implement or Review: read the [router](.agents/instructions/layered-task-execution.instructions.md), which holds the boundaries between kinds of work and the shared contracts, then run that layer's skill (`.skills/pirl-<layer>/SKILL.md`); the skill loads exactly the layer contract and the resources each step needs.
      A host that loads skills on its own reaches the same file; a host that does not reads it like any other file.
    - Standalone task, meaning work assigned directly outside a Plan's chain: read the [Standalone tasks](.agents/instructions/standalone-and-maintenance.instructions.md#standalone-tasks) section of the standalone and maintenance instructions; no layer is activated.
    - Framework maintenance: read the [standalone and maintenance instructions](.agents/instructions/standalone-and-maintenance.instructions.md) in full, then edit `AGENTS.md`, `CONTEXT.md`, instructions, roles, skills or tools themselves, within the scope the user assigns.
-   - A question that only needs an explanation and creates no durable output:
-     answer within its scope, create no files.
+   - A question that only needs an explanation and creates no durable output: answer within its scope, create no files.
      The router is not needed, unless the answer draws a conclusion about a Plan, an Implementation Record, a report or a record (then apply the router's [Shared snapshots and older records](.agents/instructions/layered-task-execution.instructions.md#shared-snapshots-and-older-records) section), or it is unclear whether the request is only such a question (then read the router before answering).
 3. For work that touches a product repository, identify the [target repository](#target-repository), then read its context documentation.
 
@@ -151,8 +141,7 @@ The [role catalog](.agents/instructions/standalone-and-maintenance.instructions.
 Delegation, for all three layers.
 These points override a host's defaults, so they stay in this file, which every host loads:
 
-- This framework runs layers with AI agents:
-  every selected role of a layer run, including `process-auditor`, runs in a separate agent (a host sub-agent).
+- This framework runs layers with AI agents: every selected role of a layer run, including `process-auditor`, runs in a separate agent (a host sub-agent).
   A request to run a layer is an explicit request to delegate work to agents; a host's default instruction that the user must ask before agents are created is satisfied by this rule, without the user repeating it in each run.
 - A role does not verify its own output.
 
@@ -165,8 +154,7 @@ The target repository of a request is a local Git repository that the user names
 
 - **Path.** A Plan records the target in `target_repo` as a path relative to the Hub root, or as an absolute path when the repository lives outside the Hub; `.` means the Hub itself.
   The path must be an existing directory when the Plan is handed off.
-- **Context documentation.** The documents inside the target repository that tell agents how it works:
-  architecture, conventions, commands (including how to run tests by file, class or name), the UI languages, viewports and breakpoint thresholds to capture in layout snapshots, notes on capture tooling (where the browser automation tool is and how to install it, how to launch a browser without touching the user's open session, how to run a stable dev server, known environment obstacles) and where known gaps are recorded.
+- **Context documentation.** The documents inside the target repository that tell agents how it works: architecture, conventions, commands (including how to run tests by file, class or name), the UI languages, viewports and breakpoint thresholds to capture in layout snapshots, notes on capture tooling (where the browser automation tool is and how to install it, how to launch a browser without touching the user's open session, how to run a stable dev server, known environment obstacles) and where known gaps are recorded.
   They are usually the repository's agent instruction file (for example `AGENTS.md` or `CLAUDE.md`), its README, its contributing guide or a documentation folder.
 - **Rules of the repository.** Constraints that apply to one repository live in that repository's own documentation; the Hub has no per-repository rules.
 
