@@ -23,12 +23,10 @@ When it runs and how the result is reported belong to the [router's Self-evaluat
 - Reconstruct decisions from the output, the Implementation Record or the report, and the sources the role used.
   Do not evaluate by impression.
 - Read the rules at exactly the version the run used, per `framework_ref`, not the current version.
-- Test the rule against the scenario that caused the issue as an agent reading it for the first time:
-  does the rule cover this case, is it ambiguous, does it conflict with another rule?
+- Test the rule against the scenario that caused the issue as an agent reading it for the first time: does the rule cover this case, is it ambiguous, does it conflict with another rule?
 - Look up earlier records by `issue_key` and by rule before concluding the cause.
   Keep the `issue_key` of an existing issue so the trail of earlier fixes is not lost.
-- When rewriting a rule:
-  fix it where it is owned, replace the wrong passage instead of piling on reminders, and write concrete conditions and actions in the general form described in the [Framework maintenance section](../instructions/standalone-and-maintenance.instructions.md#framework-maintenance).
+- When rewriting a rule: fix it where it is owned, replace the wrong passage instead of piling on reminders, and write concrete conditions and actions in the general form described in the [Framework maintenance section](../instructions/standalone-and-maintenance.instructions.md#framework-maintenance).
   Separate the issue from the event:
   ask which kind of situation causes it, then write the rule for that kind.
   Sweep other files that reference that rule.

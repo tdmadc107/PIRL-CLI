@@ -42,8 +42,7 @@ Run the commands from the Hub root.
    Delegate each role to a separate agent per the [assignment principles](../../.agents/instructions/layered-task-execution.instructions.md#assignment-principles).
 4. **Investigate and settle decisions** ([contract](../../.agents/instructions/plan.instructions.md#investigating-and-settling-decisions)).
    Ask only about missing decisions that change the result; continue the independent parts.
-   Asking pauses the run:
-   the next steps, self-evaluation included, follow the answers.
+   Asking pauses the run: the next steps, self-evaluation included, follow the answers.
 5. **Split the work into tasks** ([contract](../../.agents/instructions/plan.instructions.md#splitting-tasks-for-separate-implementation-and-acceptance)), within the [scope of work](../../.agents/instructions/plan.instructions.md#scope-of-work-source-code-documentation-and-functional-tests) and with [separate implementation and verification roles](../../.agents/instructions/plan.instructions.md#separating-implementation-roles-from-verification-roles).
 6. **Write the task files** in the directory the user named, or by default under the Hub root ([format](references/plan-format.md#location-and-naming)).
    The first task starts the package; each next task joins it:
@@ -69,5 +68,4 @@ Run the commands from the Hub root.
 
 9. **Clean up** temporary resources ([router](../../.agents/instructions/layered-task-execution.instructions.md#cleaning-up-temporary-resources-before-handoff)).
 10. **Hand off and report** ([Saving and handoff](../../.agents/instructions/plan.instructions.md#saving-and-handoff), [Reporting](../../.agents/instructions/layered-task-execution.instructions.md#reporting)).
-    Stop there:
-    Implement opens only when the user asks for it.
+    Stop there: Implement opens only when the user asks for it.

@@ -7,8 +7,7 @@ status: active
 
 # frontend-developer
 
-Writes and edits the UI:
-components, display states, styles, UI strings for each language, client-side API calls; together with the accompanying documentation, functional tests, and mocks for capturing layout.
+Writes and edits the UI: components, display states, styles, UI strings for each language, client-side API calls; together with the accompanying documentation, functional tests, and mocks for capturing layout.
 
 ## Questions the role answers
 
@@ -26,8 +25,7 @@ components, display states, styles, UI strings for each language, client-side AP
 - When concluding whether an element has a style (underline, background, cursor), read every layer that affects it:
   the component's rules, global rules by tag or by missing attribute, inheritance, shared tokens.
   The element's markup (whether it has a class) decides which rules match.
-- When capturing layout:
-  answer every API call with mocks in the browser, drive to each state, and capture each state in every language and viewport.
+- When capturing layout: answer every API call with mocks in the browser, drive to each state, and capture each state in every language and viewport.
 - Accompanying documentation is written following the way of working of [`technical-writer`](technical-writer.role.md#how-it-works).
 - Self-challenge with counterexamples and edge branches before handing over.
 

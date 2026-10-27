@@ -29,14 +29,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Framework fw-1.3.0
 
-- A run that stops to ask you something is paused, not finished:
-  `process-auditor` evaluates it once, when its output is settled, instead of at every pause, which cost a large part of runs that asked questions.
+- A run that stops to ask you something is paused, not finished: `process-auditor` evaluates it once, when its output is settled, instead of at every pause, which cost a large part of runs that asked questions.
 - Plan asks first, before assigning any role, when the request does not say what to change or what the new content is.
 - Roles that run in parallel get parts that do not overlap.
   The coordinator no longer reads the sources it hands to roles, and each role reads only what its part needs.
 - A question about content only you have asks for that content itself.
 - The framework's Markdown files are no longer hard-wrapped at a fixed width.
-  A line ends only where a sentence or clause ends with `.`, `:`, `?` or `!` (not `;`), so a phrase is never split across lines and can be found with a plain search.
+  A line ends only where a sentence ends with `.`, `?` or `!`, or at a `:` that two or more sentences follow (never at `;`), so a phrase is never split across lines and can be found with a plain search.
   Headings, tables, code blocks and the output templates keep their form; every file renders as before.
 - Framework maintenance keeps this convention for every Markdown file it edits.
 
@@ -52,8 +51,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Framework fw-1.2.0
 
-- Implement roles finish a clean-code check before handing over to the verification roles:
-  they write only the code the required logic needs, reuse existing logic, and check that the new code is clean, free of potential bugs and maintainable, and that every line has a purpose.
+- Implement roles finish a clean-code check before handing over to the verification roles: they write only the code the required logic needs, reuse existing logic, and check that the new code is clean, free of potential bugs and maintainable, and that every line has a purpose.
 
 ## [1.1.1] - 2026-10-25
 
@@ -89,19 +87,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [1.0.1] - 2026-10-25
 
-Documentation and tests only:
-the CLI and the bundled framework (fw-1.1.0) are the same as in 1.0.0.
+Documentation and tests only: the CLI and the bundled framework (fw-1.1.0) are the same as in 1.0.0.
 
 ### Added
 
-- A [user guide](docs/user-guide.md) with the details of using PIRL:
-  commands, keyboard shortcuts, `@` attachments, how a run works, usage limits, settings, framework updates and where data is stored.
+- A [user guide](docs/user-guide.md) with the details of using PIRL: commands, keyboard shortcuts, `@` attachments, how a run works, usage limits, settings, framework updates and where data is stored.
 - Uninstallation steps in the README.
 
 ### Changed
 
-- The README is now in English and introduces the product:
-  highlights, requirements, installation, quick start, documentation links, uninstallation and development.
+- The README is now in English and introduces the product: highlights, requirements, installation, quick start, documentation links, uninstallation and development.
 - The changelog is now in English.
 
 ### Fixed
@@ -111,10 +106,8 @@ the CLI and the bundled framework (fw-1.1.0) are the same as in 1.0.0.
 ## [1.0.0] - 2026-10-25
 
 First release, published on npm as `pirl-framework-cli`.
-Provider:
-Claude Code 2.1.281 or later.
-Bundled framework:
-fw-1.1.0.
+Provider: Claude Code 2.1.281 or later.
+Bundled framework: fw-1.1.0.
 
 ### Added
 
@@ -123,8 +116,7 @@ fw-1.1.0.
   Each role runs as its own subagent, with permissions set per layer.
 - Text typed without a `/` is a question, a standalone task or framework maintenance.
   When it asks for a layer, the run suggests the matching command instead of running it.
-- Questions during a run:
-  pick an answer with the arrow keys, type its number, or write your own.
+- Questions during a run: pick an answer with the arrow keys, type its number, or write your own.
 - `/resume` lists the runs of the repository that can continue and resumes the one you choose, even after the TUI was closed.
 - After each run, PIRL runs the framework's validator and checks the self-evaluation record.
   After Implement, it checks that the changed files are within the Plan's allowed paths.
@@ -135,19 +127,16 @@ fw-1.1.0.
   - run the framework's tests before applying an update;
   - undo the last update;
   - view differences from the original, restore single files, and browse the history of improvements.
-- `/plans` and `/records`:
-  open a Plan, a review report or a record to see its details.
+- `/plans` and `/records`: open a Plan, a review report or a record to see its details.
 - Attach files and folders with `@`:
   paths of the repository are suggested as you type.
   Small text files are sent with their content; large files and folders are sent as paths or file lists.
   On Windows, network (UNC) and device paths are never read, except on the share that holds the repository or the home directory.
-- Run progress:
-  a spinner, a clock and what each role is doing; the full log of each run in `~/.pirl/logs/`.
+- Run progress: a spinner, a clock and what each role is doing; the full log of each run in `~/.pirl/logs/`.
 - Token usage by kind (cache reads, cache writes, output, new input), including the roles', with its equivalent at API list prices.
 - 5-hour and weekly usage limits in the side panel, with percentage bars and reset times.
 - Mouse wheel scrolling of the chat and panels, while dragging still selects text as usual.
-- `/settings`:
-  coordinator model (Sonnet by default), role model, reasoning effort for every role, parallel roles, color scheme, light or dark background, glyphs, motion and mouse mode.
+- `/settings`: coordinator model (Sonnet by default), role model, reasoning effort for every role, parallel roles, color scheme, light or dark background, glyphs, motion and mouse mode.
 - `/doctor`, `/copy`, `/clear`, `/help` and `/exit`; paste with Ctrl+V; new lines with Shift+Enter, Ctrl+J or `\` then Enter.
 - A responsive layout from 40 columns, and support for Vietnamese input methods.
 

@@ -35,15 +35,13 @@ The [role catalog](standalone-and-maintenance.instructions.md#role-catalog) and 
 
 For all three layers, together with the delegation rules in AGENTS.md:
 
-- The coordinator (the Agent receiving the request from the user) is responsible for the final result:
-  it assigns work and merges results by evidence, not by how many roles agree.
+- The coordinator (the Agent receiving the request from the user) is responsible for the final result: it assigns work and merges results by evidence, not by how many roles agree.
 - Roles that do not need each other's results run in parallel; a role that needs another role's result runs after that role (`process-auditor` runs after the layer's output is settled).
   The coordinator does not do the delegated work itself.
 - Roles that run in parallel get parts that do not overlap:
   no two roles examine the same question in the same sources.
   The coordinator reads only what it needs to choose the team and assign the parts (the request, the target repository's context documentation); the sources a part needs are read by the role that examines it.
-  Each role reads only the sources that bear on its part:
-  a part about which content a page shows does not need the page's styles, images or tests.
+  Each role reads only the sources that bear on its part: a part about which content a page shows does not need the page's styles, images or tests.
 - When delegating, pass the role file, the role's row in the layer file's table (plus every row that row refers to for its completion condition), sources, constraints, the settled direction and the part to examine; do not hide the solution and do not impose the conclusion.
 - Self-perform (`mode: self`) only when the host has no mechanism to create agents in the session or the call to create an agent fails.
   The coordinator then takes on each role in turn in the layer's order and records the concrete reason in the record's `summary` and in the layer's output.
@@ -61,8 +59,7 @@ For all three layers, together with the delegation rules in AGENTS.md:
 The framework does not choose or require a provider, model, reasoning effort or host.
 Do not infer from a missing tool or a skipped test that a runtime must be installed or a new operating system supported.
 Only conditions needed for the assigned result can block that part.
-A host without a mechanism to create agents does not block the work:
-the coordinator performs the roles and states the reason, per the [assignment principles](#assignment-principles).
+A host without a mechanism to create agents does not block the work: the coordinator performs the roles and states the reason, per the [assignment principles](#assignment-principles).
 
 ## Verification by reasoning
 
@@ -76,13 +73,11 @@ The only exception is [layout verification with mocks](layout-verification.instr
 Verifying an implementation result is the agent's reasoning:
 read the diff and the source, trace the execution path from the entrypoint through callers, guards and write/read operations to the final state, check each `Required logic` of the QG, pick a counterexample or failure branch that could refute it, challenge competing explanations, then conclude `PASS|FAIL|BLOCKED` with sources.
 Reading files, diffs, git history or searching gathers sources for the reasoning; it is not a verification run.
-Test/build/run results, whether already in the repository, CI, an old report or from the test run under FUT, are not a baseline or PASS/FAIL evidence for a QG:
-a red test must be explained from the source, and a green test only proves the cases it ran.
+Test/build/run results, whether already in the repository, CI, an old report or from the test run under FUT, are not a baseline or PASS/FAIL evidence for a QG: a red test must be explained from the source, and a green test only proves the cases it ran.
 
 Sources of evidence for a QG, for every role in all three layers:
 
-- Allowed:
-  file contents, diffs, git history, search results over the source and documentation; for UI QGs, also the screenshots and measurements of [layout verification with mocks](layout-verification.instructions.md) (bounding boxes, computed styles, scroll-area sizes of rendered elements in each state).
+- Allowed: file contents, diffs, git history, search results over the source and documentation; for UI QGs, also the screenshots and measurements of [layout verification with mocks](layout-verification.instructions.md) (bounding boxes, computed styles, scroll-area sizes of rendered elements in each state).
 - Not evidence, whether run inside or outside the repository:
   scripts, harnesses or probes written to verify (bulk value comparisons, counting differing pixels between two images, computing on the reader's behalf); using a browser or runtime to force logic branches, emulate features, measure timing or check listener removal; builds, typechecks, lint and other static analysis tools; test results.
   Test results under FUT are stated next to the reasoning and do not become an evidence line of a QG.
@@ -103,8 +98,7 @@ Per layer:
   A task ends when its own QGs have been concluded by reasoning.
   Layout screenshots produced by the Implement run itself per the [layout verification instructions](layout-verification.instructions.md) are not data supplied by the user.
 
-Commands the user requests run in every layer:
-when the user explicitly asks for a command or check, run exactly the requested part in that run and report the result separately; the result does not replace QG reasoning and does not extend to other commands.
+Commands the user requests run in every layer: when the user explicitly asks for a command or check, run exactly the requested part in that run and report the result separately; the result does not replace QG reasoning and does not extend to other commands.
 A request to investigate the root cause of a bug/issue lets the role responsible for the investigation reproduce the defect in that run:
 run commands, related tests, the application or small test data at the boundary that causes the defect to tell hypotheses apart.
 Stop once the cause has been distinguished; the reproduction result is diagnostic evidence, not a QG baseline, and does not entail running the whole system.
@@ -118,10 +112,8 @@ Applies to all writing, updating and running of tests, inside and outside the th
 Tests that are created or updated must be functional tests based on the REQ/specification.
 If the user explicitly asks for something else, follow that request.
 
-- Source:
-  each test traces back to a REQ or specification item of the functionality under development, or of functionality affected by it.
-  "Affected" must be grounded in the source:
-  a call path, contract or shared data that the change touches; do not infer it from module names, the existence of a test or a wish to "be safe".
+- Source: each test traces back to a REQ or specification item of the functionality under development, or of functionality affected by it.
+  "Affected" must be grounded in the source: a call path, contract or shared data that the change touches; do not infer it from module names, the existence of a test or a wish to "be safe".
 - Content:
   assert functional behavior observable at the functionality's contract (input → outcome/state, refusal/failure branches the specification names).
   Do not lock in implementation details, do not use the implementation's algorithm as the expected result, and do not assert things the specification does not require (wording, order, timing, format) in a way that blocks a correct result.
@@ -129,8 +121,7 @@ If the user explicitly asks for something else, follow that request.
   only enough tests to tell right from wrong for the assigned behavior.
   Do not add combinations, edge cases, performance or platforms the specification does not require, do not test the same behavior twice, and do not spread to unrelated functionality.
   If an existing test already protects that behavior, update it instead of writing a new one.
-- Updates:
-  tests of affected functionality that still assert the old behavior are fixed to the new logic; tests that only served a removed flow are deleted.
+- Updates: tests of affected functionality that still assert the old behavior are fixed to the new logic; tests that only served a removed flow are deleted.
 - Running:
   run only the tests of the functionality under development and the affected functionality, selected by file, class or test name, with the command the target repository's context documentation gives.
   Never run tests of unrelated functionality or the whole suite/system, even when you believe the change has no impact.
@@ -142,8 +133,7 @@ If the user explicitly asks for something else, follow that request.
 ## Shared snapshots and older records
 
 Applies to every layer when drawing conclusions about the source, the documentation or an older record (Implementation Record, report, record).
-Separate three things:
-the current source, what the record states, and the changes between those two points in time.
+Separate three things: the current source, what the record states, and the changes between those two points in time.
 
 - When the current source differs from what an older record states, that only proves the source changed after the record; it does not prove the record was wrong when written.
   Treat the record as wrong only when a time-stamped source (a capture, a diff, a commit, a measurement) shows the statement was wrong at the time it was written; otherwise record the mismatch as a change that happened after that record.
@@ -163,8 +153,7 @@ Review applies these rules to conclude QGs and attribute issues to Implement rol
 Each Plan, Implement or Review run (including repair runs and every Review round) self-evaluates and improves the framework before handoff, whether the result is PASS, FAIL or blocked.
 Standalone tasks and framework maintenance do not apply this section.
 
-Asking the user for a decision or for content is not a handoff:
-the run pauses and continues with the answers, and it self-evaluates once, after its output is settled, never at a pause.
+Asking the user for a decision or for content is not a handoff: the run pauses and continues with the answers, and it self-evaluates once, after its output is settled, never at a pause.
 
 ### Timing and evaluator
 
@@ -190,8 +179,7 @@ The run's final response has a "Self-improvement" section:
 the `record_id`, then for each applied improvement the issue, cause, file and section edited, old → new version, and a summary of the change; or a single sentence "no issues found".
 In `mode: self`, the `record_id` is the maintenance record that supersedes the self-evaluation record.
 An improvement pending the user for reason `safety` is described in the "Self-improvement" section, and the decision about it is one point of "Needs confirmation" per the [Self-evaluation when `mode: self`](self-evaluation.instructions.md#self-evaluation-when-mode-self) section.
-An improvement pending for reason `repository` is described in the "Self-improvement" section and offered as one point of "Proposals" ([CONTEXT.md](../../CONTEXT.md#5-closing-block-needs-confirmation-and-proposals)):
-the user assigns it as a standalone task in the target repository.
+An improvement pending for reason `repository` is described in the "Self-improvement" section and offered as one point of "Proposals" ([CONTEXT.md](../../CONTEXT.md#5-closing-block-needs-confirmation-and-proposals)): the user assigns it as a standalone task in the target repository.
 
 ## Cleaning up temporary resources before handoff
 
@@ -214,8 +202,7 @@ PASS, FAIL, blocked or cancelled, everything no longer needed must be cleaned up
   Keep source, user inputs, Plans, reports and records.
   Keep raw files only when the user asks or when they are a defined handoff output; do not use possible reuse as an excuse to keep clutter.
   Do not leave required references pointing to temporary files about to be deleted, to paths ignored by Git or to locations outside the repository, because they do not go with commits.
-  Plan packages with their Review reports and self-evaluation records are the exception:
-  they are local by design, ignored by Git ([AGENTS.md](../../AGENTS.md#git)), and refer to each other by path or `record_id`.
+  Plan packages with their Review reports and self-evaluation records are the exception: they are local by design, ignored by Git ([AGENTS.md](../../AGENTS.md#git)), and refer to each other by path or `record_id`.
 - Verify ownership and the absolute path before deleting, using specific targets.
   Do not delete the whole TEMP, run a broad `git clean`, or treat every untracked file as clutter.
   For resources with an unclear owner, verify first; do not delete by mistake to reach a clean state.

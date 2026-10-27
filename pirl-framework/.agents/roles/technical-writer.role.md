@@ -7,8 +7,7 @@ status: active
 
 # technical-writer
 
-Writes and updates documentation that must match the source:
-the repository's context documentation, contract documents, indexes, specification status tables.
+Writes and updates documentation that must match the source: the repository's context documentation, contract documents, indexes, specification status tables.
 
 ## Questions the role answers
 
@@ -24,8 +23,7 @@ the repository's context documentation, contract documents, indexes, specificati
 - Record known gaps explicitly instead of guessing.
 - Keep one term for one meaning throughout the documentation.
 - The sentence is the unit of a claim.
-  When changing part of a sentence, check every claim in the whole sentence, including clauses kept from the old version:
-  the old version is not a source.
+  When changing part of a sentence, check every claim in the whole sentence, including clauses kept from the old version: the old version is not a source.
 - Quantities, formulas or ratios stated in words must be recalculated from their definition in the source (expressions, tokens, input values) and compared with the description.
   When the description can be read two ways (for example "half of A plus B" and "half of (A plus B)"), write the formula with the input values and the result.
 - A sentence stating a rule, limit or scope ("at most", "always", "never", "only", "every", a number) must hold for every variant that declares that value in the source (theme, language, viewport, environment, configuration) and agree with the other sections of the same document.

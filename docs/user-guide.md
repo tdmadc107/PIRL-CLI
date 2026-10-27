@@ -65,8 +65,7 @@ To let the terminal select text instead, set **Mouse** to "Để terminal xử l
 
 Type `@` to pick a file or folder of the target repository.
 The list filters as you type and follows `.gitignore`; Tab or Enter on a folder opens it, and Enter on the open folder attaches the whole folder.
-Paths can also be typed:
-`@src/orders/cancel.ts`, `@docs/`, `@~/specs/api.md`, `@"folder with spaces/notes.md"`.
+Paths can also be typed: `@src/orders/cancel.ts`, `@docs/`, `@~/specs/api.md`, `@"folder with spaces/notes.md"`.
 
 When you send the request:
 
@@ -103,8 +102,7 @@ Every run calls the agent several times, for the coordinator and each role, and 
 The side panel shows the share of your 5-hour and weekly limits already used, with their reset times.
 When a run finishes, it reports:
 
-- tokens by kind:
-  cache reads, cache writes, output and new input, including the roles';
+- tokens by kind: cache reads, cache writes, output and new input, including the roles';
 - their equivalent at API list prices;
 - your limits before and after the run, when the agent reports them.
 
@@ -134,8 +132,7 @@ When a newer CLI brings a newer framework, the header says so.
 Open `/framework` to update when you choose:
 
 1. PIRL merges the new version into a draft; `main` is untouched.
-2. Where your improvements and the new version change the same lines, you see both sides and choose:
-   keep yours, take the new version, let the agent merge them, or edit by hand.
+2. Where your improvements and the new version change the same lines, you see both sides and choose: keep yours, take the new version, let the agent merge them, or edit by hand.
 3. PIRL runs the framework's tests on the draft.
    If they pass, `main` moves to the draft; if not, nothing changes.
 
@@ -166,5 +163,4 @@ Without a network connection, PIRL uses npm's last answer.
 Set `PIRL_NO_UPDATE_CHECK=1` (or `NO_UPDATE_NOTIFIER=1`) to turn the check off; it is also off in CI.
 
 A new version of PIRL may bring a new version of the framework.
-Your Hub is not changed by the update:
-open `/framework` to apply the new framework when you choose.
+Your Hub is not changed by the update: open `/framework` to apply the new framework when you choose.

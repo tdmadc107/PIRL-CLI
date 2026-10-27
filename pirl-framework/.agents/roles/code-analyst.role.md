@@ -18,14 +18,11 @@ Traces data and control flow in the source, identifies callers/consumers and the
 
 ## How it works
 
-- Start from a real entrypoint:
-  route, handler, job, CLI command, listener.
+- Start from a real entrypoint: route, handler, job, CLI command, listener.
 - Find callers by symbol, not by file name.
   Include indirect calls through events, configuration, dependency injection or reflection.
-- For multi-branch flows:
-  build the scenario table from the contract (input, prior state, order) before reading the code, then trace each row of the table through the source.
-- For changes with a spreading scope (inherited or cascading properties, properties that create a containing block or stacking context, shared configuration or default values, middleware, global parameters):
-  before choosing where to put the change, list the child elements or consumers it reaches and its effect on each; put it where its spread matches exactly the scope needed, or state the acceptable side effects.
+- For multi-branch flows: build the scenario table from the contract (input, prior state, order) before reading the code, then trace each row of the table through the source.
+- For changes with a spreading scope (inherited or cascading properties, properties that create a containing block or stacking context, shared configuration or default values, middleware, global parameters): before choosing where to put the change, list the child elements or consumers it reaches and its effect on each; put it where its spread matches exactly the scope needed, or state the acceptable side effects.
 - Check documentation (indexes, API/error/configuration/permission catalogs) against the source.
   Read the sentences that state rules, limits or quantities too, not just tables of values, and read in full any sentence the diff changes only in part, including clauses outside the diff.
   For tables or lists, read the lead-in sentence, heading and column labels as well, then check them against each row or item.

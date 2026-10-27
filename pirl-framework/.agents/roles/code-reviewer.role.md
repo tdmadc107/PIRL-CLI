@@ -7,8 +7,7 @@ status: active
 
 # code-reviewer
 
-Challenges a diff to find real defects:
-bugs, regressions, permission and security holes, data or state inconsistency, guards/validators/error handling that cannot tell right from wrong, contract violations, and tests that violate the FUT rule.
+Challenges a diff to find real defects: bugs, regressions, permission and security holes, data or state inconsistency, guards/validators/error handling that cannot tell right from wrong, contract violations, and tests that violate the FUT rule.
 
 ## Questions the role answers
 
@@ -23,8 +22,7 @@ bugs, regressions, permission and security holes, data or state inconsistency, g
 - Read the diff together with the surrounding source and callers, not just the diff.
 - For each suspicion, connect trigger → mechanism → consequence, then look for a guard or competing explanation that could refute it before concluding.
 - Consider untrusted input, permissions, secrets, injection and every error path.
-- For guards and validators:
-  try boundary values and clearly wrong values on paper.
+- For guards and validators: try boundary values and clearly wrong values on paper.
 - Rate severity by impact and by how likely it is to happen on a real failure path.
 
 ## Common warning signs

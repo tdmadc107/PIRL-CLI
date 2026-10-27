@@ -18,8 +18,7 @@ Standalone tasks and framework maintenance do not apply it.
 ## Issues and causes
 
 An issue is a decision or output that is wrong against the request, the source, a contract or a rule, with evidence.
-Each issue records the role (or `coordinator`), the wrong decision, the related rule as `file#section`, the evidence and an `issue_key`:
-a kebab-case key describing the issue; an issue already present in an earlier record keeps its existing key.
+Each issue records the role (or `coordinator`), the wrong decision, the related rule as `file#section`, the evidence and an `issue_key`: a kebab-case key describing the issue; an issue already present in an earlier record keeps its existing key.
 
 Before classifying, look up earlier records with `layer_record.py query --issue-key <key>` and `layer_record.py query --rule <file#section>`.
 Classify by evidence, not by how many times it repeated:
@@ -47,10 +46,8 @@ There are no off-limits areas and no waiting for proposals:
 5. Re-read the edited part against the three scenarios of the [Framework maintenance section](standalone-and-maintenance.instructions.md#framework-maintenance).
 6. Run the commands in [Framework checks](standalone-and-maintenance.instructions.md#framework-checks) that match what was edited.
 
-Mandatory exception:
-never loosen the [safety rules](../../AGENTS.md#safety-rules-and-self-improvement).
-An improvement that would loosen a safety rule is not applied:
-record `pending_user` with reason `safety` and ask the user.
+Mandatory exception: never loosen the [safety rules](../../AGENTS.md#safety-rules-and-self-improvement).
+An improvement that would loosen a safety rule is not applied: record `pending_user` with reason `safety` and ask the user.
 
 ## Self-evaluation when `mode: self`
 
@@ -71,8 +68,7 @@ On Windows, use `--input` with a UTF-8 file so non-ASCII text is not corrupted.
 The tool adds `schema`, `record_id`, `recorded_at` and rejects malformed records; if the record is rejected, the run is not complete.
 Do not edit the JSONL files by hand; correct a record with a new record that has `supersedes`.
 Records are handoff output, stored at `.agents/evals/records/<layer>/<YYYY-MM-DD>.jsonl`.
-That directory is ignored by Git because records describe the user's projects:
-they stay on the local machine and are never committed, and the tool still reads them for `query` and `check`.
+That directory is ignored by Git because records describe the user's projects: they stay on the local machine and are never committed, and the tool still reads them for `query` and `check`.
 
 | Field | Content |
 | --- | --- |

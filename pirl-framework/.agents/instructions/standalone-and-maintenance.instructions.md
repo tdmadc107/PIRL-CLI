@@ -13,10 +13,8 @@ metadata:
 
 Read this file only in these cases:
 
-- a standalone task:
-  the [Standalone tasks](#standalone-tasks) section;
-- framework maintenance the user assigns:
-  the whole file;
+- a standalone task: the [Standalone tasks](#standalone-tasks) section;
+- framework maintenance the user assigns: the whole file;
 - inside a Plan, Implement or Review run, only when a framework improvement is applied (`process-auditor`, or the coordinator in `mode: self`), per the [Thorough improvement](self-evaluation.instructions.md#thorough-improvement) section of the self-evaluation instructions.
 
 Plan, Implement and Review runs do not read it otherwise; a question that only needs an explanation reads it only when the question is about the framework's structure or maintenance.
@@ -63,8 +61,7 @@ Improvements that `process-auditor` applies during a layer run under the [Self-e
 - Start from the wrong or missing decision, then identify the owning file:
   `AGENTS.md` for the core rules, structure, roles and the target repository; `CONTEXT.md` for how responses to the user are presented; the router for layer boundaries and shared contracts; the layer contract for the roles' responsibilities, decisions and exit conditions; the layer's skill for the run procedure, the output format and the helper scripts.
   Read the files that reference the rule before changing it, so that other files do not restore the old behavior.
-- Write rules in the framework's general form, reusable for every repository, host and situation of the same kind:
-  conditions are stated by kind of situation, actions by role and output, not by one event that happened.
+- Write rules in the framework's general form, reusable for every repository, host and situation of the same kind: conditions are stated by kind of situation, actions by role and output, not by one event that happened.
   The content of `AGENTS.md`, `CONTEXT.md`, instructions, role files, rules and tools contains no details specific to one run or one project as a condition or basis:
   repository or product names, paths inside a product repository, specific tokens or values, task or record IDs, dates, quotes from the user, names of a specific host or tool.
   Illustrative examples, when needed, are marked as examples and do not become conditions.
@@ -74,7 +71,8 @@ Improvements that `process-auditor` applies during a layer run under the [Self-e
   the scenario that caused the problem, a similar scenario where the rule must not apply, and a scenario of the same kind in another repository or host; the rule must apply to the third scenario without changes.
   Do not add tests, validators or schemas in place of improving the content, and do not create tests or validators that grade wording by headings, keywords, counts or format.
 - Write the prose of the framework's Markdown files, in paragraphs and list items, without hard wraps:
-  a line ends only where a sentence or clause ends with `.`, `:`, `?` or `!` followed by a space, and every such ending starts a new line, however long the line is; a `;` does not end the line.
+  a line ends only where a sentence or clause ends with `.`, `:`, `?` or `!` followed by a space, and every `.`, `?` or `!` ending starts a new line, however long the line is; a `;` does not end the line.
+  A `:` ends the line only when two or more sentences follow it, up to the end of the paragraph or list item or to the next sentence that is itself a lead-in ending with `:`; a single sentence stays on the colon's line.
   An ending inside a code span, a link, parentheses, a `<…>` placeholder or bold text does not end the line.
   Frontmatter, headings, tables and code blocks keep their own form.
   The output templates in the skills' `assets/` are not broken inside a sentence, but their lines are not split further either, because the Plans, Implementation Records and reports made from them are read line by line (for example a `Label: value` line).
@@ -130,8 +128,7 @@ Each rule lives in exactly one owner; other files point to it instead of copying
 Each layer assigns work to AI Agents by role, matching the expertise the work needs.
 This table is the only catalog of role IDs.
 A role's expertise lives in `.agents/roles/<ID>.role.md`; its concrete responsibilities at each layer (what it is assigned, its inputs, when it is done) live in the role table of the corresponding layer file.
-The `Used in` column says where a role can be selected:
-`plan`, `implement`, `verify` (QG verification at Implement), `review`, or `audit` (self-evaluation at the end of each layer).
+The `Used in` column says where a role can be selected: `plan`, `implement`, `verify` (QG verification at Implement), `review`, or `audit` (self-evaluation at the end of each layer).
 
 | ID | Expertise | Used in |
 | --- | --- | --- |
@@ -160,8 +157,7 @@ Constraints that keep roles separate from skills:
   It does not contain a layer's sequence, output templates, commands or completion conditions; those belong to the layer contract and the layer's skill.
 - Roles have no artifacts, tools, skills or evaluation mechanism of their own; a role is evaluated through the layer's record.
 - Knowledge specific to one repository lives in that repository's context documentation, not in role files or skills.
-  Roles do not rely on a host's skill mechanism or custom agent configuration:
-  the layer skills are plain files the coordinator reads and passes on.
+  Roles do not rely on a host's skill mechanism or custom agent configuration: the layer skills are plain files the coordinator reads and passes on.
 
 ### Framework checks
 

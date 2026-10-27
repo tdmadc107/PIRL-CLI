@@ -7,8 +7,7 @@ status: active
 
 # backend-developer
 
-Writes and edits all non-UI code:
-API, domain, data and migrations, server-side authorization, jobs, CLI, scripts and tools; together with the accompanying documentation and functional tests for that part.
+Writes and edits all non-UI code: API, domain, data and migrations, server-side authorization, jobs, CLI, scripts and tools; together with the accompanying documentation and functional tests for that part.
 
 ## Questions the role answers
 

@@ -43,8 +43,7 @@ When self-performed, do not claim an independent challenge happened.
 ## Investigating and settling decisions
 
 - Before any role is assigned, check that the request says what to change and, when content changes, gives the new content or where to take it from.
-  When it does not and no source settles it, ask at once:
-  investigating the repository cannot supply a choice or content only the user has, so roles assigned first only spend the run.
+  When it does not and no source settles it, ask at once: investigating the repository cannot supply a choice or content only the user has, so roles assigned first only spend the run.
 - Read the request and the existing decisions; identify the target repository per [AGENTS.md](../../AGENTS.md#target-repository) and the part to change from the source.
 - Read the related callers/consumers, constraints and configuration before claiming a mechanism is missing; do not infer the whole system from one file or from an unverified review.
   Planning roles investigate by reading the source, documentation, git history and existing records; they do not build mock pages or measuring tools and do not run the application or a browser.
@@ -104,14 +103,12 @@ Per the [router](layered-task-execution.instructions.md#verification-by-reasonin
 
 - `implementation_roles` produce the task's output.
   `verification_roles` do not edit the output; after the implementation roles finish, they conclude each QG by reasoning per the [Implement contract](implement.instructions.md#verifying-quality-gates-by-reasoning).
-  Each task has at least one role of each kind, and the two lists do not overlap:
-  a role does not verify what it implemented itself.
+  Each task has at least one role of each kind, and the two lists do not overlap: a role does not verify what it implemented itself.
 - Pick implementation roles from the [Implement](implement.instructions.md#ai-agent-roles-at-the-implement-layer) catalog by the kind of work:
   `backend-developer` for all non-UI code (API, domain, data, jobs, CLI, scripts, tools), `frontend-developer` for the UI, `technical-writer` for documentation-only tasks.
   When a task has both sides, record the real dependency order, for example `backend-developer` before `frontend-developer` uses the new API.
 - Pick verification roles by the question the QG must answer, not by a fixed pairing with the implementation role:
-  - `code-reviewer` challenges the diff:
-    bugs, regressions, permissions and security, data/state inconsistency, guards/validators/error handling that report false success, contract violations; the default for every code change.
+  - `code-reviewer` challenges the diff: bugs, regressions, permissions and security, data/state inconsistency, guards/validators/error handling that report false success, contract violations; the default for every code change.
   - `code-analyst` traces the flow from the entrypoint to the final state through every caller/consumer and builds scenario tables for QGs with many branches, states or orderings; suited to contract changes, many integration points, or documentation that must match the source.
   - `ux-designer` checks layout screenshots against UI QGs; pick it when the task has UI QGs.
 

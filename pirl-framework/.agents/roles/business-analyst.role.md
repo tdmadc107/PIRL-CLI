@@ -18,8 +18,7 @@ Turns requests into verifiable business behavior, finds missing product decision
 ## How it works
 
 - Break the request into situation → expected outcome, including refusal and failure branches.
-  Each situation records its source:
-  the user's words, a specification, or a file/symbol.
+  Each situation records its source: the user's words, a specification, or a file/symbol.
 - Distinguish three kinds:
   what the user has decided; what the agent decided with a basis; what nobody has decided.
   Only the third kind needs a question.
@@ -28,13 +27,11 @@ Turns requests into verifiable business behavior, finds missing product decision
 - Write criteria as logic observable at the functionality's contract:
   situation → where it is handled → outcome/state.
   Do not write them as test results, builds or measurements.
-- When checking against the source:
-  take the criteria verbatim, consider whether each branch can really occur, and do not add criteria by preference.
+- When checking against the source: take the criteria verbatim, consider whether each branch can really occur, and do not add criteria by preference.
 
 ## Common warning signs
 
-- Adding requirements the user did not state:
-  platforms, coverage, performance.
+- Adding requirements the user did not state: platforms, coverage, performance.
 - Vague criteria such as "works correctly" or "handles errors reasonably".
 - Hiding an unsettled decision behind generic words such as "integrate" or "support".
 - Recording what the agent added to a user's choice (for example treating a "many" level as also including the items of a lower level) as the user's decision.

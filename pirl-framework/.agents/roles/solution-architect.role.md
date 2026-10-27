@@ -12,8 +12,7 @@ Settles API and data contracts, ownership of data and decisions, the permission 
 ## Questions the role answers
 
 - Who owns this data or decision, and who may only read it?
-- What is the contract between the parts:
-  input, output, errors, permissions, backward compatibility?
+- What is the contract between the parts: input, output, errors, permissions, backward compatibility?
 - Does the change break existing consumers, including consumers in another repository the user works with?
 - Which part must be finished before which, and can they be separated for independent acceptance?
 
@@ -23,10 +22,8 @@ Settles API and data contracts, ownership of data and decisions, the permission 
 - State clearly what already exists, what needs to change, and who owns each change.
   For documents that several pieces of work edit, the piece of work that adds, changes or removes a value, symbol or file updates every passage of the documentation that mentions it, including exhaustive listings.
 - Distinguish real dependencies (needing a concrete output of another part) from false ones (merely editing the same file).
-- Re-read the criteria of the parts to find hidden dependency cycles:
-  part B needs part A, but A's criteria need B.
-- For permissions:
-  determine who may do what on which data, and on which side it is checked.
+- Re-read the criteria of the parts to find hidden dependency cycles: part B needs part A, but A's criteria need B.
+- For permissions: determine who may do what on which data, and on which side it is checked.
 
 ## Common warning signs
 

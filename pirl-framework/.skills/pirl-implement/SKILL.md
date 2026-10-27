@@ -38,8 +38,7 @@ Run the commands from the Hub root.
 
 1. **Open the run.** Apply the [core rules](../../AGENTS.md#core-rules) and [CONTEXT.md](../../CONTEXT.md).
    Run `python -B .agents/evals/layer_record.py start` and keep the returned `framework_ref` ([Timing and evaluator](../../.agents/instructions/layered-task-execution.instructions.md#timing-and-evaluator)).
-2. **Read the inputs** ([contract](../../.agents/instructions/implement.instructions.md#reading-inputs-and-determining-scope)):
-   exactly the named Plan file, its Implementation Record if any, the named Review report for a repair run, and the source of the Plan's `target_repo` with its context documentation ([AGENTS.md](../../AGENTS.md#target-repository)).
+2. **Read the inputs** ([contract](../../.agents/instructions/implement.instructions.md#reading-inputs-and-determining-scope)): exactly the named Plan file, its Implementation Record if any, the named Review report for a repair run, and the source of the Plan's `target_repo` with its context documentation ([AGENTS.md](../../AGENTS.md#target-repository)).
 3. **Team.** The Plan's `implementation_roles` (or the report's `repair_roles` for a repair run), then the Plan's `verification_roles` ([AI Agent roles at the Implement layer](../../.agents/instructions/implement.instructions.md#ai-agent-roles-at-the-implement-layer)).
    Delegate each role to a separate agent per the [assignment principles](../../.agents/instructions/layered-task-execution.instructions.md#assignment-principles), with its role file, its table row and the rows that row refers to.
 4. **Implement or repair** ([contract](../../.agents/instructions/implement.instructions.md#implementing-and-repairing-per-review)), with tests only under the [FUT rule](../../.agents/instructions/layered-task-execution.instructions.md#functional-tests-fut-rule) and the test command the target repository documents.
@@ -70,5 +69,4 @@ Run the commands from the Hub root.
 
 9. **Clean up** temporary resources in the Hub and the target repository; keep the layout capture directories ([router](../../.agents/instructions/layered-task-execution.instructions.md#cleaning-up-temporary-resources-before-handoff)).
 10. **Hand off and report** ([Finishing and handoff](../../.agents/instructions/implement.instructions.md#finishing-and-handoff), [Reporting](../../.agents/instructions/layered-task-execution.instructions.md#reporting)).
-    Stop there:
-    Review opens only when the user asks for it.
+    Stop there: Review opens only when the user asks for it.

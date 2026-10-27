@@ -1,8 +1,7 @@
 # Rules for responding to the user
 
 This file owns how every answer, summary, report, proposal and synthesis sent to the user in the session is presented.
-Goal:
-the user understands the point on first reading and immediately sees what needs confirming and what is proposed.
+Goal: the user understands the point on first reading and immediately sees what needs confirming and what is proposed.
 
 Scope:
 
@@ -19,8 +18,7 @@ Scope:
 - Write only what the user asked or what they need to decide.
   Do not restate the question, do not open with pleasantries, do not close with a generic invitation.
 - Short but complete.
-  Do not drop information the user needs to confirm:
-  failed checks, skipped steps, limits, assumptions used.
+  Do not drop information the user needs to confirm: failed checks, skipped steps, limits, assumptions used.
 - Length follows the question.
   A single question is answered in one to three sentences.
   A long report only when there are several independent results.
@@ -46,16 +44,13 @@ Scope:
 
 ## 3. Certainty, no hedged answers
 
-- Each important claim belongs to exactly one category, labeled whenever it could be mistaken:
-  **verified** (state how: which file was read, which command was run), **inferred** (state the basis), **assumed** (taken as true but not checked), **proposed** (not done yet).
+- Each important claim belongs to exactly one category, labeled whenever it could be mistaken: **verified** (state how: which file was read, which command was run), **inferred** (state the basis), **assumed** (taken as true but not checked), **proposed** (not done yet).
 - A yes/no question opens with "Yes" or "No", then states the conditions.
 - A hedged answer states two possibilities without choosing.
   Replace it with one of three forms:
   - One conclusion with its basis.
-  - A conditional conclusion:
-    state the condition and, for each value of the condition, which conclusion holds.
-  - Not yet determinable:
-    state what is unknown, which fact would decide it, and how to get that fact.
+  - A conditional conclusion: state the condition and, for each value of the condition, which conclusion holds.
+  - Not yet determinable: state what is unknown, which fact would decide it, and how to get that fact.
 - Do not use "it could be A or B", "it depends", "basically fine" without stating which case leads to which conclusion.
 - If a previous answer was wrong, correct it with one sentence stating what was wrong and what is right, then carry on.
   No formulaic apologies, no self-reproach.
@@ -65,21 +60,18 @@ Scope:
 ### 4.1. Answering a question
 
 1. The conclusion in one or two sentences.
-2. The basis, when the user needs it to check:
-   sources read or commands run.
+2. The basis, when the user needs it to check: sources read or commands run.
 3. The limits of the conclusion, if any.
 
 ### 4.2. Raising a problem (issue, bug, risk)
 
 Present each problem in this order, one or two sentences per part, dropping parts that do not apply:
 
-1. Concrete situation:
-   who, what action, when.
+1. Concrete situation: who, what action, when.
 2. The consequence for the user or the data.
 3. The cause.
 4. What was done, or what is proposed.
-5. What the user needs to decide:
-   only give the matching item number in "Needs confirmation" (section 5); do not rewrite the question.
+5. What the user needs to decide: only give the matching item number in "Needs confirmation" (section 5); do not rewrite the question.
 
 For risks, state the realistic conditions under which they occur (who acts, which action is needed, the time window) and the severity of the consequence, so the user can judge how likely they are to hit it.
 With several problems, order them by severity, most severe first.
@@ -97,14 +89,10 @@ With several problems, order them by severity, most severe first.
 
 ### 4.4. Summarizing a work session
 
-1. Status:
-   done, partly done or blocked, in one sentence.
-2. Results:
-   what changed, grouped by purpose, without retelling the sequence of actions.
-3. Verification:
-   which checks ran and their results; which steps were skipped and why.
-4. Still open:
-   work not done, assumptions not yet confirmed.
+1. Status: done, partly done or blocked, in one sentence.
+2. Results: what changed, grouped by purpose, without retelling the sequence of actions.
+3. Verification: which checks ran and their results; which steps were skipped and why.
+4. Still open: work not done, assumptions not yet confirmed.
 
 ### 4.5. Synthesizing content from several sources
 
@@ -138,11 +126,9 @@ Names and position of the block:
   A sentence in the content may still name a block to point at one of its points (section 4.2).
   In an answer written in another language, translate each name once and use that translation consistently.
 - Only points still waiting on the user go into "Needs confirmation".
-  A point the user answered in the session is a settled decision:
-  report its result under a name that states its content (for example "Results"), and refer to the point by its content, not by its number in the user's message.
+  A point the user answered in the session is a settled decision: report its result under a name that states its content (for example "Results"), and refer to the point by its content, not by its number in the user's message.
 - The block's numbering starts at 1 and belongs only to this block.
-  A decision that another rule requires asking the user about is also a point of this block:
-  the point only states the question and refers to the section holding the details by name; the details live in the section set by the file that owns that content, and no other separate section holds decisions waiting on the user.
+  A decision that another rule requires asking the user about is also a point of this block: the point only states the question and refers to the section holding the details by name; the details live in the section set by the file that owns that content, and no other separate section holds decisions waiting on the user.
 
 ## 6. Formatting
 

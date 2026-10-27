@@ -24,7 +24,5 @@ What each field must hold, and what a repair run records, belongs to the [Record
 
 ## Placeholders in the template
 
-- `{{updated_at}}`:
-  filled by `scripts/add_implementation_record.py`; update it on every later write of the record.
-- `<…>` and the `a | b | c` alternatives:
-  the coordinator writes the actual value and keeps exactly one alternative.
+- `{{updated_at}}`: filled by `scripts/add_implementation_record.py`; update it on every later write of the record.
+- `<…>` and the `a | b | c` alternatives: the coordinator writes the actual value and keeps exactly one alternative.

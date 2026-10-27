@@ -1,7 +1,6 @@
 # Start here
 
-This repository is PIRL (Plan – Implement – Review Layer):
-a Hub that coordinates software development work for AI Agents.
+This repository is PIRL (Plan – Implement – Review Layer): a Hub that coordinates software development work for AI Agents.
 The framework runs entirely on instruction files:
 three layers, Plan, Implement and Review, define what the Agent does, how it does it and what it produces.
 Each layer is run through its skill in `.skills/`.
@@ -28,32 +27,27 @@ Read [CONTEXT.md](CONTEXT.md) before the first answer of each session and apply 
 - Do not switch branches, reset, or stash inside a target repository, or update a submodule pointer, unless the user asks.
 - Do not commit, push, deploy, alter production data, expose secrets, or contact people without explicit authority.
 - Do not run destructive or externally consequential actions beyond the user's authorized scope.
-- Never print, log, commit, or include in Plans, reports, records, or replies:
-  credentials, tokens, private keys, API keys, password hashes, one-time codes, session identifiers, private payloads, or private reasoning.
+- Never print, log, commit, or include in Plans, reports, records, or replies: credentials, tokens, private keys, API keys, password hashes, one-time codes, session identifiers, private payloads, or private reasoning.
 - Do not invent command, agent, source, or verification results.
 
 ### Safety rules and self-improvement
 
-Safety rules are:
-every rule in this Safety section; the [Git](#git) section; and any rule anywhere in the framework that limits commit, push, deploy, secrets or destructive and externally consequential actions, or that requires the user's decision or authorization.
+Safety rules are: every rule in this Safety section; the [Git](#git) section; and any rule anywhere in the framework that limits commit, push, deploy, secrets or destructive and externally consequential actions, or that requires the user's decision or authorization.
 The self-improvement guards of the [self-evaluation instructions](.agents/instructions/self-evaluation.instructions.md) are safety rules too:
 the mode-self guard (a self-evaluation record never applies fixes itself; improvements that touch no safety rule are applied in the same turn as user-directed maintenance under the standing authorization in the [Workflow](#workflow) section, and everything else goes to the user) and the never-loosen rule below, including this definition.
 That authorization covers improvements that touch no safety rule and nothing else.
 
-Code and tests that enforce a safety rule are part of that rule:
-for example, the check in `.agents/evals/layer_record.py` that rejects applied fixes from a self-evaluation, together with its tests.
+Code and tests that enforce a safety rule are part of that rule: for example, the check in `.agents/evals/layer_record.py` that rejects applied fixes from a self-evaluation, together with its tests.
 
 Self-improvement may make a safety rule stricter or clearer.
 It must never loosen, narrow, remove or work around one, even when that rule blocked the current run.
-A change that would loosen a safety rule is not applied:
-the run records it as pending with reason `safety` and asks the user, and only the user's explicit approval allows it.
+A change that would loosen a safety rule is not applied: the run records it as pending with reason `safety` and asks the user, and only the user's explicit approval allows it.
 
 ## Scope
 
 - Keep work bounded to the user request, the selected layer, the target repository's own context documentation, and the repositories the user authorized.
 - Prefer existing repository patterns over new abstractions unless evidence justifies a change.
-- Before important edits, inspect the relevant source and workspace state:
-  build/package config, the entrypoint or route involved, related domain types, and nearby tests or their absence.
+- Before important edits, inspect the relevant source and workspace state: build/package config, the entrypoint or route involved, related domain types, and nearby tests or their absence.
 - Do not silently switch layers, repositories, roles, or delivery modes; state the handoff when another owner is needed.
 - Keep assumptions, deferred work, and genuine blockers explicit.
 
@@ -93,8 +87,7 @@ Each layer runs only when the user's own words ask for that layer, per the [cond
 
 Plan files and Review reports are written where the user says; when the user names no location, they go under the Hub root, per the output format of the matching skill.
 
-Each layer run ends with [self-evaluation and improvement](.agents/instructions/layered-task-execution.instructions.md#self-evaluation-and-improvement):
-`process-auditor` finds each role's mistakes, fixes the relevant framework files at the root, writes one record and reports what was fixed and where.
+Each layer run ends with [self-evaluation and improvement](.agents/instructions/layered-task-execution.instructions.md#self-evaluation-and-improvement): `process-auditor` finds each role's mistakes, fixes the relevant framework files at the root, writes one record and reports what was fixed and where.
 
 Framework improvement is a mandatory part of every run, not a proposal:
 improvements that touch no safety rule are applied within the run, even when the self-evaluation runs in `mode: self`, without waiting for the user to confirm; the procedure lives in the [self-evaluation instructions](.agents/instructions/self-evaluation.instructions.md#self-evaluation-when-mode-self).
@@ -138,10 +131,8 @@ Loading order:
    - Plan, Implement or Review:
      read the [router](.agents/instructions/layered-task-execution.instructions.md), which holds the boundaries between kinds of work and the shared contracts, then run that layer's skill (`.skills/pirl-<layer>/SKILL.md`); the skill loads exactly the layer contract and the resources each step needs.
      A host that loads skills on its own reaches the same file; a host that does not reads it like any other file.
-   - Standalone task, meaning work assigned directly outside a Plan's chain:
-     read the [Standalone tasks](.agents/instructions/standalone-and-maintenance.instructions.md#standalone-tasks) section of the standalone and maintenance instructions; no layer is activated.
-   - Framework maintenance:
-     read the [standalone and maintenance instructions](.agents/instructions/standalone-and-maintenance.instructions.md) in full, then edit `AGENTS.md`, `CONTEXT.md`, instructions, roles, skills or tools themselves, within the scope the user assigns.
+   - Standalone task, meaning work assigned directly outside a Plan's chain: read the [Standalone tasks](.agents/instructions/standalone-and-maintenance.instructions.md#standalone-tasks) section of the standalone and maintenance instructions; no layer is activated.
+   - Framework maintenance: read the [standalone and maintenance instructions](.agents/instructions/standalone-and-maintenance.instructions.md) in full, then edit `AGENTS.md`, `CONTEXT.md`, instructions, roles, skills or tools themselves, within the scope the user assigns.
    - A question that only needs an explanation and creates no durable output:
      answer within its scope, create no files.
      The router is not needed, unless the answer draws a conclusion about a Plan, an Implementation Record, a report or a record (then apply the router's [Shared snapshots and older records](.agents/instructions/layered-task-execution.instructions.md#shared-snapshots-and-older-records) section), or it is unclear whether the request is only such a question (then read the router before answering).
@@ -186,13 +177,11 @@ Choosing the target repository:
 2. Choose exactly one repository, unless the request explicitly names several; in that case handle and record each repository separately, including the contracts between them.
 3. If the request needs a repository and none is named, or two repositories are equally plausible and the choice changes the result, ask one short question.
    If the analysis can safely continue, state the assumption and carry on.
-4. Do not apply one repository's rules or assumptions to another, even when both use the same stack:
-   commands, directory layout and conventions must be read again from the target repository.
+4. Do not apply one repository's rules or assumptions to another, even when both use the same stack: commands, directory layout and conventions must be read again from the target repository.
 
 # Git
 
 Commit or push only when the user asks.
 Changes in a target repository are committed in that repository first; then the Hub commit carries the framework improvements of the same run.
 When the target repository is a submodule of the Hub, the Hub commit also updates its pointer.
-Plan packages (`<request-slug>_<YYYYMMDD-HHmmss>/`, anywhere in the Hub) with the Review reports inside them, and self-evaluation records in `.agents/evals/records/`, describe the user's projects:
-they are ignored by Git and are never committed.
+Plan packages (`<request-slug>_<YYYYMMDD-HHmmss>/`, anywhere in the Hub) with the Review reports inside them, and self-evaluation records in `.agents/evals/records/`, describe the user's projects: they are ignored by Git and are never committed.

@@ -104,8 +104,7 @@ The Implement coordinator gives each role its role file, its row in the table to
 Every implementation role applies this rule to the code it creates or changes and completes it before handing over to the verification roles.
 The verification roles still work independently.
 
-Write only code that carries out the required logic:
-no redundant code, no dead code, no code that degrades the logic.
+Write only code that carries out the required logic: no redundant code, no dead code, no code that degrades the logic.
 Before writing code, answer:
 
 1. Does the logic already exist in the code, and is new code really needed?
@@ -127,8 +126,7 @@ The Plan is the standard that the verification roles and Review check against, s
   Do not edit the Plan to match the code:
   ask the user in the session, and record the affected QGs as `BLOCKED` with the decision to be made until they answer.
   Changes to roles, `depends_on` or task boundaries are not covered by this section either and go back to the Plan layer.
-  When the user confirms after the Implement session has ended, editing the Plan is a Plan run:
-  use the same form of annotation with the `record_id` of that Plan run, and that record is the trace in place of `plan_amendments`.
+  When the user confirms after the Implement session has ended, editing the Plan is a Plan run: use the same form of annotation with the `record_id` of that Plan run, and that record is the trace in place of `plan_amendments`.
 
 ## Verifying quality gates by reasoning
 
@@ -186,8 +184,7 @@ After writing it, run the Plan validator (command in the [`pirl-implement` skill
 
 `role_work` and `role_challenge_results` cover each implementation/repair role, then each verification role, exactly once and in order; `effective_implementation_roles` contains only the implementation/repair team.
 `changed_paths` stays within the paths the Plan allows; the Plan file receiving the results is the bookkeeping exception.
-Consistency updates from the impact sweep are the second exception:
-list them separately in `changed_paths` with the sync reason, and state in `role_work` what was swept so readers know which parts were checked.
+Consistency updates from the impact sweep are the second exception: list them separately in `changed_paths` with the sync reason, and state in `role_work` what was swept so readers know which parts were checked.
 `root_cause_revalidation` and `review_item_disposition` are always present:
 the first run writes `N/A`, a repair run covers every report item in order.
 `plan_amendments` is also always present, with `N/A` when the Plan was not edited.

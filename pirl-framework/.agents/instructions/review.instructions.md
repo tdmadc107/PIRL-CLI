@@ -45,13 +45,9 @@ Each role applies its own expertise to specific QGs/boundaries; do not force eve
   Identify the snapshot before concluding and read it per the [Shared snapshots and older records section](layered-task-execution.instructions.md#shared-snapshots-and-older-records) of the router.
 - Conclude each QG on the final source; when several tasks share a snapshot, record the shared snapshot in `implementation_target`.
   A mismatch with an earlier task's QG that belongs to a later task, in the order rebuilt per the router, is not a FAIL of the earlier task and is not counted against the earlier task's Implement roles; if it lies outside the later task's REQs, it is a FIND of the later task.
-  An unowned change is not a FIND of any task:
-  if it breaks a QG of the task under review, record that QG `BLOCKED` with an `escalate` BLOCK because there is no owner to assign a `repair` to; otherwise state it in `implementation_target` and `Next`.
-- A Plan with `Confirmed change` annotations is the current Plan:
-  conclude the QGs against it, after finding the trace of each annotation per the [Implement rule](implement.instructions.md#changes-to-the-plan-confirmed-by-the-user):
-  the `plan_amendments` field of the Implementation Record, or the record of the Plan run for the same task whose `record_id` the annotation states.
-  An annotation without any trace, or whose trace does not state the user's confirmation of that change, is not a baseline:
-  conclude the QGs against the value before the change and record an `escalate` BLOCK for the user to confirm.
+  An unowned change is not a FIND of any task: if it breaks a QG of the task under review, record that QG `BLOCKED` with an `escalate` BLOCK because there is no owner to assign a `repair` to; otherwise state it in `implementation_target` and `Next`.
+- A Plan with `Confirmed change` annotations is the current Plan: conclude the QGs against it, after finding the trace of each annotation per the [Implement rule](implement.instructions.md#changes-to-the-plan-confirmed-by-the-user): the `plan_amendments` field of the Implementation Record, or the record of the Plan run for the same task whose `record_id` the annotation states.
+  An annotation without any trace, or whose trace does not state the user's confirmation of that change, is not a baseline: conclude the QGs against the value before the change and record an `escalate` BLOCK for the user to confirm.
 - Product source, tests, config, the Plan and the Implementation Record are read-only inputs.
   Review writes this run's report; framework files are edited only by `process-auditor` per the [router](layered-task-execution.instructions.md#self-evaluation-and-improvement).
   Do not edit the product, the Plan or the Implementation Record.
@@ -76,8 +72,7 @@ Each role applies its own expertise to specific QGs/boundaries; do not force eve
    A green test does not prove the business logic is right, and a red test does not prove the product is wrong.
    A counterexample is an input and call path traceable on the source, valid only if it can occur within the QG's scope.
 5. Keep only well-grounded conclusions:
-   - `FIND`:
-     a real bug that violates a QG, with trigger, source, cause and impact.
+   - `FIND`: a real bug that violates a QG, with trigger, source, cause and impact.
    - `RISK`:
      a grounded risk mechanism while the QG still holds; record the limit, owner and revisit condition.
      A risk does not require a fix or block a business PASS.
@@ -112,8 +107,7 @@ Review also knows the FINDs that the Implement run missed, so this evaluation ha
    A correction record that carries all the roles is itself the evaluated record.
 2. Create one EVAL for each role in `effective_implementation_roles`, then each verification role of the Plan, in the Implementation Record's order.
    Evaluate against the work, information and instructions actually assigned; do not fail the whole team over one bug.
-   A verification role is evaluated on its QG conclusions:
-   whether its reasoning stands against the source, whether it missed FINDs that Review found, whether it relied on run results instead of reasoning.
+   A verification role is evaluated on its QG conclusions: whether its reasoning stands against the source, whether it missed FINDs that Review found, whether it relied on run results instead of reasoning.
 3. Each issue of an Implement role is classified by cause and improved per the [self-evaluation instructions](self-evaluation.instructions.md#issues-and-causes), recorded in the Review record with `record` set to the record in `evaluates`; the issue is attributed to the task and run that produced it per the [Shared snapshots and older records section](layered-task-execution.instructions.md#shared-snapshots-and-older-records) of the router.
    The EVAL records the cause, the `issue_key` and where it was fixed, or that it is pending the user.
 4. Do not invent issues.

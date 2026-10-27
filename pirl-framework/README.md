@@ -1,7 +1,6 @@
 # PIRL Framework
 
-**Plan – Implement – Review Layer**:
-a Hub that coordinates software development work for AI Agents, running entirely on instruction files.
+**Plan – Implement – Review Layer**: a Hub that coordinates software development work for AI Agents, running entirely on instruction files.
 
 You assign work in plain words.
 The Agent reads [`AGENTS.md`](AGENTS.md), picks the right layer, splits the work among specialist roles, records the results as files in the repository, then improves the instruction files themselves after each run.
@@ -79,8 +78,7 @@ Inside the Hub, Git ignores Plan packages and their reports (directories named `
    The results go into the `Implementation Record` section at the end of the Plan file.
    When the UI changes, layout screenshots are in `.tmp/layout-snapshots/` (not in git).
 3. **Review.** The Agent checks each QG against the source and writes a report `<plan-set>/<task>/round-<NN>-review-...md`; with the default location it sits inside the Plan package.
-   The report has two sections:
-   `Business` (a PASS, FAIL or BLOCKED conclusion with FINDs, RISKs and BLOCKs) and `Evaluations` (an assessment of each role of the Implement run).
+   The report has two sections: `Business` (a PASS, FAIL or BLOCKED conclusion with FINDs, RISKs and BLOCKs) and `Evaluations` (an assessment of each role of the Implement run).
 4. **Fix.** When Business is FAIL, assign "Fix per report ...".
    Implement runs a repair run with the team named in the report, then you ask for a new Review round.
 5. **Commit.** The Agent commits or pushes only when you ask.
@@ -102,8 +100,7 @@ Safety rules (commit, push, secrets, destructive actions, points that need your 
 The full definition is in [`AGENTS.md`](AGENTS.md#safety-rules-and-self-improvement).
 
 Records live in `.agents/evals/records/<layer>/<YYYY-MM-DD>.jsonl`.
-They describe your projects, so Git ignores that directory:
-records stay on your machine and the tool still reads them.
+They describe your projects, so Git ignores that directory: records stay on your machine and the tool still reads them.
 To look up history:
 
 ```powershell
@@ -118,8 +115,7 @@ python -B .agents/evals/layer_record.py check
 python -B -m unittest discover -s .agents/evals/tests -p "test_*.py"
 ```
 
-Pick the check commands that match what you edited:
-see [Framework checks](.agents/instructions/standalone-and-maintenance.instructions.md#framework-checks).
+Pick the check commands that match what you edited: see [Framework checks](.agents/instructions/standalone-and-maintenance.instructions.md#framework-checks).
 
 ## Directory structure
 
@@ -131,8 +127,7 @@ CONTEXT.md       how responses to the user are presented
 .tmp/            temporary output, not in git
 ```
 
-Full tree:
-[framework structure](.agents/instructions/standalone-and-maintenance.instructions.md#framework-structure).
+Full tree: [framework structure](.agents/instructions/standalone-and-maintenance.instructions.md#framework-structure).
 
 ## Reference documentation
 

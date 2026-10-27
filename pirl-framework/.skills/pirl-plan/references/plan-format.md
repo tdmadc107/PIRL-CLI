@@ -5,15 +5,12 @@ What each section must settle belongs to the [Plan contract](../../../.agents/in
 
 ## Location and naming
 
-- Output directory:
-  the directory the user names for the Plan; when the user names none, the Hub root.
+- Output directory: the directory the user names for the Plan; when the user names none, the Hub root.
 - Package:
   `<output directory>/<request-slug>_<YYYYMMDD-HHmmss>/`.
   The package directory name is the `plan_set`.
-- Task file:
-  `<NN>-plan-<todo-slug>-<YYYYMMDD-HHmmss>.md`, where `NN` is the task number (`T01` → `01`) and the timestamp is the package timestamp, shared by every file of the package.
-- Slugs are ASCII kebab-case:
-  lowercase letters, digits and single hyphens.
+- Task file: `<NN>-plan-<todo-slug>-<YYYYMMDD-HHmmss>.md`, where `NN` is the task number (`T01` → `01`) and the timestamp is the package timestamp, shared by every file of the package.
+- Slugs are ASCII kebab-case: lowercase letters, digits and single hyphens.
 - Timestamps use the machine's local time zone and carry its UTC offset, for example `+07:00`.
 - Task IDs start at `T01` and are consecutive within the package.
 - Never overwrite an existing file.
@@ -39,8 +36,7 @@ What each section must settle belongs to the [Plan contract](../../../.agents/in
 | `implementation_roles` | Roles registered for `implement` |
 | `verification_roles` | Roles registered for `verify`, none of them in `implementation_roles` |
 
-Write the frontmatter in the YAML subset the validator reads:
-one `key: value` per line, inline lists such as `[code-analyst, code-reviewer]`, quoted strings when a value contains `:` or `#`.
+Write the frontmatter in the YAML subset the validator reads: one `key: value` per line, inline lists such as `[code-analyst, code-reviewer]`, quoted strings when a value contains `:` or `#`.
 
 ## Body
 
@@ -48,8 +44,7 @@ one `key: value` per line, inline lists such as `[code-analyst, code-reviewer]`,
   `What to do`, `How to do it`, `Participating roles`, `Required quality gates`.
   Add only details that change how the work is done; do not add per-role reports or checklists as a fifth section.
   Implement later adds one `Implementation Record` section below them.
-- Line forms:
-  `REQ-NN | Source: … | Requirement: …`; `ROLE-NN | Type: … | Role: … | Responsible for: … | Input: … | Done when: …`; `QG-NN | Requirement: REQ-NN | Required logic: …`.
+- Line forms: `REQ-NN | Source: … | Requirement: …`; `ROLE-NN | Type: … | Role: … | Responsible for: … | Input: … | Done when: …`; `QG-NN | Requirement: REQ-NN | Required logic: …`.
 - Write in English; keep IDs, data keys, symbols, commands and paths verbatim.
 
 ## Placeholders in the template

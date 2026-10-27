@@ -5,8 +5,7 @@ What each conclusion must prove, and when a new round opens, belongs to the [Rev
 
 ## Location and naming
 
-- Output directory:
-  the directory the user names for the report; when the user names none, the Hub root.
+- Output directory: the directory the user names for the report; when the user names none, the Hub root.
 - Report:
   `<output directory>/<plan-set>/<task-id-lower>-<todo-slug>/round-<NN>-review-<todo-slug>-<YYYYMMDD-HHmmss>.md`, where `NN` is the two-digit round number.
   When the Plan package also sits under the Hub root, the report lands inside the package directory, next to the Plan it reviews.
@@ -57,5 +56,4 @@ EVALs cover the settled Implement team in the Implementation Record's order; do 
 - `{{name}}`:
   computed values that `scripts/new_review.py` fills in from the Plan and the earlier rounds.
   When a report is written without the script, fill them by the rules above.
-- `<…>` and the `a / b` alternatives:
-  the coordinator writes the actual content and keeps exactly one alternative.
+- `<…>` and the `a / b` alternatives: the coordinator writes the actual content and keeps exactly one alternative.

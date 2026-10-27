@@ -7,16 +7,13 @@
 PIRL CLI runs the [PIRL framework](pirl-framework/README.md) through the AI agent CLI you already use.
 Describe the work, and PIRL turns it into a Plan, implements it and reviews the result, with specialist agent roles at each step and the framework's own checks after each run.
 
-PIRL CLI has no login of its own:
-it uses your agent CLI under your subscription and never reads, stores or forwards its credentials.
+PIRL CLI has no login of its own: it uses your agent CLI under your subscription and never reads, stores or forwards its credentials.
 
 ## Highlights
 
 - **Plan → Implement → Review** as three commands, each handled by specialist agent roles.
-- **Checked results**:
-  every run is validated by the framework's tools before you see it as done.
-- **Your repository stays yours**:
-  runs never commit, push or switch branches.
+- **Checked results**: every run is validated by the framework's tools before you see it as done.
+- **Your repository stays yours**: runs never commit, push or switch branches.
 - **A framework that improves itself**, with every change tested and left to your approval.
 
 ## Requirements
@@ -68,10 +65,8 @@ Type `/help` in PIRL for all commands and shortcuts.
 
 ## Documentation
 
-- [User guide](docs/user-guide.md):
-  commands, shortcuts, attaching files, settings, usage limits and framework updates
-- [PIRL framework](pirl-framework/README.md):
-  the layers, roles and self-improvement behind PIRL
+- [User guide](docs/user-guide.md): commands, shortcuts, attaching files, settings, usage limits and framework updates
+- [PIRL framework](pirl-framework/README.md): the layers, roles and self-improvement behind PIRL
 - [Changelog](CHANGELOG.md)
 
 ## Uninstallation
