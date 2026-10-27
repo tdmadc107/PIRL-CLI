@@ -272,7 +272,12 @@ describe('run store', () => {
 });
 
 describe('RunController', () => {
-	const deps = (hub: string, target: string, runner: ReturnType<typeof fakeRunner>['runner']) => ({runner, hub, target, python: PYTHON, maxParallelRoles: 2});
+	const deps = (hub: string, target: string, runner: ReturnType<typeof fakeRunner>['runner']) => ({runner, hub, target, python: PYTHON, maxParallelRoles: 2, logDir: tempDir()});
+	/** The run's log file as `<who> <text>` lines, once the writes queued so far are on disk. */
+	const logOf = async (run: RunController) => {
+		await new Promise(resolve => setTimeout(resolve, 50));
+		return readFileSync(run.state.logFile!, 'utf8').trim().split('\n').map(line => line.replace(/^[\d:]+ (\S+)\s+/, '$1 '));
+	};
 
 	test('a Plan run: roles, a valid package, a record, then the commit question for improvements', async () => {
 		const {hub, target} = await hubAndTarget();
@@ -304,10 +309,29 @@ describe('RunController', () => {
 		expect(seen).toContain('checking');
 		await run.resolveImprovements('commit');
 		expect(run.state.status).toBe('done');
+		expect((await logOf(run)).at(-1)).toBe('pirl Đã commit 1 file cải tiến. Xong');
 		const log = git(hub, 'log', '-1', '--format=%B');
 		expect(log).toContain('Pirl-Source: auditor');
 		expect(log).toMatch(/Pirl-Record: plan-/);
 		expect(git(hub, 'status', '--porcelain')).toBe('');
+	});
+
+	test('keeping the improvements ends the run done and says so in the log', async () => {
+		const {hub, target} = await hubAndTarget();
+		const {runner} = fakeRunner([
+			() => {
+				const {planSet} = writePlan(hub, target);
+				const recordId = writeRecord(hub, target, planSet);
+				appendFileSync(join(hub, '.agents/roles/code-analyst.role.md'), '\n- Check every caller.\n');
+				return [result('Plan đã sẵn sàng.' + outputsBlock({plan_set: planSet, plan_file: null, report: null, record_id: recordId}))];
+			},
+		]);
+		const run = new RunController(deps(hub, target, runner), 1, 'plan', 'Email huỷ đơn');
+		await run.start();
+		await run.resolveImprovements('keep');
+		expect(run.state.status).toBe('done');
+		expect(run.state.improvements?.state).toBe('kept');
+		expect((await logOf(run)).at(-1)).toBe('pirl Giữ cải tiến, chưa commit. Xong');
 	});
 
 	test('an improvement that breaks the framework\'s tests cannot be committed', async () => {
@@ -327,9 +351,11 @@ describe('RunController', () => {
 		await run.resolveImprovements('commit');
 		expect(run.state.status).toBe('improvements');
 		expect(run.state.improvements?.error).toContain('không commit một framework hỏng');
+		expect((await logOf(run)).at(-1)).toMatch(/^pirl Cải tiến chưa xử lý được: Test của framework đang lỗi: không commit một framework hỏng/);
 		expect(git(hub, 'log', '-1', '--format=%s')).not.toContain('Framework improvement');
 		await run.resolveImprovements('discard');
 		expect(run.state.status).toBe('done');
+		expect((await logOf(run)).at(-1)).toBe('pirl Đã bỏ 1 file cải tiến. Xong');
 		expect(git(hub, 'status', '--porcelain')).toBe('');
 	});
 
@@ -500,6 +526,10 @@ describe('RunController', () => {
 		expect(run.state.status).toBe('failed');
 		expect(run.state.error).toBe('Run kết thúc mà không có Plan package và không hỏi bạn câu nào.');
 		expect(resumable(run.persisted())).toBe(true);
+		const log = await logOf(run);
+		expect(log).toContain('pirl Validator: FAIL (Run kết thúc mà không có Plan package và không hỏi bạn câu nào.)');
+		expect(log).toContain('pirl Gửi coordinator sửa (lần 1)');
+		expect(log.at(-1)).toBe('pirl Không có kết quả');
 	});
 
 	test('a repair that produces the missing Plan ends the run done', async () => {

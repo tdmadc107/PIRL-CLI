@@ -630,8 +630,10 @@ export class RunController {
 	async resolveImprovements(choice: 'commit' | 'keep' | 'discard'): Promise<void> {
 		const pending = this.state.improvements;
 		if (!pending || pending.state !== 'pending') return;
+		// The run still waits for a decision: the error is shown with the choices, and logged for tracing.
+		const refuse = (error: string) => this.update({improvements: {...pending, error}}, {who: 'pirl', text: t(`Cải tiến chưa xử lý được: ${error}`, `Could not handle the improvements: ${error}`), tone: 'error'});
 		if (choice === 'commit' && pending.tests?.state === 'fail') {
-			this.update({improvements: {...pending, error: t('Test của framework đang lỗi: không commit một framework hỏng vào Hub. Chọn bỏ cải tiến, hoặc giữ để sửa tay.', 'The framework tests fail: a broken framework is not committed to the Hub. Discard the improvements, or keep them to fix by hand.')}});
+			refuse(t('Test của framework đang lỗi: không commit một framework hỏng vào Hub. Chọn bỏ cải tiến, hoặc giữ để sửa tay.', 'The framework tests fail: a broken framework is not committed to the Hub. Discard the improvements, or keep them to fix by hand.'));
 			return;
 		}
 		if (choice === 'keep') {
@@ -643,7 +645,7 @@ export class RunController {
 				? await commitImprovements(this.deps.hub, pending.files, {kind: this.state.kind, recordId: this.state.outputs.recordId, summary: this.state.request.slice(0, 200)}, this.exec)
 				: await discardImprovements(this.deps.hub, pending.files, this.exec);
 		if (!result.ok) {
-			this.update({improvements: {...pending, error: result.error ?? t('lỗi không rõ', 'unknown error')}});
+			refuse(result.error ?? t('lỗi không rõ', 'unknown error'));
 			return;
 		}
 		const count = pending.files.length;
