@@ -4,42 +4,43 @@ All notable changes to this project are documented in this file. The format foll
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Fixed
-
-- Esc stops a run again on Windows. Claude Code installed by npm runs under a `claude.cmd` shim, and stopping only
-  ended the shim: the agent kept working, its output stayed open and the run never left "running". PIRL now ends the
-  whole process tree. Elsewhere a provider that ignores the stop is ended after a few seconds, and a run always ends
-  once the process is gone, even if something it started keeps the output open.
-- Esc says the run is stopping, and a second Esc forces it at once.
-- Esc also stops a run that waits for answers to its questions, as the hint promised; it can be resumed later.
-- A run stopped while PIRL checked its results no longer comes back to ask about framework improvements.
-- Closing PIRL ends the agent and everything it started on Windows too.
-- A layer run that ends without its result (a Plan package, the Plan file or a Review report) and without asking
-  you anything no longer reports "Done". It is sent back to finish it or to ask what is missing, as a failed
-  validator is; if it still has no result, it ends as "No result" with the reason, and `/resume` can continue it.
-- With English chosen, a file the agent writes shows as "Write <path>" in the run and its log, not "Ghi <path>".
-- The run log now records a refused improvements decision (committing while the framework tests fail, or a
-  commit or discard that Git refused), not only the run block.
+## [1.2.0] - 2026-10-27
 
 ### Changed
 
-- Choosing a run in `/resume` no longer continues it by itself. PIRL waits for your message: "continue", or a
-  related problem for the run to solve, which is sent to the run's agent session. Esc cancels the choice. A run that
-  was waiting for answers shows its questions again.
+- `/resume` no longer continues a run as soon as you choose it. PIRL waits for your message, "continue" or a
+  related problem for the run to solve, and sends it to the run's agent session; Esc cancels. A run that was
+  waiting for your answers shows its questions again.
+- A layer run that ends without its result (a Plan package, the Plan file or a Review report) and without asking
+  you anything is no longer reported as "Done". PIRL sends it back to finish or to ask what is missing, as it does
+  for a failed validator; if there is still no result, the run ends as "No result" with the reason, and `/resume`
+  can continue it.
 - A question that needs content only you have (text, data, values) is asked as a free answer you type, not as an
-  option such as "I will write it", which brought no content.
+  option such as "I will write it", which sent no content.
+
+### Fixed
+
+- Esc stops a run on Windows. Claude Code installed by npm runs under a `claude.cmd` shim, and only the shim was
+  stopped: the agent kept working and the run stayed "running". PIRL now ends the whole process tree, also when
+  PIRL closes.
+- On every system, a provider that ignores the stop request is ended after a few seconds, and the run ends once it
+  is gone, even if a process it started keeps the output open.
+- Esc tells you the run is stopping, and a second Esc forces it at once.
+- Esc also stops a run that waits for your answers, as the hint said; it can be resumed later.
+- A run stopped while PIRL checked its results no longer comes back to ask about framework improvements.
+- With English chosen, a file the agent writes shows as "Write <path>", not "Ghi <path>".
+- The run log records a refused improvements decision (a commit while the framework tests fail, or a commit or
+  discard that Git refused); before, only the run block showed it.
 
 ### Framework fw-1.3.0
 
-- A run that stops to ask you something is paused, not handed off: `process-auditor` evaluates it once, after the
-  output is settled. Before, it ran at every pause, which cost a large part of a run that asked questions.
-- Plan asks at once, before assigning any role, when the request does not say what to change or what the new
-  content is: investigating the repository cannot supply it.
-- Roles running in parallel get parts that do not overlap; the coordinator does not read the sources it delegates,
-  and each role reads only the sources its part needs.
-- When what is missing is content only you have, the question asks for that content itself.
+- A run that stops to ask you something is paused, not finished: `process-auditor` evaluates it once, when its
+  output is settled, instead of at every pause, which cost a large part of runs that asked questions.
+- Plan asks first, before assigning any role, when the request does not say what to change or what the new
+  content is.
+- Roles that run in parallel get parts that do not overlap. The coordinator no longer reads the sources it hands to
+  roles, and each role reads only what its part needs.
+- A question about content only you have asks for that content itself.
 
 ## [1.1.2] - 2026-10-26
 
@@ -157,6 +158,7 @@ fw-1.1.0.
 - The validator reads quoted frontmatter strings literally. Before, a Windows path in `target_repo`
   (`"C:\Users\..."`) was rejected, and the `\n` in `"D:\new-app"` became a line break.
 
+[1.2.0]: https://github.com/tdmadc107/PIRL-CLI/releases/tag/v1.2.0
 [1.1.2]: https://github.com/tdmadc107/PIRL-CLI/releases/tag/v1.1.2
 [1.1.1]: https://github.com/tdmadc107/PIRL-CLI/releases/tag/v1.1.1
 [1.1.0]: https://github.com/tdmadc107/PIRL-CLI/releases/tag/v1.1.0
