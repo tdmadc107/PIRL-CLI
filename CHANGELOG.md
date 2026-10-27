@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file. The format foll
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Framework fw-1.4.0
+
+- The framework's Markdown files are no longer hard-wrapped at a fixed width. A line ends only where a sentence or
+  clause ends with `.`, `:`, `;`, `?` or `!`, so a phrase is never split across lines and can be found with a plain
+  search. Headings, tables, code blocks and the output templates keep their form; every file renders as before.
+- Framework maintenance keeps this convention for every Markdown file it edits.
+
 ## [1.2.0] - 2026-10-27
 
 ### Changed
