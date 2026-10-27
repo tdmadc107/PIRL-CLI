@@ -645,7 +645,9 @@ describe('RunController', () => {
 		await run.start();
 		expect(run.state.denials).toEqual(['Chạy mkdir -p /tmp/x']);
 		expect(run.state.lastAt).toBe(250_000);
-		await new Promise(resolve => setTimeout(resolve, 50));
+		// The log stream flushes after the run ends; a busy runner can take longer than a fixed wait, so wait for the last line.
+		const end = Date.now() + 10_000;
+		while (!/pirl\s+Xong\n$/.test(readFileSync(run.state.logFile!, 'utf8')) && Date.now() < end) await new Promise(resolve => setTimeout(resolve, 20));
 		const file = readFileSync(run.state.logFile!, 'utf8').trim().split('\n');
 		expect(file.length).toBeGreaterThan(250);
 		expect(file[0]).toMatch(/^00:00 pirl\s+Bắt đầu Chat: Hỏi$/);

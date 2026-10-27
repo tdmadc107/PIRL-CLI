@@ -366,7 +366,8 @@ describe('spinner and log', () => {
 		await terminal.type('/pirl-plan Email');
 		await terminal.press(KEYS.enter);
 		const first = spinnerGlyph(await until(terminal, /[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] Plan · đang chạy · 00:0\d/));
-		await tick(250);
+		// The spinner turns every 200 ms; a busy runner can delay a frame, so wait for the turn, not a fixed time.
+		await until(terminal, new RegExp(`(?!${first})[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] Plan · đang chạy`), 5_000);
 		expect(spinnerGlyph(terminal.frame())).not.toBe(first);
 		expect(terminal.frame()).toMatch(/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] Plan: đang chạy · 00:0\d/); // status bar
 	});
