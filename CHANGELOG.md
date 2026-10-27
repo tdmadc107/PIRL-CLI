@@ -16,12 +16,27 @@ All notable changes to this project are documented in this file. The format foll
 - Esc also stops a run that waits for answers to its questions, as the hint promised; it can be resumed later.
 - A run stopped while PIRL checked its results no longer comes back to ask about framework improvements.
 - Closing PIRL ends the agent and everything it started on Windows too.
+- A layer run that ends without its result (a Plan package, the Plan file or a Review report) and without asking
+  you anything no longer reports "Done". It is sent back to finish it or to ask what is missing, as a failed
+  validator is; if it still has no result, it ends as "No result" with the reason, and `/resume` can continue it.
 
 ### Changed
 
 - Choosing a run in `/resume` no longer continues it by itself. PIRL waits for your message: "continue", or a
   related problem for the run to solve, which is sent to the run's agent session. Esc cancels the choice. A run that
   was waiting for answers shows its questions again.
+- A question that needs content only you have (text, data, values) is asked as a free answer you type, not as an
+  option such as "I will write it", which brought no content.
+
+### Framework fw-1.3.0
+
+- A run that stops to ask you something is paused, not handed off: `process-auditor` evaluates it once, after the
+  output is settled. Before, it ran at every pause, which cost a large part of a run that asked questions.
+- Plan asks at once, before assigning any role, when the request does not say what to change or what the new
+  content is: investigating the repository cannot supply it.
+- Roles running in parallel get parts that do not overlap; the coordinator does not read the sources it delegates,
+  and each role reads only the sources its part needs.
+- When what is missing is content only you have, the question asks for that content itself.
 
 ## [1.1.2] - 2026-10-26
 

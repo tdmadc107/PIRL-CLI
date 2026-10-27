@@ -135,6 +135,9 @@ the answer with two sections with fixed names, in this order:
   consequence of not answering yet (which work is stopped). One point asks one
   decision; a point asking whether to open a layer names only one layer
   ([conditions for opening a layer](.agents/instructions/layered-task-execution.instructions.md#choosing-a-layer)).
+  When what is missing is content only the user has (text, data, values), the
+  point asks for that content itself; an option such as "I will write it"
+  brings no content when chosen.
 - **Proposals**: numbered. Each point is work not yet done, with its benefit in
   one sentence. Do not repeat points already in "Needs confirmation".
 

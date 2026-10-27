@@ -5,7 +5,7 @@ applyTo: ".agents/instructions/**/*,.skills/**/*"
 metadata:
   id: ".agents/instructions/layered-task-execution"
   kind: "instruction"
-  version: "2.3.0"
+  version: "2.4.0"
   status: "active"
 ---
 
@@ -61,6 +61,13 @@ For all three layers, together with the delegation rules in AGENTS.md:
   needs another role's result runs after that role (`process-auditor` runs after
   the layer's output is settled). The coordinator does not do the delegated
   work itself.
+- Roles that run in parallel get parts that do not overlap: no two roles
+  examine the same question in the same sources. The coordinator reads only
+  what it needs to choose the team and assign the parts (the request, the
+  target repository's context documentation); the sources a part needs are
+  read by the role that examines it. Each role reads only the sources that bear
+  on its part: a part about which content a page shows does not need the
+  page's styles, images or tests.
 - When delegating, pass the role file, the role's row in the layer file's table
   (plus every row that row refers to for its completion condition), sources,
   constraints, the settled direction and the part to examine; do not hide the
@@ -263,6 +270,10 @@ Each Plan, Implement or Review run (including repair runs and every Review
 round) self-evaluates and improves the framework before handoff, whether the
 result is PASS, FAIL or blocked. Standalone tasks and framework maintenance do
 not apply this section.
+
+Asking the user for a decision or for content is not a handoff: the run pauses
+and continues with the answers, and it self-evaluates once, after its output
+is settled, never at a pause.
 
 ### Timing and evaluator
 

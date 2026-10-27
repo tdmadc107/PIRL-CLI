@@ -5,7 +5,7 @@ applyTo: ".agents/instructions/plan.instructions.md"
 metadata:
   id: ".agents/instructions/plan"
   kind: "instruction"
-  version: "2.0.3"
+  version: "2.1.0"
   status: "active"
 ---
 
@@ -51,6 +51,11 @@ differ. When self-performed, do not claim an independent challenge happened.
 
 ## Investigating and settling decisions
 
+- Before any role is assigned, check that the request says what to change
+  and, when content changes, gives the new content or where to take it from.
+  When it does not and no source settles it, ask at once: investigating the
+  repository cannot supply a choice or content only the user has, so roles
+  assigned first only spend the run.
 - Read the request and the existing decisions; identify the target repository
   per [AGENTS.md](../../AGENTS.md#target-repository) and the part to
   change from the source.

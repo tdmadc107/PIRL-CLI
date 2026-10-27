@@ -5,7 +5,7 @@ metadata:
   id: .skills/pirl-plan
   kind: skill
   layer: plan
-  version: 1.1.2
+  version: 1.2.0
 ---
 
 # Plan
@@ -51,7 +51,10 @@ Run the commands from the Hub root.
 2. **Target repository.** Identify it per
    [AGENTS.md](../../AGENTS.md#target-repository) and read its context
    documentation.
-3. **Planning team.** Pick the roles by the "Select when" column, or keep
+3. **Planning team.** When the request leaves open what to change or the new
+   content, ask first and wait for the answers
+   ([contract](../../.agents/instructions/plan.instructions.md#investigating-and-settling-decisions)).
+   Pick the roles by the "Select when" column, or keep
    exactly the roles the user named
    ([AI Agent roles at the Plan layer](../../.agents/instructions/plan.instructions.md#ai-agent-roles-at-the-plan-layer)).
    Delegate each role to a separate agent per the
@@ -59,7 +62,8 @@ Run the commands from the Hub root.
 4. **Investigate and settle decisions**
    ([contract](../../.agents/instructions/plan.instructions.md#investigating-and-settling-decisions)).
    Ask only about missing decisions that change the result; continue the
-   independent parts.
+   independent parts. Asking pauses the run: the next steps, self-evaluation
+   included, follow the answers.
 5. **Split the work into tasks**
    ([contract](../../.agents/instructions/plan.instructions.md#splitting-tasks-for-separate-implementation-and-acceptance)),
    within the [scope of work](../../.agents/instructions/plan.instructions.md#scope-of-work-source-code-documentation-and-functional-tests)
